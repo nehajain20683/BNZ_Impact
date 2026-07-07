@@ -121,6 +121,19 @@ model Donation {
   receiptNumber    String?         @unique
   certificateUrl   String?
   receiptUrl       String?
+  // Manual entry fields
+  paymentMode      String?         @default("ONLINE") // ONLINE | CASH | BANK_TRANSFER | CHEQUE | UPI
+  paymentBank      String?         // for BANK_TRANSFER (e.g. Bank of Ghatkopar)
+  paymentBranch    String?         // branch name
+  chequeNumber     String?
+  waMessageSent    Boolean         @default(false)
+  waMessageSentAt  DateTime?
+  certificateSent  Boolean         @default(false)
+  certificateSentAt DateTime?
+  form80GSent      Boolean         @default(false)
+  notes            String?
+  refId            String?         @unique // auto-generated ref like #JITO-00001
+  createdById      String?         // admin who manually added
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
