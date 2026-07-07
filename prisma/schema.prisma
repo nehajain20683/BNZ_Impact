@@ -107,6 +107,7 @@ model Donation {
   amount           Float
   numberOfTrees    Int
   donorName        String
+  certificateName  String?         // name to appear on certificate (can differ from donor)
   donorEmail       String
   donorMobile      String?
   donorAddress     String?

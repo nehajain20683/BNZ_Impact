@@ -17,7 +17,8 @@ const schema = z.object({
   donorMobile: z.string().optional(),
   donorAddress: z.string().optional(),
   donorPan: z.string().optional(),
-  dedicationName: z.string().optional(),
+  certificateName: body.certificateName || body.name,
+        dedicationName: z.string().optional(),
   dedicationType: z.string().optional(),
   chapter: z.string().optional(),
 });
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
         donorAddress: data.donorAddress,
         donorPan: data.donorPan,
         donorChapter: data.chapter || null,
+        certificateName: body.certificateName || body.name,
         dedicationName: data.dedicationName,
         dedicationType: mapDedicationType(data.dedicationType),
         paymentStatus: 'PENDING',

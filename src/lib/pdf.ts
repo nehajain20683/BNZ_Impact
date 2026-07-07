@@ -14,6 +14,7 @@ function getTierBadge(trees: number): { badge: string; emoji: string; badgeEn: s
 export function generateReceiptPDF(data: {
   receiptNumber: string;
   donorName: string;
+  certificateName?: string;
   donorEmail: string;
   donorPan?: string;
   amount: number;
@@ -119,6 +120,7 @@ export function generateReceiptPDF(data: {
 // ─── Certificate PDF — v3: content shifted up, logos enlarged, Mumbai Zone seal ──
 export function generateCertificatePDF(data: {
   donorName: string;
+  certificateName?: string;
   numberOfTrees: number;
   campaignName: string;
   dedicationName?: string;
@@ -370,7 +372,7 @@ export function generateCertificatePDF(data: {
     <!-- 4. Recipient section -->
     <div>
       <span class="certifies-text">This certificate is proudly presented to</span>
-      <div class="donor-name">${data.donorName}</div>
+      <div class="donor-name">${data.certificateName || data.donorName}</div>
       <span class="chapter-line">JITO Chapter: ${chapter}</span>
     </div>
 

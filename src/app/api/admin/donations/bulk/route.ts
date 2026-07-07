@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     for (const row of rows) {
       try {
         const name   = (row['Donor Name'] || row['Name'] || '').trim();
+        const certName = (row['Certificate Name'] || '').trim();
         const email  = (row['Email'] || '').trim().toLowerCase();
         const mobile = (row['Mobile'] || row['Phone'] || '').trim();
         const trees  = parseInt(row['Trees'] || row['Number of Trees'] || '0');
@@ -47,7 +48,8 @@ export async function POST(req: Request) {
 
         await prisma.donation.create({
           data: {
-            campaignId, donorName: name, donorEmail: email,
+            campaignId, donorName: name,
+            certificateName: certName || name, donorEmail: email,
             donorMobile: mobile || undefined,
             donorPan: pan || undefined,
             donorChapter: chapter || undefined,

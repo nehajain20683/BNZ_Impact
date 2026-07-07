@@ -30,7 +30,7 @@ function DonateForm() {
   const [selectedTrees, setSelectedTrees]   = useState(initTrees);
   const [amount, setAmount]                 = useState(initAmount);
   const [customTrees, setCustomTrees]       = useState(1);
-  const [form, setForm] = useState({ name:'', email:'', mobile:'', address:'', pan:'', dedicationName:'', chapter:'', chapterCustom:'' });
+  const [form, setForm] = useState({ name:'', email:'', mobile:'', address:'', pan:'', dedicationName:'', chapter:'', chapterCustom:'', certificateName:'' });
   const [dbCampaigns, setDbCampaigns]       = useState<any[]>([]);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState('');
@@ -79,7 +79,8 @@ function DonateForm() {
           campaignSlug: dbCampaign.slug,
           donorName: form.name, donorEmail: form.email, donorMobile: form.mobile,
           donorAddress: form.address, donorPan: form.pan,
-          dedicationName: form.dedicationName,
+          dedicationName:   form.dedicationName,
+          certificateName:  form.certificateName || form.name,
           dedicationType: donationType==='individual'?'OTHER':selectedCampaign.toUpperCase(),
           chapter: (form.chapter === 'Other JITO Chapter' || form.chapter === 'Others' || form.chapter === 'Non Member') && form.chapterCustom ? `${form.chapter} — ${form.chapterCustom}` : form.chapter,
         }),

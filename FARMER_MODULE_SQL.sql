@@ -348,3 +348,38 @@ BEGIN
 END $$;
 
 SELECT 'Donation enhancement columns added and refIds backfilled ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- CERTIFICATE NAME & DONATIONS ENHANCEMENT — Run in Supabase
+-- ═══════════════════════════════════════════════════════
+
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "certificateName"  TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "paymentMode"       TEXT DEFAULT 'ONLINE';
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "paymentBank"       TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "paymentBranch"     TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "chequeNumber"      TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "waMessageSent"     BOOLEAN DEFAULT false;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "waMessageSentAt"   TIMESTAMP;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "certificateSent"   BOOLEAN DEFAULT false;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "certificateSentAt" TIMESTAMP;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "form80GSent"       BOOLEAN DEFAULT false;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "notes"             TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "refId"             TEXT UNIQUE;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS "createdById"       TEXT;
+
+-- Backfill refId for existing donations
+DO $$
+DECLARE
+  rec RECORD;
+  counter INT := 1;
+BEGIN
+  FOR rec IN SELECT id FROM donations WHERE "refId" IS NULL ORDER BY "createdAt" LOOP
+    UPDATE donations SET "refId" = '#JITO-' || LPAD(counter::TEXT, 5, '0') WHERE id = rec.id;
+    counter := counter + 1;
+  END LOOP;
+END $$;
+
+-- Backfill certificateName from donorName
+UPDATE donations SET "certificateName" = "donorName" WHERE "certificateName" IS NULL;
+
+SELECT 'Donations enhancement complete ✅' as result;

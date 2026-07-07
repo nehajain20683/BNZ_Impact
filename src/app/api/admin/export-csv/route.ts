@@ -37,6 +37,7 @@ export async function GET(req: Request) {
     where.OR = [
       { donorName:     { contains: q, mode: 'insensitive' } },
       { donorEmail:    { contains: q, mode: 'insensitive' } },
+      { certificateName: { contains: q, mode: 'insensitive' } },
       { donorMobile:   { contains: q } },
       { receiptNumber: { contains: q } },
       { refId:         { contains: q } },
@@ -65,6 +66,7 @@ export async function GET(req: Request) {
     d.receiptNumber||'',
     new Date(d.createdAt).toLocaleDateString('en-IN'),
     d.donorName,
+    (d as any).certificateName||d.donorName,
     d.donorEmail,
     d.donorMobile||'',
     d.donorPan||'',
