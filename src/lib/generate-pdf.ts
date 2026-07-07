@@ -2,8 +2,6 @@
 // Generates real PDF buffers from HTML using puppeteer-core + chromium
 // Works on Vercel serverless (uses @sparticuz/chromium-min)
 
-export const runtime = 'nodejs';
-
 async function getBrowser() {
   // On Vercel (production), use serverless chromium
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {

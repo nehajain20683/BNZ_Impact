@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Prevent webpack from bundling these Node.js-only packages
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min', 'bcryptjs'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

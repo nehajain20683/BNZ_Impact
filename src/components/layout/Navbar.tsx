@@ -76,6 +76,10 @@ export default function Navbar() {
 
         {/* Right side CTA */}
         <div className="hidden lg:flex items-center gap-3">
+          <Link href="/farmer/register"
+            className="flex items-center gap-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-3 py-2 rounded-full transition-colors whitespace-nowrap">
+            🌱 Register Land
+          </Link>
           {user ? (
             /* Logged-in user menu */
             <div className="relative" onClick={e => e.stopPropagation()}>
@@ -206,9 +210,5 @@ export default function Navbar() {
         </div>
       )}
     </nav>
-        <Link href="/farmer/register"
-          className="hidden md:inline-flex items-center gap-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-4 py-2 rounded-full transition-colors">
-          🌱 Register Land
-        </Link>
   );
 }
