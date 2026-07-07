@@ -258,6 +258,22 @@ model Farmer {
   accountNumber    String?
   ifscCode         String?
   cancelledChequeUrl String?
+  // Extended fields for Land Owner Registration
+  farmerIdGenerated String?        @unique   // JGL-MH-NAS-F-001
+  gisId             String?        @unique   // auto-generated GIS ID
+  occupation        String?                  // Farmer / Landowner / Both / Other
+  farmingExperience String?                  // years
+  isFarmer          Boolean?       @default(false)
+  // Nominee
+  nomineeName       String?
+  nomineeRelation   String?
+  nomineeDob        DateTime?
+  nomineeMobile     String?
+  nomineeAddress    String?
+  nomineeAadhaar    String?
+  // Draft / progress tracking
+  registrationStep  Int            @default(1)
+  draftData         Json?                    // autosave draft
   // Status
   status           FarmerStatus   @default(REGISTERED)
   carbonConsent    Boolean        @default(false)
@@ -310,11 +326,14 @@ model Land {
   farmerId         String
   farmer           Farmer        @relation(fields: [farmerId], references: [id])
   // Survey details
-  surveyNumber     String?
-  gutNumber        String?
+  surveyGutNumber  String?              // combined Survey/Gut number
+  surveyNumber     String?              // kept for backward compat
+  gutNumber        String?              // kept for backward compat
   khataNumber      String?
   areaAcres        Float?
   areaHectares     Float?
+  areaOfferedAcres Float?               // area proposed for project
+  areaOfferedUnit  String?              // acres or hectares
   landType         LandType?
   // Location
   gpsLatitude      Float?
@@ -324,6 +343,11 @@ model Land {
   taluka           String?
   district         String?
   state            String?
+  pincode          String?
+  // Land Ownership
+  ownershipType    String?              // sole / joint
+  jointOwnerCount  Int?
+  nocUploaded      Boolean       @default(false)
   // Status
   verified         Boolean       @default(false)
   verifiedAt       DateTime?

@@ -107,7 +107,7 @@ export default function FarmerLoginPage() {
             </div>
             <span className="font-display font-bold text-sage-900">JITO Green Legacy</span>
           </div>
-          <p className="text-sage-500 text-sm">Farmer Portal</p>
+          <p className="text-sage-500 text-sm">Land Owner Portal / भूमि स्वामी पोर्टल</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm">
@@ -115,7 +115,7 @@ export default function FarmerLoginPage() {
           {/* ── Login Screen ── */}
           {screen === 'login' && (
             <>
-              <h2 className="font-display text-xl text-sage-950 mb-4">Farmer Login</h2>
+              <h2 className="font-display text-xl text-sage-950 mb-4">Land Owner Login / भूमि स्वामी लॉगिन</h2>
               {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-xl mb-3">{error}</div>}
 
               <div className="space-y-3 mb-4">
@@ -159,7 +159,7 @@ export default function FarmerLoginPage() {
                   Forgot Password?
                 </button>
                 <Link href="/farmer/register" className="text-sage-600 font-semibold hover:underline">
-                  Register New Farmer
+                  Register Land / भूमि पंजीकरण
                 </Link>
               </div>
             </>
@@ -288,7 +288,7 @@ export default function FarmerLoginPage() {
         </div>
 
         <p className="text-center text-sage-400 text-xs mt-4">
-          JITO Green Legacy · Farmer Portal · Mumbai Zone
+          JITO Green Legacy · Land Owner Portal / भूमि स्वामी पोर्टल · Mumbai Zone
         </p>
       </div>
     </div>

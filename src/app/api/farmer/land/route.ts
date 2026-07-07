@@ -5,10 +5,13 @@ import prisma from '@/lib/prisma';
 
 const schema = z.object({
   farmerId:            z.string(),
-  surveyNumber:        z.string().optional(),
-  gutNumber:           z.string().optional(),
+  surveyGutNumber:     z.string().optional(),
+  surveyNumber:        z.string().optional(), // backward compat
+  gutNumber:           z.string().optional(), // backward compat
   khataNumber:         z.string().optional(),
   areaAcres:           z.number().optional(),
+  areaOfferedAcres:    z.number().optional(),
+  areaOfferedUnit:     z.string().optional(),
   landType:            z.string().optional(),
   gpsLatitude:         z.number().optional(),
   gpsLongitude:        z.number().optional(),
@@ -17,6 +20,9 @@ const schema = z.object({
   taluka:              z.string().optional(),
   district:            z.string().optional(),
   state:               z.string().optional(),
+  pincode:             z.string().optional(),
+  ownershipType:       z.string().optional(),
+  jointOwnerCount:     z.number().optional(),
   plantationPreference:z.string().optional(),
   speciesPreference:   z.array(z.string()).optional(),
   targetTreeCount:     z.number().optional(),
@@ -26,14 +32,20 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const data = schema.parse(await req.json());
+    // Merge surveyGutNumber into surveyNumber for backward compat
+    const surveyNum = data.surveyGutNumber || data.surveyNumber;
+
     const land = await prisma.land.create({
       data: {
         farmerId:            data.farmerId,
-        surveyNumber:        data.surveyNumber,
+        surveyGutNumber:     data.surveyGutNumber,
+        surveyNumber:        surveyNum,
         gutNumber:           data.gutNumber,
         khataNumber:         data.khataNumber,
         areaAcres:           data.areaAcres,
         areaHectares:        data.areaAcres ? data.areaAcres * 0.404686 : undefined,
+        areaOfferedAcres:    data.areaOfferedAcres,
+        areaOfferedUnit:     data.areaOfferedUnit,
         landType:            data.landType as any,
         gpsLatitude:         data.gpsLatitude,
         gpsLongitude:        data.gpsLongitude,
@@ -42,6 +54,9 @@ export async function POST(req: Request) {
         taluka:              data.taluka,
         district:            data.district,
         state:               data.state,
+        pincode:             data.pincode,
+        ownershipType:       data.ownershipType,
+        jointOwnerCount:     data.jointOwnerCount,
         plantationPreference:data.plantationPreference as any,
         speciesPreference:   data.speciesPreference || [],
         targetTreeCount:     data.targetTreeCount,
@@ -54,7 +69,7 @@ export async function POST(req: Request) {
     });
     await prisma.auditLog.create({
       data: { farmerId: data.farmerId, actorRole: 'FARMER', action: 'LAND_ADDED', details: { landId: land.id } }
-    });
+    }).catch(() => {});
     return NextResponse.json({ success: true, landId: land.id });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });

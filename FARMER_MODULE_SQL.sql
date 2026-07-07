@@ -245,3 +245,33 @@ ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "approvedById"    TEXT;
 ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "assignedAdminId" TEXT;
 
 SELECT 'Farmer auth columns added ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- LAND OWNER REGISTRATION ENHANCEMENT — Run in Supabase
+-- ═══════════════════════════════════════════════════════
+
+-- Farmer new fields
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "farmerIdGenerated" TEXT UNIQUE;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "gisId"             TEXT UNIQUE;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "occupation"        TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "farmingExperience" TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "isFarmer"          BOOLEAN DEFAULT false;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeName"       TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeRelation"   TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeDob"        TIMESTAMP;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeMobile"     TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeAddress"    TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "nomineeAadhaar"    TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "registrationStep"  INTEGER DEFAULT 1;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "draftData"         JSONB;
+
+-- Land new fields
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "surveyGutNumber"  TEXT;
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "areaOfferedAcres" DOUBLE PRECISION;
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "areaOfferedUnit"  TEXT DEFAULT 'acres';
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "pincode"          TEXT;
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "ownershipType"    TEXT DEFAULT 'sole';
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "jointOwnerCount"  INTEGER;
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "nocUploaded"      BOOLEAN DEFAULT false;
+
+SELECT 'Land Owner Registration columns added ✅' as result;

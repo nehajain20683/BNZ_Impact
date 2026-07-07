@@ -67,7 +67,7 @@ function DashboardContent() {
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div>
             <div className="font-bold">🌳 JITO Green Legacy</div>
-            <div className="text-sage-300 text-sm">Farmer Dashboard</div>
+            <div className="text-sage-300 text-sm">Land Owner Dashboard / भूमि स्वामी डैशबोर्ड</div>
           </div>
           <button onClick={logout} className="text-sage-400 hover:text-white flex items-center gap-1 text-sm">
             <LogOut className="w-4 h-4"/> Logout
@@ -94,6 +94,9 @@ function DashboardContent() {
             <div>
               <h2 className="font-display text-xl text-sage-950">{farmer.fullName}</h2>
               <p className="text-sage-500 text-sm">{farmer.mobile}</p>
+              {farmer.farmerIdGenerated && (
+                <p className="text-sage-400 text-xs mt-0.5 font-mono">{farmer.farmerIdGenerated}</p>
+              )}
               {farmer.village && <p className="text-sage-400 text-xs mt-0.5">{farmer.village}, {farmer.district}</p>}
             </div>
             <span className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full ${statusCfg.color}`}>
