@@ -4,9 +4,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")  // Uncomment only when using Supabase pgBouncer on Vercel
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl is only needed if DATABASE_URL uses pgbouncer=true
+  // For Supabase Transaction Pooler (port 6543), directUrl is NOT needed
+  // directUrl = env("DIRECT_URL")
 }
 
 model User {
