@@ -275,3 +275,45 @@ ALTER TABLE lands ADD COLUMN IF NOT EXISTS "jointOwnerCount"  INTEGER;
 ALTER TABLE lands ADD COLUMN IF NOT EXISTS "nocUploaded"      BOOLEAN DEFAULT false;
 
 SELECT 'Land Owner Registration columns added ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- FARMER AGREEMENTS & DOCUMENTS — Run in Supabase SQL Editor
+-- ═══════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS farmer_agreements (
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "farmerId"        TEXT NOT NULL REFERENCES farmers(id),
+  "agreementType"   TEXT NOT NULL,
+  title             TEXT NOT NULL,
+  "generatedHtml"   TEXT,
+  "generatedPdfUrl" TEXT,
+  "signedPdfUrl"    TEXT,
+  status            TEXT NOT NULL DEFAULT 'GENERATED',
+  "acknowledgedAt"  TIMESTAMP,
+  "signedAt"        TIMESTAMP,
+  "generatedById"   TEXT,
+  "sharedAt"        TIMESTAMP,
+  "templateData"    JSONB,
+  notes             TEXT,
+  "createdAt"       TIMESTAMP NOT NULL DEFAULT NOW(),
+  "updatedAt"       TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- New document types (extend enum if exists)
+DO $$ BEGIN
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'JOINT_OWNER_NOC';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'PARTICIPATION_AGREEMENT';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'PLANTATION_CERTIFICATE';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'SAPLING_RECEIPT';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'PAYMENT_RECEIPT';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'SIGNED_AGREEMENT';
+  ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'SIGNED_NOC';
+EXCEPTION WHEN others THEN NULL; END $$;
+
+SELECT 'Farmer agreements table created ✅' as result;
+
+-- Add "Registered by Admin" tracking to farmers
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "registeredById" TEXT;
+ALTER TABLE farmers ADD COLUMN IF NOT EXISTS "registrationNotes" TEXT;
+
+SELECT 'Admin registration tracking columns added ✅' as result;

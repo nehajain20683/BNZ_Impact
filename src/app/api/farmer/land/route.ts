@@ -9,12 +9,12 @@ const schema = z.object({
   surveyNumber:        z.string().optional(), // backward compat
   gutNumber:           z.string().optional(), // backward compat
   khataNumber:         z.string().optional(),
-  areaAcres:           z.number().optional(),
-  areaOfferedAcres:    z.number().optional(),
+  areaAcres:           z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
+  areaOfferedAcres:    z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
   areaOfferedUnit:     z.string().optional(),
   landType:            z.string().optional(),
-  gpsLatitude:         z.number().optional(),
-  gpsLongitude:        z.number().optional(),
+  gpsLatitude:         z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
+  gpsLongitude:        z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
   polygonGeoJson:      z.any().optional(),
   village:             z.string().optional(),
   taluka:              z.string().optional(),
@@ -22,10 +22,10 @@ const schema = z.object({
   state:               z.string().optional(),
   pincode:             z.string().optional(),
   ownershipType:       z.string().optional(),
-  jointOwnerCount:     z.number().optional(),
+  jointOwnerCount:     z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
   plantationPreference:z.string().optional(),
   speciesPreference:   z.array(z.string()).optional(),
-  targetTreeCount:     z.number().optional(),
+  targetTreeCount:     z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
   plantationStartDate: z.string().optional(),
 });
 

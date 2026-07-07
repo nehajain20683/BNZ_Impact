@@ -255,8 +255,10 @@ export default function LandOwnerRegisterPage() {
             farmerId,
             ...land,
             ...ownership,
-            jointOwnerCount: ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
-            areaAcres: land.areaAcres ? parseFloat(land.areaAcres) : undefined,
+            gpsLatitude:      land.gpsLatitude      ? parseFloat(land.gpsLatitude)      : undefined,
+            gpsLongitude:     land.gpsLongitude     ? parseFloat(land.gpsLongitude)     : undefined,
+            jointOwnerCount:  ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
+            areaAcres:        land.areaAcres        ? parseFloat(land.areaAcres)        : undefined,
             areaOfferedAcres: land.areaOfferedAcres ? parseFloat(land.areaOfferedAcres) : undefined,
           }),
         });
