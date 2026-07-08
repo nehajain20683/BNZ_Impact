@@ -168,20 +168,266 @@ model Tree {
   @@map("trees")
 }
 
-model PlantationSite {
+// ─── MASTER PROJECT ──────────────────────────────────────────────────────────
+model MasterProject {
   id          String   @id @default(cuid())
-  siteName    String
-  location    String
-  acreage     Float?
-  partnerName String?
-  geoData     Json?
-  imageUrl    String?
-  active      Boolean  @default(true)
+  name        String                          // "JITO Green Legacy"
+  code        String?  @unique
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  trees Tree[]
+  sites PlantationSite[]
+
+  @@map("master_projects")
+}
+
+// ─── PLANTATION SITE (enhanced) ──────────────────────────────────────────────
+model PlantationSite {
+  id                String   @id @default(cuid())
+  projectId         String?
+  project           MasterProject? @relation(fields: [projectId], references: [id])
+  // Identity
+  siteName          String
+  siteCode          String?  @unique
+  internalRef       String?
+  description       String?
+  // Location
+  state             String?
+  district          String?
+  taluka            String?
+  village           String?
+  gpsLatitude       Float?
+  gpsLongitude      Float?
+  geoData           Json?    // GeoJSON polygon
+  // Area
+  totalPlannedArea  Float?   // acres
+  // Phase
+  currentPhase      String   @default("PLANNING")
+  // Team
+  plantationPartner String?
+  implementingAgency String?
+  fieldOfficerId    String?
+  supervisorId      String?
+  carbonConsultant  String?
+  auditor           String?
+  nursery           String?
+  // Dates
+  plantationSeason  String?
+  startDate         DateTime?
+  endDate           DateTime?
+  // Targets
+  totalFarmers      Int?
+  plannedArea       Float?
+  plannedTrees      Int?
+  estimatedCarbon   Float?
+  estimatedCredits  Float?
+  expectedSurvival  Float?
+  budget            Float?
+  // Actuals
+  treesPlanted      Int      @default(0)
+  treesSurviving    Int      @default(0)
+  survivalRate      Float?
+  // Status
+  active            Boolean  @default(true)
+  imageUrl          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  trees             Tree[]
+  landAssignments   LandAssignment[]
+  activities        PlantationActivity[]
+  monitoringVisits  MonitoringVisit[]
+  carbonMonitoring  CarbonMonitoring[]
+  siteDocuments     SiteDocument[]
+  timelineEvents    TimelineEvent[]
+  speciesPlans      SpeciesPlan[]
+  notifications     SiteNotification[]
 
   @@map("plantation_sites")
+}
+
+// ─── SPECIES PLAN ─────────────────────────────────────────────────────────────
+model SpeciesPlan {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            PlantationSite @relation(fields: [siteId], references: [id])
+  species         String
+  plannedQty      Int
+  nurserySource   String?
+  expectedSurvival Float?
+  carbonFactor    Float?
+  remarks         String?
+  createdAt       DateTime @default(now())
+
+  @@map("species_plans")
+}
+
+// ─── LAND ASSIGNMENT (Farmer Land → Plantation Site) ─────────────────────────
+model LandAssignment {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            PlantationSite @relation(fields: [siteId], references: [id])
+  farmerId        String
+  farmer          Farmer   @relation(fields: [farmerId], references: [id])
+  landId          String?
+  land            Land?    @relation(fields: [landId], references: [id])
+  // Assignment details
+  treesAssigned   Int
+  speciesAlloc    Json?    // [{species, qty}]
+  plantationDate  DateTime?
+  remarks         String?
+  // Lifecycle stage
+  stage           String   @default("ASSIGNED")
+  // Actuals
+  treesPlanted    Int      @default(0)
+  treesSurviving  Int      @default(0)
+  lastMonitored   DateTime?
+  // Flags
+  consentSigned   Boolean  @default(false)
+  consentDate     DateTime?
+  assignedById    String?
+  assignedAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stageHistory    LandStageHistory[]
+  monitoring      MonitoringVisit[]
+
+  @@unique([siteId, landId])
+  @@map("land_assignments")
+}
+
+// ─── LAND STAGE HISTORY ───────────────────────────────────────────────────────
+model LandStageHistory {
+  id           String   @id @default(cuid())
+  assignmentId String
+  assignment   LandAssignment @relation(fields: [assignmentId], references: [id])
+  stage        String
+  date         DateTime @default(now())
+  updatedById  String?
+  photos       String[]
+  remarks      String?
+
+  @@map("land_stage_history")
+}
+
+// ─── PLANTATION ACTIVITY ──────────────────────────────────────────────────────
+model PlantationActivity {
+  id           String   @id @default(cuid())
+  siteId       String
+  site         PlantationSite @relation(fields: [siteId], references: [id])
+  date         DateTime
+  activityType String   // PIT_DIGGING | SAPLING_DELIVERY | PLANTATION | IRRIGATION | FERTILIZER | WEEDING | GAP_FILLING | MONITORING | SURVIVAL_SURVEY
+  description  String?
+  team         String?
+  workers      Int?
+  treesPlanted Int?
+  photos       String[]
+  documents    String[]
+  remarks      String?
+  loggedById   String?
+  createdAt    DateTime @default(now())
+
+  @@map("plantation_activities")
+}
+
+// ─── MONITORING VISIT ─────────────────────────────────────────────────────────
+model MonitoringVisit {
+  id             String   @id @default(cuid())
+  siteId         String
+  site           PlantationSite @relation(fields: [siteId], references: [id])
+  assignmentId   String?
+  assignment     LandAssignment? @relation(fields: [assignmentId], references: [id])
+  visitDate      DateTime
+  officerId      String?
+  farmerId       String?
+  survivalCount  Int?
+  deadTrees      Int?
+  diseaseNotes   String?
+  avgHeight      Float?   // cm
+  photos         String[]
+  gpsLat         Float?
+  gpsLng         Float?
+  recommendations String?
+  survivalPct    Float?
+  mortalityPct   Float?
+  createdAt      DateTime @default(now())
+
+  @@map("monitoring_visits")
+}
+
+// ─── CARBON MONITORING ────────────────────────────────────────────────────────
+model CarbonMonitoring {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            PlantationSite @relation(fields: [siteId], references: [id])
+  methodology     String?  // Verra VM0047 | Gold Standard | etc.
+  creditingPeriod Int?     // years
+  vintage         String?
+  monitoringPeriod String?
+  baseline        Float?
+  additionality   Float?
+  leakage         Float?
+  bufferPool      Float?
+  registryStatus  String   @default("DRAFT")
+  registryLink    String?
+  totalCredits    Float?
+  issuedCredits   Float?
+  pendingCredits  Float?
+  notes           String?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@map("carbon_monitoring")
+}
+
+// ─── TIMELINE EVENT ───────────────────────────────────────────────────────────
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  siteId      String
+  site        PlantationSite @relation(fields: [siteId], references: [id])
+  eventType   String
+  title       String
+  description String?
+  eventDate   DateTime @default(now())
+  attachments String[]
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@map("timeline_events")
+}
+
+// ─── SITE DOCUMENT ────────────────────────────────────────────────────────────
+model SiteDocument {
+  id          String   @id @default(cuid())
+  siteId      String
+  site        PlantationSite @relation(fields: [siteId], references: [id])
+  folder      String   // PLANTATION_PLAN | FARMER_CONSENTS | GPS_MAPS | etc.
+  fileName    String
+  fileUrl     String
+  fileSize    Int?
+  version     Int      @default(1)
+  uploadedById String?
+  uploadedAt  DateTime @default(now())
+
+  @@map("site_documents")
+}
+
+// ─── SITE NOTIFICATION ────────────────────────────────────────────────────────
+model SiteNotification {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      PlantationSite @relation(fields: [siteId], references: [id])
+  type      String
+  message   String
+  severity  String   @default("INFO")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("site_notifications")
 }
 
 model Receipt {
@@ -299,10 +545,12 @@ model Farmer {
   lands            Land[]
   documents        FarmerDocument[]
   plantations      Plantation[]
+  landAssignments  LandAssignment[]
   payments         FarmerPayment[]
   inspections      SiteInspection[]
   auditLogs        AuditLog[]
   carbonCredits    CarbonCredit[]
+  landAssignments  LandAssignment[]
   agreements       FarmerAgreement[]
   // Ownership tracking
   createdById      String?
@@ -377,6 +625,7 @@ model Land {
   // Relations
   documents        FarmerDocument[]
   plantations      Plantation[]
+  landAssignments  LandAssignment[]
   inspections      SiteInspection[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
