@@ -47,36 +47,41 @@ function DashboardContent() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   async function loadData(id: string) {
-    const [profileRes, agreementsRes] = await Promise.all([
-      fetch(`/api/farmer/profile?farmerId=${id}`),
-      fetch(`/api/farmer/agreements?farmerId=${id}`),
-    ]);
-    const profileData = await profileRes.json();
-    const agreeData   = await agreementsRes.json();
-    if (profileData.farmer) {
-      setFarmer(profileData.farmer);
-      setStats(profileData.stats);
-      setProfileForm({
-        email: profileData.farmer.email || '',
-        alternateMobile: profileData.farmer.alternateMobile || '',
-        village: profileData.farmer.village || '',
-        taluka: profileData.farmer.taluka || '',
-        district: profileData.farmer.district || '',
-        state: profileData.farmer.state || '',
-        pincode: profileData.farmer.pincode || '',
-        occupation: profileData.farmer.occupation || '',
-        bankAccountName: profileData.farmer.bankAccountName || '',
-        bankName: profileData.farmer.bankName || '',
-        accountNumber: profileData.farmer.accountNumber || '',
-        ifscCode: profileData.farmer.ifscCode || '',
-        nomineeName: profileData.farmer.nomineeName || '',
-        nomineeRelation: profileData.farmer.nomineeRelation || '',
-        nomineeMobile: profileData.farmer.nomineeMobile || '',
-        nomineeAddress: profileData.farmer.nomineeAddress || '',
-      });
+    try {
+      const [profileRes, agreementsRes] = await Promise.all([
+        fetch(`/api/farmer/profile?farmerId=${id}`),
+        fetch(`/api/farmer/agreements?farmerId=${id}`).catch(() => null),
+      ]);
+      const profileData = await profileRes.json().catch(() => ({}));
+      const agreeData   = agreementsRes ? await agreementsRes.json().catch(() => ({})) : {};
+      if (profileData.farmer) {
+        setFarmer(profileData.farmer);
+        setStats(profileData.stats || {});
+        setProfileForm({
+          email:           profileData.farmer.email || '',
+          alternateMobile: profileData.farmer.alternateMobile || '',
+          village:         profileData.farmer.village || '',
+          taluka:          profileData.farmer.taluka || '',
+          district:        profileData.farmer.district || '',
+          state:           profileData.farmer.state || '',
+          pincode:         profileData.farmer.pincode || '',
+          occupation:      profileData.farmer.occupation || '',
+          bankAccountName: profileData.farmer.bankAccountName || '',
+          bankName:        profileData.farmer.bankName || '',
+          accountNumber:   profileData.farmer.accountNumber || '',
+          ifscCode:        profileData.farmer.ifscCode || '',
+          nomineeName:     profileData.farmer.nomineeName || '',
+          nomineeRelation: profileData.farmer.nomineeRelation || '',
+          nomineeMobile:   profileData.farmer.nomineeMobile || '',
+          nomineeAddress:  profileData.farmer.nomineeAddress || '',
+        });
+      }
+      setAgreements(agreeData.agreements || []);
+    } catch (e) {
+      console.error('Dashboard load error:', e);
+    } finally {
+      setLoading(false);
     }
-    setAgreements(agreeData.agreements || []);
-    setLoading(false);
   }
 
   useEffect(() => {

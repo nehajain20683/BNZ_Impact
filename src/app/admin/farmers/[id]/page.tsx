@@ -35,15 +35,20 @@ export default function AdminFarmerDetailPage() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   async function load() {
-    const [fRes, aRes] = await Promise.all([
-      fetch(`/api/farmer/profile?farmerId=${farmerId}`),
-      fetch(`/api/admin/agreements?farmerId=${farmerId}`),
-    ]);
-    const fd = await fRes.json();
-    const ad = await aRes.json();
-    if (fd.farmer) { setFarmer(fd.farmer); setNewStatus(fd.farmer.status); }
-    setAgreements(ad.agreements || []);
-    setLoading(false);
+    try {
+      const [fRes, aRes] = await Promise.all([
+        fetch(`/api/farmer/profile?farmerId=${farmerId}`),
+        fetch(`/api/admin/agreements?farmerId=${farmerId}`).catch(() => null),
+      ]);
+      const fd = await fRes.json().catch(() => ({}));
+      const ad = aRes ? await aRes.json().catch(() => ({})) : {};
+      if (fd.farmer) { setFarmer(fd.farmer); setNewStatus(fd.farmer.status || 'REGISTERED'); }
+      setAgreements(ad.agreements || []);
+    } catch (e) {
+      console.error('Load error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [farmerId]);

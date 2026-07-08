@@ -551,3 +551,10 @@ ALTER TABLE lands ADD COLUMN IF NOT EXISTS "waterAvailability" TEXT;
 ALTER TABLE lands ADD COLUMN IF NOT EXISTS "securityStatus"    TEXT;
 
 SELECT 'Land enhancements added ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- FIX: Make location column nullable in plantation_sites
+-- ═══════════════════════════════════════════════════════
+ALTER TABLE plantation_sites ALTER COLUMN location DROP NOT NULL;
+
+SELECT 'location column is now nullable ✅' as result;
