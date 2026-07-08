@@ -55,7 +55,6 @@ export async function POST(req: Request) {
       data: {
         projectId:         body.projectId || undefined,
         siteName:          body.siteName,
-        location:          [body.village, body.district, body.state].filter(Boolean).join(', ') || body.siteName,
         siteCode,
         internalRef:       body.internalRef || undefined,
         description:       body.description || undefined,
