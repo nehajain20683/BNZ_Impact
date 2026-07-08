@@ -45,17 +45,24 @@ export default function PlantationSiteDetailPage() {
   function showToast(m: string) { setToast(m); setTimeout(()=>setToast(''),3000); }
 
   async function loadSite() {
-    const [sRes, dRes] = await Promise.all([
-      fetch(`/api/admin/plantation-sites/${id}`),
-      fetch(`/api/admin/plantation-sites/${id}/dashboard`),
-    ]);
-    const sd = await sRes.json();
-    const dd = await dRes.json();
-    setSite(sd.site);
-    setDash(dd);
-    setFarmers(sd.site?.landAssignments || []);
-    setNewPhase(sd.site?.currentPhase || 'PLANNING');
-    setLoading(false);
+    try {
+      const [sRes, dRes] = await Promise.all([
+        fetch(`/api/admin/plantation-sites/${id}`),
+        fetch(`/api/admin/plantation-sites/${id}/dashboard`).catch(() => null),
+      ]);
+      const sd = await sRes.json().catch(() => ({}));
+      const dd = dRes ? await dRes.json().catch(() => ({})) : {};
+      if (sd.site) {
+        setSite(sd.site);
+        setFarmers(sd.site.landAssignments || []);
+        setNewPhase(sd.site.currentPhase || 'PLANNING');
+      }
+      if (dd.summary) setDash(dd);
+    } catch (e) {
+      console.error('loadSite error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadSite(); }, [id]);
