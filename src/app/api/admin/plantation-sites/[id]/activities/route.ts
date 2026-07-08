@@ -33,15 +33,30 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   // Update site treesPlanted if plantation activity
   if (body.activityType === 'PLANTATION' && body.treesPlanted) {
+    const planted = parseInt(body.treesPlanted);
     await prisma.plantationSite.update({
       where: { id: params.id },
-      data: { treesPlanted: { increment: parseInt(body.treesPlanted) } },
+      data: { treesPlanted: { increment: planted } },
     });
+    // Also update farmer land assignment if assignmentId provided
+    if (body.assignmentId) {
+      await prisma.landAssignment.update({
+        where: { id: body.assignmentId },
+        data: { treesPlanted: { increment: planted } },
+      }).catch(() => {});
+    }
     await prisma.timelineEvent.create({
       data: { siteId: params.id, eventType: 'PLANTATION_ACTIVITY',
-              title: `${body.treesPlanted} trees planted`,
+              title: `${planted} trees planted`,
               description: body.description, createdById: (session.user as any).id }
-    });
+    }).catch(() => {});
+  }
+  // Update treesSurviving if monitoring/survival survey
+  if (body.activityType === 'SURVIVAL_SURVEY' && body.treesSurviving && body.assignmentId) {
+    await prisma.landAssignment.update({
+      where: { id: body.assignmentId },
+      data: { treesSurviving: parseInt(body.treesSurviving) },
+    }).catch(() => {});
   }
   return NextResponse.json({ success: true, activity });
 }

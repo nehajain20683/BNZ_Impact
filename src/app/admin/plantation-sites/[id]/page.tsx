@@ -190,9 +190,23 @@ export default function PlantationSiteDetailPage() {
                 <input value={activityForm.team} onChange={e=>setActivityForm((p:any)=>({...p,team:e.target.value}))} className={inp}/></div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Workers</label>
                 <input type="number" value={activityForm.workers} onChange={e=>setActivityForm((p:any)=>({...p,workers:e.target.value}))} className={inp}/></div>
+              <div><label className="text-xs font-medium text-gray-600 block mb-1">Farmer / Assignment <span className="text-gray-400">(optional)</span></label>
+                <select value={activityForm.assignmentId} onChange={e=>setActivityForm((p:any)=>({...p,assignmentId:e.target.value}))} className={inp}>
+                  <option value="">All / Site-wide</option>
+                  {farmers.map((a:any)=>(
+                    <option key={a.id} value={a.id}>{a.farmer?.fullName} — {a.treesAssigned} trees</option>
+                  ))}
+                </select></div>
               {activityForm.activityType === 'PLANTATION' && (
                 <div><label className="text-xs font-medium text-gray-600 block mb-1">Trees Planted</label>
-                  <input type="number" value={activityForm.treesPlanted} onChange={e=>setActivityForm((p:any)=>({...p,treesPlanted:e.target.value}))} className={inp}/></div>
+                  <input type="number" value={activityForm.treesPlanted} onChange={e=>setActivityForm((p:any)=>({...p,treesPlanted:e.target.value}))} className={inp}/>
+                  <p className="text-xs text-gray-400 mt-1">This will update the farmer's planted count automatically</p>
+                </div>
+              )}
+              {activityForm.activityType === 'SURVIVAL_SURVEY' && (
+                <div><label className="text-xs font-medium text-gray-600 block mb-1">Trees Surviving</label>
+                  <input type="number" value={activityForm.treesSurviving} onChange={e=>setActivityForm((p:any)=>({...p,treesSurviving:e.target.value}))} className={inp}/>
+                </div>
               )}
               <div className="col-span-2"><label className="text-xs font-medium text-gray-600 block mb-1">Description / Remarks</label>
                 <textarea value={activityForm.description} onChange={e=>setActivityForm((p:any)=>({...p,description:e.target.value}))} className={inp} rows={2}/></div>
@@ -540,22 +554,86 @@ export default function PlantationSiteDetailPage() {
         {/* ── DOCUMENTS TAB ── */}
         {activeTab === 'documents' && (
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Document Repository</h3>
-            {['PLANTATION_PLAN','FARMER_CONSENTS','GPS_MAPS','NURSERY_BILLS',
-              'SAPLING_CHALLANS','MONITORING_REPORTS','AUDIT_REPORTS','CARBON_CALCULATIONS'].map(folder=>{
-              const docs = (site.siteDocuments||[]).filter((d:any)=>d.folder===folder);
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Document Repository</h3>
+              <p className="text-xs text-gray-400">Admin uploads site documents here. Farmer documents are uploaded by farmers.</p>
+            </div>
+            {[
+              { key:'PLANTATION_PLAN',     label:'Plantation Plan',       who:'Admin' },
+              { key:'FARMER_CONSENTS',     label:'Farmer Consents',       who:'Admin' },
+              { key:'GPS_MAPS',            label:'GPS Maps / KML Files',  who:'Admin / Farmer' },
+              { key:'NURSERY_BILLS',       label:'Nursery Bills',         who:'Admin' },
+              { key:'SAPLING_CHALLANS',    label:'Sapling Delivery Challans', who:'Admin' },
+              { key:'MONITORING_REPORTS',  label:'Monitoring Reports',    who:'Admin / Field Officer' },
+              { key:'AUDIT_REPORTS',       label:'Audit Reports',         who:'Admin / Auditor' },
+              { key:'CARBON_CALCULATIONS', label:'Carbon Calculations',   who:'Carbon Team' },
+            ].map(folder=>{
+              const docs = (site.siteDocuments||[]).filter((d:any)=>d.folder===folder.key);
               return (
-                <div key={folder} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div key={folder.key} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold text-gray-800 text-sm">{folder.replace(/_/g,' ')}</h4>
-                    <span className="text-gray-400 text-xs">{docs.length} files</span>
-                  </div>
-                  {docs.length > 0 ? docs.map((d:any)=>(
-                    <div key={d.id} className="flex items-center justify-between py-1 border-t border-gray-50 text-xs">
-                      <span className="text-gray-700">{d.fileName}</span>
-                      <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sage-600 hover:underline">View</a>
+                    <div>
+                      <h4 className="font-semibold text-gray-800 text-sm">{folder.label}</h4>
+                      <span className="text-gray-400 text-[10px]">Uploaded by: {folder.who}</span>
                     </div>
-                  )) : <p className="text-gray-400 text-xs">No documents in this folder</p>}
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 text-xs">{docs.length} files</span>
+                      <label className="flex items-center gap-1 text-xs bg-sage-700 text-white px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-sage-800">
+                        + Upload
+                        <input type="file" accept="image/*,application/pdf,.kml,.kmz,.geojson,.xlsx,.csv" className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                              const res = await fetch(`/api/admin/plantation-sites/${id}/documents`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  folder: folder.key,
+                                  fileName: file.name,
+                                  fileUrl: reader.result,
+                                  fileSize: file.size,
+                                }),
+                              });
+                              const data = await res.json();
+                              if (data.success) { showToast(`${file.name} uploaded ✓`); loadSite(); }
+                              else showToast('Upload failed: ' + data.error);
+                            };
+                            reader.readAsDataURL(file);
+                          }}/>
+                      </label>
+                    </div>
+                  </div>
+                  {docs.length > 0 ? (
+                    <div className="space-y-1 mt-2">
+                      {docs.map((d:any)=>(
+                        <div key={d.id} className="flex items-center justify-between py-1.5 border-t border-gray-50 text-xs">
+                          <div>
+                            <span className="text-gray-700 font-medium">{d.fileName}</span>
+                            {d.version > 1 && <span className="ml-1.5 text-gray-400">v{d.version}</span>}
+                            <span className="text-gray-300 ml-2">{new Date(d.uploadedAt).toLocaleDateString('en-IN')}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-sage-600 hover:underline">View</a>
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Delete this document?')) return;
+                                await fetch(`/api/admin/plantation-sites/${id}/documents`, {
+                                  method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ documentId: d.id }),
+                                });
+                                showToast('Deleted'); loadSite();
+                              }}
+                              className="text-red-400 hover:text-red-600">Delete</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-xs mt-1">No documents yet — click Upload to add</p>
+                  )}
                 </div>
               );
             })}
