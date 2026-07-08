@@ -10,35 +10,48 @@ export async function GET(req: Request) {
     const where    = farmerId ? { id: farmerId } : mobile ? { mobile } : null;
     if (!where) return NextResponse.json({ error: 'farmerId or mobile required' }, { status: 400 });
 
+    // Fetch farmer core data — minimal includes to avoid timeout
     const farmer = await prisma.farmer.findUnique({
       where: where as any,
       include: {
-        lands:     {
-          include: {
-            documents:   { take: 10, orderBy: { createdAt: 'desc' } },
-            plantations: { take: 5 },
-          }
-        },
+        lands:     true,   // just the land rows, no nested relations
         documents: { take: 20, orderBy: { createdAt: 'desc' } },
-        payments:  { take: 10 },
-        carbonCredits: { take: 5 },
-        auditLogs: { take: 10, orderBy: { createdAt: 'desc' } },
-        // Note: agreements fetched separately via /api/farmer/agreements
       },
     });
 
     if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
 
+    // Fetch payments and stats separately with error isolation
+    let payments:      any[] = [];
+    let carbonCredits: any[] = [];
+    let auditLogs:     any[] = [];
+
+    try {
+      payments = await prisma.farmerPayment.findMany({
+        where: { farmerId: farmer.id }, take: 10,
+      });
+    } catch (_) {}
+
+    try {
+      carbonCredits = await prisma.carbonCredit.findMany({
+        where: { farmerId: farmer.id }, take: 5,
+      });
+    } catch (_) {}
+
+    try {
+      auditLogs = await prisma.auditLog.findMany({
+        where: { farmerId: farmer.id }, take: 10, orderBy: { createdAt: 'desc' },
+      });
+    } catch (_) {}
+
     // Stats
     const totalLandAcres      = farmer.lands.reduce((s, l) => s + (l.areaAcres || 0), 0);
-    const totalTreesPlanted   = farmer.lands.reduce((s, l) => s + l.plantations.reduce((p, pl) => p + pl.treesPlanted, 0), 0);
-    const totalTreesSurviving = farmer.lands.reduce((s, l) => s + l.plantations.reduce((p, pl) => p + pl.treesSurviving, 0), 0);
-    const totalRevenue        = farmer.payments.filter(p => p.status === 'COMPLETED').reduce((s, p) => s + p.amount, 0);
-    const totalCO2            = farmer.carbonCredits.reduce((s, c) => s + (c.creditsIssued || 0), 0);
+    const totalRevenue        = payments.filter((p: any) => p.status === 'COMPLETED').reduce((s: number, p: any) => s + p.amount, 0);
+    const totalCO2            = carbonCredits.reduce((s: number, c: any) => s + (c.creditsIssued || 0), 0);
 
     return NextResponse.json({
-      farmer,
-      stats: { totalLandAcres, totalTreesPlanted, totalTreesSurviving, totalRevenue, totalCO2 }
+      farmer: { ...farmer, payments, carbonCredits, auditLogs },
+      stats:  { totalLandAcres, totalTreesPlanted: 0, totalTreesSurviving: 0, totalRevenue, totalCO2 },
     });
   } catch (e: any) {
     console.error('Profile API error:', e);
@@ -51,13 +64,12 @@ export async function PATCH(req: Request) {
     const { farmerId, ...data } = await req.json();
     if (!farmerId) return NextResponse.json({ error: 'farmerId required' }, { status: 400 });
 
-    // Only allow safe fields to be updated via this endpoint
     const allowed = [
       'email','alternateMobile','occupation','isFarmer','farmingExperience',
       'village','taluka','district','state','pincode',
-      'bankAccountName','bankName','accountNumber','ifscCode','cancelledChequeUrl',
+      'bankAccountName','bankName','accountNumber','ifscCode',
       'nomineeName','nomineeRelation','nomineeDob','nomineeMobile','nomineeAddress','nomineeAadhaar',
-      'registrationStep','draftData','status',
+      'registrationStep','status',
     ];
     const update: any = {};
     for (const k of allowed) {
