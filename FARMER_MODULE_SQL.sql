@@ -558,3 +558,14 @@ SELECT 'Land enhancements added ✅' as result;
 ALTER TABLE plantation_sites ALTER COLUMN location DROP NOT NULL;
 
 SELECT 'location column is now nullable ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- SPECIES TRACKING & DRIVE LINKS — Run in Supabase SQL Editor
+-- ═══════════════════════════════════════════════════════
+
+ALTER TABLE plantation_activities ADD COLUMN IF NOT EXISTS "speciesPlanted" JSONB;
+ALTER TABLE plantation_activities ADD COLUMN IF NOT EXISTS "driveLink"      TEXT;
+ALTER TABLE land_assignments ADD COLUMN IF NOT EXISTS "speciesPlanted"      JSONB;
+ALTER TABLE land_assignments ADD COLUMN IF NOT EXISTS "driveLinks"          TEXT[] DEFAULT '{}';
+
+SELECT 'Species tracking columns added ✅' as result;

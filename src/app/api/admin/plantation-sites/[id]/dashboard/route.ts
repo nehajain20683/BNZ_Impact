@@ -43,11 +43,13 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
   // Farmer progress
   const farmerProgress = assignments.slice(0, 10).map(a => ({
-    name: a.farmer.fullName,
-    assigned: a.treesAssigned,
-    planted: a.treesPlanted,
-    surviving: a.treesSurviving,
-    stage: a.stage,
+    name:       a.farmer.fullName,
+    assigned:   a.treesAssigned,
+    planted:    a.treesPlanted,
+    surviving:  a.treesSurviving,
+    stage:      a.stage,
+    species:    (a as any).speciesPlanted || [],
+    driveLinks: (a as any).driveLinks || [],
   }));
 
   return NextResponse.json({

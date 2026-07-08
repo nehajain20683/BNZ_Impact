@@ -286,6 +286,8 @@ model LandAssignment {
   treesPlanted    Int      @default(0)
   treesSurviving  Int      @default(0)
   lastMonitored   DateTime?
+  speciesPlanted  Json?    // [{species, qty, date}] cumulative
+  driveLinks      String[] // Google Drive photo links
   // Flags
   consentSigned   Boolean  @default(false)
   consentDate     DateTime?
@@ -324,12 +326,14 @@ model PlantationActivity {
   description  String?
   team         String?
   workers      Int?
-  treesPlanted Int?
-  photos       String[]
-  documents    String[]
-  remarks      String?
-  loggedById   String?
-  createdAt    DateTime @default(now())
+  treesPlanted   Int?
+  speciesPlanted Json?    // [{species, qty}]
+  driveLink      String?  // Google Drive / Photos link
+  photos         String[]
+  documents      String[]
+  remarks        String?
+  loggedById     String?
+  createdAt      DateTime @default(now())
 
   @@map("plantation_activities")
 }

@@ -21,6 +21,11 @@ export async function GET(req: Request) {
     // Step 2: fetch lands separately (safe)
     const lands = await prisma.land.findMany({
       where: { farmerId: farmer.id },
+      include: {
+        landAssignments: {
+          select: { speciesPlanted: true, driveLinks: true, treesPlanted: true, treesSurviving: true, stage: true }
+        }
+      }
     }).catch(() => []);
 
     // Step 3: fetch documents separately (safe)

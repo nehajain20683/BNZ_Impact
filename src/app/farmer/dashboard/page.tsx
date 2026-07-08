@@ -444,6 +444,30 @@ function DashboardContent() {
                     </div>
                   ))}
                 </div>
+                {/* Species planted for this land */}
+                {land.landAssignments && land.landAssignments.some((a:any)=>a.speciesPlanted?.length>0) && (
+                  <div className="mt-3 border-t border-sage-50 pt-2">
+                    <p className="text-sage-500 text-xs font-semibold mb-1">Species Planted / रोपित प्रजातियाँ</p>
+                    <div className="flex flex-wrap gap-1">
+                      {land.landAssignments.flatMap((a:any)=>a.speciesPlanted||[]).map((s:any, i:number)=>(
+                        <span key={i} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2 py-0.5">
+                          🌱 {s.species}: {s.qty}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Drive photo links */}
+                {land.landAssignments && land.landAssignments.some((a:any)=>a.driveLinks?.length>0) && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {land.landAssignments.flatMap((a:any)=>a.driveLinks||[]).map((link:string, i:number)=>(
+                      <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-0.5 bg-blue-50 rounded-full px-2 py-0.5">
+                        📸 View Plantation Photos
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {land.ownershipType === 'joint' && (
                   <div className="mt-3 bg-amber-50 rounded-xl p-3 border border-amber-100">
                     <p className="text-amber-700 text-xs font-semibold mb-1">

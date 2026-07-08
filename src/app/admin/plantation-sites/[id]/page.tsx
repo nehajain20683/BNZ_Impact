@@ -78,13 +78,25 @@ export default function PlantationSiteDetailPage() {
   }
 
   async function logActivity() {
+    const validSpecies = speciesRows.filter(r=>r.species&&r.qty);
+    const totalTrees   = validSpecies.reduce((s,r)=>s+(parseInt(r.qty)||0),0);
+    const payload      = {
+      ...activityForm,
+      treesPlanted:   activityForm.activityType==='PLANTATION' ? String(totalTrees||activityForm.treesPlanted) : activityForm.treesPlanted,
+      speciesPlanted: validSpecies.map(r=>({species:r.species, qty:parseInt(r.qty)})),
+    };
     const res  = await fetch(`/api/admin/plantation-sites/${id}/activities`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(activityForm),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) { showToast('Activity logged ✓'); setShowActivity(false); loadSite(); }
-    else showToast('Error: ' + data.error);
+    if (data.success) {
+      showToast('Activity logged ✓');
+      setShowActivity(false);
+      setSpeciesRows([{species:'',qty:''}]);
+      setActivityForm({date:'',activityType:'PLANTATION',description:'',team:'',workers:'',treesPlanted:'',treesSurviving:'',assignmentId:'',remarks:'',driveLink:''});
+      loadSite();
+    } else showToast('Error: ' + data.error);
   }
 
   async function logMonitoring() {
@@ -179,36 +191,95 @@ export default function PlantationSiteDetailPage() {
               <h3 className="font-bold text-gray-900">Log Plantation Activity</h3>
               <button onClick={()=>setShowActivity(false)}><X className="w-5 h-5 text-gray-400"/></button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">Date *</label>
-                <input type="date" value={activityForm.date} onChange={e=>setActivityForm((p:any)=>({...p,date:e.target.value}))} className={inp}/></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">Activity Type *</label>
-                <select value={activityForm.activityType} onChange={e=>setActivityForm((p:any)=>({...p,activityType:e.target.value}))} className={inp}>
-                  {ACTIVITY_TYPES.map(t=><option key={t} value={t}>{t.replace(/_/g,' ')}</option>)}
-                </select></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">Team</label>
-                <input value={activityForm.team} onChange={e=>setActivityForm((p:any)=>({...p,team:e.target.value}))} className={inp}/></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">Workers</label>
-                <input type="number" value={activityForm.workers} onChange={e=>setActivityForm((p:any)=>({...p,workers:e.target.value}))} className={inp}/></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">Farmer / Assignment <span className="text-gray-400">(optional)</span></label>
-                <select value={activityForm.assignmentId} onChange={e=>setActivityForm((p:any)=>({...p,assignmentId:e.target.value}))} className={inp}>
-                  <option value="">All / Site-wide</option>
-                  {farmers.map((a:any)=>(
-                    <option key={a.id} value={a.id}>{a.farmer?.fullName} — {a.treesAssigned} trees</option>
-                  ))}
-                </select></div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-medium text-gray-600 block mb-1">Date *</label>
+                  <input type="date" value={activityForm.date} onChange={e=>setActivityForm((p:any)=>({...p,date:e.target.value}))} className={inp}/></div>
+                <div><label className="text-xs font-medium text-gray-600 block mb-1">Activity Type *</label>
+                  <select value={activityForm.activityType} onChange={e=>setActivityForm((p:any)=>({...p,activityType:e.target.value}))} className={inp}>
+                    {ACTIVITY_TYPES.map(t=><option key={t} value={t}>{t.replace(/_/g,' ')}</option>)}
+                  </select></div>
+                <div><label className="text-xs font-medium text-gray-600 block mb-1">Farmer / Assignment</label>
+                  <select value={activityForm.assignmentId} onChange={e=>setActivityForm((p:any)=>({...p,assignmentId:e.target.value}))} className={inp}>
+                    <option value="">All / Site-wide</option>
+                    {farmers.map((a:any)=>(
+                      <option key={a.id} value={a.id}>{a.farmer?.fullName} — {a.treesAssigned} trees</option>
+                    ))}
+                  </select></div>
+                <div><label className="text-xs font-medium text-gray-600 block mb-1">Team / Workers</label>
+                  <div className="flex gap-2">
+                    <input placeholder="Team name" value={activityForm.team} onChange={e=>setActivityForm((p:any)=>({...p,team:e.target.value}))} className={inp}/>
+                    <input type="number" placeholder="No." value={activityForm.workers} onChange={e=>setActivityForm((p:any)=>({...p,workers:e.target.value}))} className={inp+' w-20'}/>
+                  </div></div>
+              </div>
+
+              {/* Species breakdown — shown for plantation activities */}
               {activityForm.activityType === 'PLANTATION' && (
-                <div><label className="text-xs font-medium text-gray-600 block mb-1">Trees Planted</label>
-                  <input type="number" value={activityForm.treesPlanted} onChange={e=>setActivityForm((p:any)=>({...p,treesPlanted:e.target.value}))} className={inp}/>
-                  <p className="text-xs text-gray-400 mt-1">This will update the farmer's planted count automatically</p>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Species-wise Trees Planted *</label>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-gray-500">Species</th>
+                          <th className="px-3 py-2 text-left text-gray-500">Quantity</th>
+                          <th className="px-3 py-2 w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {speciesRows.map((row,i)=>(
+                          <tr key={i} className="border-t">
+                            <td className="px-2 py-1.5">
+                              <input value={row.species}
+                                onChange={e=>setSpeciesRows(rows=>rows.map((r,j)=>j===i?{...r,species:e.target.value}:r))}
+                                placeholder="e.g. Mango, Neem, Teak"
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-sage-400"/>
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input type="number" value={row.qty}
+                                onChange={e=>setSpeciesRows(rows=>rows.map((r,j)=>j===i?{...r,qty:e.target.value}:r))}
+                                placeholder="0"
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-sage-400"/>
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <button onClick={()=>setSpeciesRows(rows=>rows.filter((_,j)=>j!==i))}
+                                className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="px-3 py-2 border-t bg-gray-50 flex items-center justify-between">
+                      <button onClick={()=>setSpeciesRows(r=>[...r,{species:'',qty:''}])}
+                        className="text-sage-600 text-xs font-semibold hover:underline">+ Add Species</button>
+                      <span className="text-gray-500 text-xs font-semibold">
+                        Total: {speciesRows.reduce((s,r)=>s+(parseInt(r.qty)||0),0).toLocaleString('en-IN')} trees
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Updates farmer's planted count and species breakdown automatically
+                  </p>
                 </div>
               )}
+
               {activityForm.activityType === 'SURVIVAL_SURVEY' && (
                 <div><label className="text-xs font-medium text-gray-600 block mb-1">Trees Surviving</label>
-                  <input type="number" value={activityForm.treesSurviving} onChange={e=>setActivityForm((p:any)=>({...p,treesSurviving:e.target.value}))} className={inp}/>
-                </div>
+                  <input type="number" value={activityForm.treesSurviving} onChange={e=>setActivityForm((p:any)=>({...p,treesSurviving:e.target.value}))} className={inp}/></div>
               )}
-              <div className="col-span-2"><label className="text-xs font-medium text-gray-600 block mb-1">Description / Remarks</label>
+
+              {/* Google Drive / Photos link */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  📸 Google Drive / Photos Link <span className="text-gray-400">(optional)</span>
+                </label>
+                <input type="url" value={activityForm.driveLink}
+                  onChange={e=>setActivityForm((p:any)=>({...p,driveLink:e.target.value}))}
+                  className={inp} placeholder="https://drive.google.com/drive/folders/..."/>
+                <p className="text-xs text-gray-400 mt-0.5">Paste a shared Google Drive folder or Google Photos album link</p>
+              </div>
+
+              <div><label className="text-xs font-medium text-gray-600 block mb-1">Description / Remarks</label>
                 <textarea value={activityForm.description} onChange={e=>setActivityForm((p:any)=>({...p,description:e.target.value}))} className={inp} rows={2}/></div>
             </div>
             <div className="flex gap-3 mt-5">
@@ -384,15 +455,26 @@ export default function PlantationSiteDetailPage() {
                 <div className="px-5 py-4 border-b border-gray-100 font-semibold text-gray-900">Farmer Progress</div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>{['Farmer','Assigned','Planted','Surviving','Stage'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+                    <tr>{['Farmer','Assigned','Planted','Species Planted','Surviving','Photos','Stage'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {dash.farmerProgress.map((f:any,i:number)=>(
                       <tr key={i} className="border-t hover:bg-gray-50">
                         <td className="px-4 py-2 font-medium text-gray-900">{f.name}</td>
                         <td className="px-4 py-2 text-gray-600">{f.assigned}</td>
-                        <td className="px-4 py-2 text-gray-600">{f.planted}</td>
+                        <td className="px-4 py-2 font-semibold text-green-700">{f.planted}</td>
+                        <td className="px-4 py-2">
+                          {f.species && (f.species as any[]).map((s:any)=>(
+                            <div key={s.species} className="text-xs text-gray-600">🌱 {s.species}: {s.qty?.toLocaleString('en-IN')}</div>
+                          ))}
+                          {(!f.species || f.species.length===0) && <span className="text-gray-300 text-xs">—</span>}
+                        </td>
                         <td className="px-4 py-2 text-green-600 font-semibold">{f.surviving}</td>
+                        <td className="px-4 py-2">
+                          {f.driveLinks && (f.driveLinks as string[]).map((link:string, i:number)=>(
+                            <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline block">📸 View</a>
+                          ))}
+                        </td>
                         <td className="px-4 py-2">
                           <span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full">{f.stage?.replace(/_/g,' ')}</span>
                         </td>
@@ -441,6 +523,37 @@ export default function PlantationSiteDetailPage() {
                   <div><span className="text-gray-400">Surviving: </span><span className="font-medium text-green-600">{a.treesSurviving}</span></div>
                   <div><span className="text-gray-400">Date: </span><span className="font-medium">{a.plantationDate?new Date(a.plantationDate).toLocaleDateString('en-IN'):'—'}</span></div>
                 </div>
+                {/* Plantation Completion Certificate */}
+                {a.treesPlanted > 0 && (
+                  <div className="mt-2">
+                    <button
+                      onClick={async () => {
+                        const res = await fetch('/api/admin/agreements', {
+                          method: 'POST', headers: {'Content-Type':'application/json'},
+                          body: JSON.stringify({
+                            farmerId: a.farmerId,
+                            agreementType: 'PLANTATION_CERTIFICATE',
+                            templateData: {
+                              totalTrees:       a.treesPlanted,
+                              plantationDate:   a.plantationDate || new Date().toISOString().split('T')[0],
+                              plantationType:   site.currentPhase,
+                              fieldOfficer:     site.fieldOfficerId || '',
+                              species:          (a.speciesPlanted as any[])?.map((s:any)=>({name:s.species, qty:s.qty})) || [],
+                              completionDate:   new Date().toISOString().split('T')[0],
+                            },
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          showToast('Certificate generated and shared with farmer ✓');
+                          if (data.agreement?.id) window.open(`/api/farmer/agreements/${data.agreement.id}`, '_blank');
+                        } else showToast('Error: ' + data.error);
+                      }}
+                      className="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 font-medium">
+                      🏆 Generate Plantation Certificate
+                    </button>
+                  </div>
+                )}
                 {/* GIS Info from farmer land */}
                 {a.land?.gpsLatitude && (
                   <div className="mt-2 flex items-center gap-2">
@@ -450,6 +563,27 @@ export default function PlantationSiteDetailPage() {
                     <a href={`https://www.google.com/maps?q=${a.land.gpsLatitude},${a.land.gpsLongitude}`}
                       target="_blank" rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:underline">View on Map →</a>
+                  </div>
+                )}
+                {/* Species breakdown */}
+                {a.speciesPlanted && (a.speciesPlanted as any[]).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(a.speciesPlanted as any[]).map((s:any)=>(
+                      <span key={s.species} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2 py-0.5">
+                        🌱 {s.species}: {s.qty?.toLocaleString('en-IN')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Drive links */}
+                {a.driveLinks && (a.driveLinks as string[]).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(a.driveLinks as string[]).map((link:string, i:number)=>(
+                      <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+                        📸 Photos {i>0?i+1:''}
+                      </a>
+                    ))}
                   </div>
                 )}
                 {a.stageHistory?.[0] && (
@@ -482,8 +616,16 @@ export default function PlantationSiteDetailPage() {
                       <td className="px-4 py-2 text-gray-700">{a.description||'—'}</td>
                       <td className="px-4 py-2 text-gray-500">{a.team||'—'}</td>
                       <td className="px-4 py-2 text-gray-500">{a.workers||'—'}</td>
-                      <td className="px-4 py-2 font-semibold text-green-700">{a.treesPlanted||'—'}</td>
-                      <td className="px-4 py-2 text-gray-400 text-xs">{a.remarks||'—'}</td>
+                      <td className="px-4 py-2">
+                        <div className="font-semibold text-green-700">{a.treesPlanted||'—'}</div>
+                        {a.speciesPlanted && (a.speciesPlanted as any[]).map((s:any)=>(
+                          <div key={s.species} className="text-[10px] text-gray-500">{s.species}: {s.qty}</div>
+                        ))}
+                      </td>
+                      <td className="px-4 py-2 text-gray-400 text-xs">
+                        {a.remarks||'—'}
+                        {a.driveLink && <a href={a.driveLink} target="_blank" rel="noopener noreferrer" className="block text-blue-500 hover:underline mt-0.5">📸 Photos</a>}
+                      </td>
                     </tr>
                   ))}
                   {!(site.activities?.length) && <tr><td colSpan={7} className="text-center py-8 text-gray-400">No activities logged</td></tr>}
