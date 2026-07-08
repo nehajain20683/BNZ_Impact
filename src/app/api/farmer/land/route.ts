@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         pincode:             data.pincode,
         ownershipType:       data.ownershipType,
         jointOwnerCount:     data.jointOwnerCount,
-        plantationPreference:data.plantationPreference as any,
+        plantationPreference:data.plantationPreference || undefined,
         speciesPreference:   data.speciesPreference || [],
         targetTreeCount:     data.targetTreeCount,
         plantationStartDate: data.plantationStartDate ? new Date(data.plantationStartDate) : undefined,
