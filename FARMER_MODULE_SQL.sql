@@ -542,3 +542,12 @@ VALUES ('jgl-main-project', 'JITO Green Legacy', 'JGL-2026', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 SELECT 'Plantation Site Management Module created ✅' as result;
+
+-- ═══════════════════════════════════════════════════════
+-- LAND DETAIL ENHANCEMENTS — Run in Supabase SQL Editor
+-- ═══════════════════════════════════════════════════════
+
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "waterAvailability" TEXT;
+ALTER TABLE lands ADD COLUMN IF NOT EXISTS "securityStatus"    TEXT;
+
+SELECT 'Land enhancements added ✅' as result;

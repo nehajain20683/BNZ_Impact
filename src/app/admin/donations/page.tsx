@@ -529,7 +529,7 @@ export default function AdminDonationsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
-                  {['#','Ref ID','Name / Certificate Name','Mobile + Email','Package','Trees','Amount','80G','WA Sent','Certificate','Payment Ref','Date','Mode','Update Status','Actions'].map(h=>(
+                  {['#','Ref ID','Name / Certificate Name','Mobile + Email','Campaign','Trees','Amount','80G','WA Sent','Certificate','Payment Ref','Date','Mode','Update Status','Actions'].map(h=>(
                     <th key={h} className="px-3 py-3 text-left font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -557,7 +557,9 @@ export default function AdminDonationsPage() {
                       <div className="text-blue-600 text-xs font-medium">{d.donorMobile||'—'}</div>
                       <div className="text-gray-400 text-[10px]">{d.donorEmail||'—'}</div>
                     </td>
-                    <td className="px-3 py-3 text-center font-semibold text-gray-700">{d.numberOfTrees}</td>
+                    <td className="px-3 py-3">
+                      <div className="text-gray-800 text-xs font-medium">{d.campaign?.name||'—'}</div>
+                    </td>
                     <td className="px-3 py-3">
                       <span className="font-bold text-gray-900">{d.numberOfTrees}</span>
                       <span className="text-green-500 ml-1 text-xs">🌱</span>

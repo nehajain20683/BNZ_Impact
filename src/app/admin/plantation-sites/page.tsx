@@ -98,10 +98,9 @@ function CreateSiteModal({ onClose, onSave }: any) {
                 <input value={form.taluka} onChange={f('taluka')} className={inp}/></div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Village</label>
                 <input value={form.village} onChange={f('village')} className={inp}/></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">GPS Latitude</label>
-                <input type="number" step="any" value={form.gpsLatitude} onChange={f('gpsLatitude')} className={inp}/></div>
-              <div><label className="text-xs font-medium text-gray-600 block mb-1">GPS Longitude</label>
-                <input type="number" step="any" value={form.gpsLongitude} onChange={f('gpsLongitude')} className={inp}/></div>
+              <div className="col-span-2 text-xs text-gray-400 italic bg-sage-50 rounded-xl px-4 py-3 border border-sage-100">
+                📍 GPS coordinates will be auto-populated from assigned farmer GIS data. No need to enter manually.
+              </div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Total Planned Area (Acres)</label>
                 <input type="number" value={form.totalPlannedArea} onChange={f('totalPlannedArea')} className={inp}/></div>
             </div>
@@ -133,20 +132,47 @@ function CreateSiteModal({ onClose, onSave }: any) {
           {/* Step 3: Targets */}
           {step === 3 && (
             <div className="grid grid-cols-2 gap-4">
-              {[
-                ['Total Farmers','totalFarmers','50'],
-                ['Planned Area (Acres)','plannedArea','100'],
-                ['Planned Trees','plannedTrees','80000'],
-                ['Estimated Carbon (tCO₂)','estimatedCarbon','2000'],
-                ['Estimated Carbon Credits','estimatedCredits','2000'],
-                ['Expected Survival %','expectedSurvival','85'],
-                ['Budget (₹)','budget','5000000'],
-              ].map(([l,k,p])=>(
-                <div key={k as string}>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">{l}</label>
-                  <input type="number" value={(form as any)[k as string]} onChange={f(k as string)} className={inp} placeholder={p as string}/>
-                </div>
-              ))}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Total Farmers</label>
+                <input type="number" value={form.totalFarmers} onChange={f('totalFarmers')} className={inp} placeholder="50"/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Planned Area (Acres)</label>
+                <input type="number" value={form.plannedArea} onChange={f('plannedArea')} className={inp} placeholder="100"/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Planned Trees</label>
+                <input type="number" value={form.plannedTrees} onChange={e => {
+                  const trees = parseInt(e.target.value) || 0;
+                  const survival = parseFloat(form.expectedSurvival) / 100 || 0.85;
+                  const carbon  = Math.round(trees * survival * 0.022 * 25 * 10) / 10; // tCO2 over 25yr
+                  const credits = Math.round(carbon * 0.8 * 10) / 10; // 80% buffer
+                  setForm(p => ({ ...p, plannedTrees: e.target.value, estimatedCarbon: String(carbon), estimatedCredits: String(credits) }));
+                }} className={inp} placeholder="80000"/>
+                <p className="text-xs text-gray-400 mt-1">Carbon auto-calculated at 22 kg CO₂/tree/year × 25 years</p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Expected Survival %</label>
+                <input type="number" value={form.expectedSurvival} onChange={e => {
+                  const survival = parseFloat(e.target.value) / 100 || 0.85;
+                  const trees = parseInt(form.plannedTrees) || 0;
+                  const carbon  = Math.round(trees * survival * 0.022 * 25 * 10) / 10;
+                  const credits = Math.round(carbon * 0.8 * 10) / 10;
+                  setForm(p => ({ ...p, expectedSurvival: e.target.value, estimatedCarbon: String(carbon), estimatedCredits: String(credits) }));
+                }} className={inp} placeholder="85"/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon (tCO₂) <span className="text-sage-500">auto-calculated</span></label>
+                <input type="number" value={form.estimatedCarbon} onChange={f('estimatedCarbon')} className={inp + ' bg-sage-50'} placeholder="Auto"/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon Credits <span className="text-sage-500">auto-calculated</span></label>
+                <input type="number" value={form.estimatedCredits} onChange={f('estimatedCredits')} className={inp + ' bg-sage-50'} placeholder="Auto"/>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Budget (₹)</label>
+                <input type="number" value={form.budget} onChange={f('budget')} className={inp} placeholder="5000000"/>
+              </div>
             </div>
           )}
 

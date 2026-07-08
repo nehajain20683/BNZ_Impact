@@ -345,6 +345,25 @@ export default function PlantationSiteDetailPage() {
               </div>
             )}
 
+            {/* GIS Summary — GPS from assigned farmers */}
+            {dash.farmerProgress?.length > 0 && site.landAssignments?.some((a: any) => a.land?.gpsLatitude) && (
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h3 className="font-semibold text-gray-900 mb-3">📍 GIS Coverage — Assigned Land Parcels</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {site.landAssignments?.filter((a: any) => a.land?.gpsLatitude).map((a: any) => (
+                    <div key={a.id} className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs">
+                      <div className="font-semibold text-blue-900 mb-1">{a.farmer?.fullName}</div>
+                      <div className="font-mono text-blue-700">{a.land?.gpsLatitude?.toFixed(5)}, {a.land?.gpsLongitude?.toFixed(5)}</div>
+                      <div className="text-blue-500 mt-1">{a.land?.areaAcres} acres · {a.land?.village}</div>
+                      <a href={`https://www.google.com/maps?q=${a.land.gpsLatitude},${a.land.gpsLongitude}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline mt-1 inline-block">Open in Maps →</a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Farmer progress table */}
             {dash.farmerProgress?.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -408,8 +427,19 @@ export default function PlantationSiteDetailPage() {
                   <div><span className="text-gray-400">Surviving: </span><span className="font-medium text-green-600">{a.treesSurviving}</span></div>
                   <div><span className="text-gray-400">Date: </span><span className="font-medium">{a.plantationDate?new Date(a.plantationDate).toLocaleDateString('en-IN'):'—'}</span></div>
                 </div>
+                {/* GIS Info from farmer land */}
+                {a.land?.gpsLatitude && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-lg px-2 py-1 font-mono">
+                      📍 {a.land.gpsLatitude?.toFixed(6)}, {a.land.gpsLongitude?.toFixed(6)}
+                    </span>
+                    <a href={`https://www.google.com/maps?q=${a.land.gpsLatitude},${a.land.gpsLongitude}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline">View on Map →</a>
+                  </div>
+                )}
                 {a.stageHistory?.[0] && (
-                  <div className="mt-2 text-xs text-gray-400 italic">Last update: {a.stageHistory[0].stage?.replace(/_/g,' ')} · {new Date(a.stageHistory[0].date).toLocaleDateString('en-IN')}</div>
+                  <div className="mt-1 text-xs text-gray-400 italic">Last update: {a.stageHistory[0].stage?.replace(/_/g,' ')} · {new Date(a.stageHistory[0].date).toLocaleDateString('en-IN')}</div>
                 )}
               </div>
             ))}

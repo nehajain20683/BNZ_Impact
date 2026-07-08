@@ -305,6 +305,30 @@ export default function AdminFarmerDetailPage() {
         {/* ── DOCUMENTS TAB ── */}
         {activeTab === 'documents' && (
           <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-gray-900">Documents</h3>
+              <label className="flex items-center gap-1.5 bg-sage-700 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer hover:bg-sage-800">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Upload Document
+                <input type="file" accept="image/*,application/pdf,.kml,.kmz" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const docType = prompt('Document type? (AADHAAR/PAN/LAND_7_12/LAND_RECORD/PLANTATION_PHOTO/OTHER)', 'OTHER') || 'OTHER';
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      const res = await fetch('/api/farmer/documents', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ farmerId, docType, fileUrl: reader.result, fileName: file.name, uploadedByAdmin: true }),
+                      });
+                      const data = await res.json();
+                      if (data.success) { showToast('Document uploaded ✓'); load(); }
+                      else showToast('Upload failed: ' + data.error);
+                    };
+                    reader.readAsDataURL(file);
+                  }}/>
+              </label>
+            </div>
             {farmer.documents?.length > 0 ? farmer.documents.map((d: any) => (
               <div key={d.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
                 <div>

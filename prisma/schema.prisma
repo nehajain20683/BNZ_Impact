@@ -609,6 +609,8 @@ model Land {
   state            String?
   pincode          String?
   // Land Ownership
+  waterAvailability String?              // RAIN_FED | IRRIGATED | BOREWELL | CANAL | OTHER
+  securityStatus   String?              // FENCED | PARTIALLY_FENCED | UNFENCED | WALL | OTHER
   ownershipType    String?              // sole / joint
   jointOwnerCount  Int?
   nocUploaded      Boolean       @default(false)

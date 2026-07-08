@@ -21,6 +21,8 @@ const schema = z.object({
   district:            z.string().optional(),
   state:               z.string().optional(),
   pincode:             z.string().optional(),
+  waterAvailability:   z.string().optional(),
+  securityStatus:      z.string().optional(),
   ownershipType:       z.string().optional(),
   jointOwnerCount:     z.union([z.number(), z.string()]).optional().transform(v => v === "" || v === undefined ? undefined : Number(v)),
   plantationPreference:z.string().optional(),
@@ -84,4 +86,23 @@ export async function GET(req: Request) {
     include: { documents: true, plantations: true, inspections: true },
   });
   return NextResponse.json({ lands });
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { landId, ownershipType, jointOwnerCount, nocUploaded } = body;
+    if (!landId) return NextResponse.json({ error: 'landId required' }, { status: 400 });
+    const land = await prisma.land.update({
+      where: { id: landId },
+      data: {
+        ownershipType:   ownershipType || undefined,
+        jointOwnerCount: jointOwnerCount || undefined,
+        nocUploaded:     nocUploaded ?? undefined,
+      },
+    });
+    return NextResponse.json({ success: true, land });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }

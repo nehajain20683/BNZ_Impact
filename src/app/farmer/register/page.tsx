@@ -75,6 +75,7 @@ export default function LandOwnerRegisterPage() {
     surveyGutNumber:'', khataNumber:'', areaAcres:'', areaOfferedAcres:'',
     areaOfferedUnit:'acres', landType:'', gpsLatitude:'', gpsLongitude:'',
     village:'', taluka:'', district:'', state:'', pincode:'',
+    waterAvailability:'', securityStatus:'',
   });
   const [ownership, setOwnership] = useState({ ownershipType:'sole', jointOwnerCount:'' });
   const [plantation, setPlantation] = useState({
@@ -248,7 +249,8 @@ export default function LandOwnerRegisterPage() {
         if (!data.success) { setErr('save', data.error || 'Failed to save.'); setLoading(false); return; }
         if (data.farmerId) { setFarmerId(data.farmerId); localStorage.setItem('farmerId', data.farmerId); }
       }
-      if ([4,5].includes(s) && farmerId) {
+      if ((s === 4 || (s === 5 && !landId)) && farmerId) {
+        // Step 4: create land. Step 5: only create if not already created
         const res  = await fetch('/api/farmer/land', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -265,6 +267,18 @@ export default function LandOwnerRegisterPage() {
         const data = await res.json();
         if (!data.success) { setErr('save', data.error || 'Failed to save land.'); setLoading(false); return; }
         if (data.landId) setLandId(data.landId);
+      } else if (s === 5 && landId && farmerId) {
+        // Step 5: update existing land with ownership details (PATCH)
+        const res  = await fetch('/api/farmer/land', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            landId,
+            ownershipType:    ownership.ownershipType,
+            jointOwnerCount:  ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) { setErr('save', data.error || 'Failed to update ownership.'); setLoading(false); return; }
       }
       clearErr('save');
       setCompleted(c => new Set([...c, s]));
@@ -593,6 +607,31 @@ export default function LandOwnerRegisterPage() {
                 onChange={e => setLand(l=>({...l,landType:e.target.value}))} className={inp}>
                 <option value="">Select / चुनें</option>
                 {LAND_TYPES.map(t => <option key={t} value={t}>{t.replace('_',' ')}</option>)}
+              </select>
+            </div>
+            <div>
+              <BiLabel en="Water Availability" hi="जल उपलब्धता"/>
+              <select value={land.waterAvailability}
+                onChange={e => setLand(l=>({...l,waterAvailability:e.target.value}))} className={inp}>
+                <option value="">Select / चुनें</option>
+                <option value="RAIN_FED">Rain Fed / वर्षा आधारित</option>
+                <option value="IRRIGATED">Irrigated / सिंचित</option>
+                <option value="BOREWELL">Borewell / बोरवेल</option>
+                <option value="CANAL">Canal / नहर</option>
+                <option value="RIVER">River / नदी</option>
+                <option value="OTHER">Other / अन्य</option>
+              </select>
+            </div>
+            <div>
+              <BiLabel en="Land Security / Fencing" hi="भूमि सुरक्षा / बाड़"/>
+              <select value={land.securityStatus}
+                onChange={e => setLand(l=>({...l,securityStatus:e.target.value}))} className={inp}>
+                <option value="">Select / चुनें</option>
+                <option value="FENCED">Fully Fenced / पूर्ण बाड़</option>
+                <option value="PARTIALLY_FENCED">Partially Fenced / आंशिक बाड़</option>
+                <option value="UNFENCED">Unfenced / बिना बाड़</option>
+                <option value="WALL">Compound Wall / दीवार</option>
+                <option value="OTHER">Other / अन्य</option>
               </select>
             </div>
             {/* GPS */}
