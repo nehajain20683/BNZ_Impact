@@ -37,7 +37,8 @@ export default function PlantationSiteDetailPage() {
   const [showActivity, setShowActivity] = useState(false);
   const [showMonitor, setShowMonitor] = useState(false);
   const [assignForm, setAssignForm]   = useState<any>({farmerId:'',landId:'',treesAssigned:'',plantationDate:'',remarks:''});
-  const [activityForm, setActivityForm] = useState<any>({date:'',activityType:'PLANTATION',description:'',team:'',workers:'',treesPlanted:'',remarks:''});
+  const [activityForm, setActivityForm] = useState<any>({date:'',activityType:'PLANTATION',description:'',team:'',workers:'',treesPlanted:'',treesSurviving:'',assignmentId:'',remarks:'',driveLink:''});
+  const [speciesRows, setSpeciesRows]       = useState<{species:string;qty:string}[]>([{species:'',qty:''}]);
   const [monitorForm, setMonitorForm] = useState<any>({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:''});
   const [farmerSearch, setFarmerSearch] = useState('');
   const [farmerResults, setFarmerResults] = useState<any[]>([]);
