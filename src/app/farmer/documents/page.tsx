@@ -17,6 +17,8 @@ const DOC_TYPES = [
   { key: 'CANCELLED_CHEQUE',label: 'Cancelled Cheque',     required: false, accept: 'image/*,application/pdf', hint: 'For bank account verification' },
   { key: 'CONSENT_LETTER', label: 'Consent Letter',        required: false, accept: 'image/*,application/pdf', hint: 'Signed consent for plantation' },
   { key: 'PLANTATION_PHOTO',label: 'Land / Site Photo',    required: false, accept: 'image/*',                 hint: 'Current photo of your land' },
+  { key: 'OTHER',            label: 'Google Earth / KML File', required: false, accept: '.kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,image/*,application/pdf', hint: 'KML/KMZ boundary file from Google Earth — shows your land polygon' },
+  { key: 'PAN',              label: 'PAN Card',              required: false, accept: 'image/*,application/pdf', hint: 'PAN card for 80G tax benefit' },
 ];
 
 const STATUS_CONFIG: Record<string, { color: string; icon: any; label: string }> = {
