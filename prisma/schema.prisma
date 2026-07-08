@@ -550,7 +550,6 @@ model Farmer {
   inspections      SiteInspection[]
   auditLogs        AuditLog[]
   carbonCredits    CarbonCredit[]
-  landAssignments  LandAssignment[]
   agreements       FarmerAgreement[]
   // Ownership tracking
   createdById      String?
