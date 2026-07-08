@@ -278,7 +278,7 @@ function DashboardContent() {
                   <Shield className="w-4 h-4 text-sage-400"/> My Documents
                   {newAgreements>0 && <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center">{newAgreements}</span>}
                 </button>
-                <Link href="/farmer/register"
+                <Link href="/farmer/land"
                   className="flex items-center gap-2 p-3 rounded-xl border border-sage-100 hover:bg-sage-50 text-sm text-sage-700">
                   <Plus className="w-4 h-4 text-sage-400"/> Add Land
                 </Link>
@@ -409,7 +409,7 @@ function DashboardContent() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sage-900">Land Parcels / भूमि पार्सल</h3>
-              <Link href="/farmer/register"
+              <Link href="/farmer/land"
                 className="flex items-center gap-1.5 bg-sage-700 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-sage-800">
                 <Plus className="w-3.5 h-3.5"/> Add Land
               </Link>
@@ -459,7 +459,7 @@ function DashboardContent() {
               <div className="bg-white rounded-2xl border border-sage-100 p-8 text-center shadow-sm">
                 <MapPin className="w-8 h-8 mx-auto text-sage-300 mb-2"/>
                 <p className="text-sage-500 text-sm mb-3">No land parcels registered yet</p>
-                <Link href="/farmer/register"
+                <Link href="/farmer/land"
                   className="inline-flex items-center gap-2 bg-sage-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl">
                   <Plus className="w-4 h-4"/> Add Your First Land Parcel
                 </Link>

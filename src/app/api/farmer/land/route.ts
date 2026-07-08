@@ -79,11 +79,25 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const farmerId = new URL(req.url).searchParams.get('farmerId');
-  if (!farmerId) return NextResponse.json({ error: 'farmerId required' }, { status: 400 });
+  const params   = new URL(req.url).searchParams;
+  const farmerId = params.get('farmerId');
+  const mobile   = params.get('mobile');
+
+  if (!farmerId && !mobile)
+    return NextResponse.json({ error: 'farmerId or mobile required' }, { status: 400 });
+
+  // Resolve farmerId from mobile if needed
+  let resolvedFarmerId = farmerId;
+  if (!resolvedFarmerId && mobile) {
+    const farmer = await prisma.farmer.findUnique({ where: { mobile } });
+    resolvedFarmerId = farmer?.id || null;
+  }
+  if (!resolvedFarmerId)
+    return NextResponse.json({ lands: [] });
+
   const lands = await prisma.land.findMany({
-    where: { farmerId },
-    include: { documents: true, plantations: true, inspections: true },
+    where: { farmerId: resolvedFarmerId },
+    include: { documents: { take: 10 } },
   });
   return NextResponse.json({ lands });
 }
