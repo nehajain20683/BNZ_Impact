@@ -141,6 +141,7 @@ export default async function AdminDashboard() {
             { href:'/admin/plantation-sites',   icon:'🌳', label:'Plantation Sites',   desc:'Sites, phases, activities',  color:'bg-sage-50   text-sage-700   border-sage-100'   },
             { href:'/admin/farmers',            icon:'🌾', label:'Land Owners',        desc:'Registrations & docs',       color:'bg-lime-50   text-lime-700   border-lime-100'   },
             { href:'/admin/people',             icon:'👥', label:'People',             desc:'Farmers & users',            color:'bg-indigo-50 text-indigo-700 border-indigo-100' },
+            { href:'/admin/dmrv/dashboard',      icon:'⚡', label:'Digital MRV',        desc:'Trust Engine · dMRV',        color:'bg-emerald-50 text-emerald-700 border-emerald-100' },
             { href:'/admin/logs',               icon:'📋', label:'Activity Logs',      desc:'All system actions',         color:'bg-amber-50  text-amber-700  border-amber-100'  },
             { href:'/admin/donations',          icon:'📊', label:'Reports',            desc:'CSV export & analytics',     color:'bg-purple-50 text-purple-700 border-purple-100' },
           ].map(l => (
