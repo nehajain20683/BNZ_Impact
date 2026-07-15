@@ -20,7 +20,7 @@ export default function Navbar() {
   const [userMenu, setUserMenu]   = useState(false);
   const { data: session }         = useSession();
   const user                      = session?.user;
-  const isAdmin                   = (user as any)?.role === 'ADMIN';
+  const isAdmin = ['ADMIN','SUPER_ADMIN'].includes((user as any)?.role);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -106,7 +106,7 @@ export default function Navbar() {
                   </div>
 
                   {/* Menu items */}
-                  <Link href="/dashboard"
+                  <Link href={isAdmin ? "/admin" : "/dashboard"}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-sage-700 hover:bg-sage-50 transition-colors"
                     onClick={() => setUserMenu(false)}>
                     <LayoutDashboard className="w-4 h-4 text-sage-400"/>
@@ -174,7 +174,7 @@ export default function Navbar() {
                 <div className="px-3 py-2 text-sm text-sage-500">
                   Signed in as <strong className="text-sage-800">{user.name || user.email}</strong>
                 </div>
-                <Link href="/dashboard"
+                <Link href={isAdmin ? "/admin" : "/dashboard"}
                   className="flex items-center gap-2 text-sage-700 py-2.5 px-3 rounded-lg hover:bg-sage-50"
                   onClick={() => setOpen(false)}>
                   <LayoutDashboard className="w-4 h-4"/> My Dashboard
