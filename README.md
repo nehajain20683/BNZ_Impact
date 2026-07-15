@@ -1,4 +1,4 @@
-# 🌳 Tree Plantation Drive — Full-Stack Platform
+# 🌳 BNZ X Tree Plantation Drive — Full-Stack Platform
 
 A production-ready fundraising platform for tree plantation drives in India.
 
