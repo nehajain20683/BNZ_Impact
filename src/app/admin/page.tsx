@@ -12,37 +12,33 @@ export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role)) redirect('/');
 
-  const [
-    donationStats,
-    userCount,
-    farmerCount,
-    siteStats,
-    recentDonations,
-    recentSites,
-  ] = await Promise.all([
-    prisma.donation.aggregate({
-      where: { paymentStatus: 'COMPLETED' },
-      _sum:   { amount: true, numberOfTrees: true },
-      _count: { id: true },
-    }),
-    prisma.user.count({ where: { deletedAt: null } }),
-    prisma.farmer.count().catch(() => 0),
-    // Plantation site stats
-    Promise.all([
-      prisma.plantationSite.count({ where: { active: true } }).catch(() => 0),
-      prisma.plantationSite.aggregate({ _sum: { treesPlanted: true, plannedTrees: true, totalPlannedArea: true } }).catch(() => ({ _sum: { treesPlanted: 0, plannedTrees: 0, totalPlannedArea: 0 } })),
-      prisma.landAssignment.count().catch(() => 0),
-    ]),
-    prisma.donation.findMany({
-      take: 8, orderBy: { createdAt: 'desc' }, include: { campaign: true },
-    }),
-    prisma.plantationSite.findMany({
-      where: { active: true }, take: 4, orderBy: { createdAt: 'desc' },
-      select: { id: true, siteName: true, siteCode: true, currentPhase: true,
-                treesPlanted: true, plannedTrees: true, district: true, state: true,
-                plantationPartner: true },
-    }).catch(() => []),
-  ]);
+  // Fetch all stats safely - individual catches so one failure doesn't break the page
+  const donationStats = await prisma.donation.aggregate({
+    where: { paymentStatus: 'COMPLETED' },
+    _sum:   { amount: true, numberOfTrees: true },
+    _count: { id: true },
+  }).catch(() => ({ _sum: { amount: 0, numberOfTrees: 0 }, _count: { id: 0 } }));
+
+  const userCount = await prisma.user.count().catch(() => 0);
+  const farmerCount = await prisma.farmer.count().catch(() => 0);
+
+  const siteCount = await prisma.plantationSite.count({ where: { active: true } }).catch(() => 0);
+  const siteAgg   = await prisma.plantationSite.aggregate({
+    _sum: { treesPlanted: true, plannedTrees: true, totalPlannedArea: true }
+  }).catch(() => ({ _sum: { treesPlanted: 0, plannedTrees: 0, totalPlannedArea: 0 } }));
+  const assignmentCount = await prisma.landAssignment.count().catch(() => 0);
+  const siteStats = [siteCount, siteAgg, assignmentCount];
+
+  const recentDonations = await prisma.donation.findMany({
+    take: 8, orderBy: { createdAt: 'desc' }, include: { campaign: true },
+  }).catch(() => []);
+
+  const recentSites = await prisma.plantationSite.findMany({
+    where: { active: true }, take: 4, orderBy: { createdAt: 'desc' },
+    select: { id: true, siteName: true, siteCode: true, currentPhase: true,
+              treesPlanted: true, plannedTrees: true, district: true, state: true,
+              plantationPartner: true },
+  }).catch(() => []);
 
   const [siteCount, siteAgg, assignmentCount] = siteStats;
   const treesPlanted  = siteAgg._sum.treesPlanted  || 0;
