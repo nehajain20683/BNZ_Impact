@@ -14,6 +14,7 @@ datasource db {
 model User {
   id             String    @id @default(cuid())
   orgId   String?
+  organization   Organization? @relation(fields: [orgId], references: [id])
   name           String?
   email          String    @unique
   emailVerified  DateTime?
@@ -86,7 +87,7 @@ model VerificationToken {
 
 model Campaign {
   orgId   String?
-  org     Organization? @relation(fields: [orgId], references: [id])
+  organization Organization? @relation(fields: [orgId], references: [id])
   id          String   @id @default(cuid())
   name        String
   slug        String   @unique
@@ -105,7 +106,7 @@ model Campaign {
 
 model Donation {
   orgId   String?
-  org     Organization? @relation(fields: [orgId], references: [id])
+  organization Organization? @relation(fields: [orgId], references: [id])
   id               String          @id @default(cuid())
   userId           String?
   campaignId       String
@@ -176,7 +177,7 @@ model Tree {
 // ─── MASTER PROJECT ──────────────────────────────────────────────────────────
 model MasterProject {
   orgId   String?
-  org     Organization? @relation(fields: [orgId], references: [id])
+  organization Organization? @relation(fields: [orgId], references: [id])
   id          String   @id @default(cuid())
   name        String                          // "JITO Green Legacy"
   code        String?  @unique
@@ -198,7 +199,8 @@ model PlantationSite {
   projectId         String?
   project           MasterProject? @relation(fields: [projectId], references: [id])
   // Identity
-  orgId   String?
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id])
   siteName          String
   siteCode          String?  @unique
   internalRef       String?
@@ -486,12 +488,6 @@ model Organization {
   active              Boolean  @default(true)
   created_at          DateTime @default(now())
 
-  users            User[]
-  campaigns        Campaign[]
-  donations        Donation[]
-  farmers          Farmer[]
-  plantationSites  PlantationSite[]
-  masterProjects   MasterProject[]
 
   @@map("organizations")
 }
@@ -545,7 +541,8 @@ model Farmer {
   otpExpiry        DateTime?
   lastLoginAt      DateTime?
   // Personal
-  orgId   String?
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id])
   fullName         String
   fatherName       String?
   dateOfBirth      DateTime?
