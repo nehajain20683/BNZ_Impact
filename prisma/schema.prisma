@@ -13,6 +13,7 @@ datasource db {
 
 model User {
   id             String    @id @default(cuid())
+  orgId   String?
   name           String?
   email          String    @unique
   emailVerified  DateTime?
@@ -84,6 +85,8 @@ model VerificationToken {
 }
 
 model Campaign {
+  orgId   String?
+  org     Organization? @relation(fields: [orgId], references: [id])
   id          String   @id @default(cuid())
   name        String
   slug        String   @unique
@@ -101,6 +104,8 @@ model Campaign {
 }
 
 model Donation {
+  orgId   String?
+  org     Organization? @relation(fields: [orgId], references: [id])
   id               String          @id @default(cuid())
   userId           String?
   campaignId       String
@@ -170,6 +175,8 @@ model Tree {
 
 // ─── MASTER PROJECT ──────────────────────────────────────────────────────────
 model MasterProject {
+  orgId   String?
+  org     Organization? @relation(fields: [orgId], references: [id])
   id          String   @id @default(cuid())
   name        String                          // "JITO Green Legacy"
   code        String?  @unique
@@ -191,6 +198,7 @@ model PlantationSite {
   projectId         String?
   project           MasterProject? @relation(fields: [projectId], references: [id])
   // Identity
+  orgId   String?
   siteName          String
   siteCode          String?  @unique
   internalRef       String?
@@ -456,6 +464,38 @@ model Certificate {
   @@map("certificates")
 }
 
+
+model Organization {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  primary_color       String?  @default("#2d5a1b")
+  logo_url            String?
+  email               String?
+  phone               String?
+  address             String?
+  website             String?
+  farmer_id_prefix    String?  @default("JGL")
+  donation_ref_prefix String?  @default("JITO")
+  tree_price          Int?     @default(500)
+  org_80g_number      String?
+  campaign_config     Json?
+  payment_banks       Json?
+  custom_domain       String?  @unique
+  plan                String?  @default("STARTER")
+  active              Boolean  @default(true)
+  created_at          DateTime @default(now())
+
+  users            User[]
+  campaigns        Campaign[]
+  donations        Donation[]
+  farmers          Farmer[]
+  plantationSites  PlantationSite[]
+  masterProjects   MasterProject[]
+
+  @@map("organizations")
+}
+
 enum Role {
   DONOR
   ADMIN
@@ -505,6 +545,7 @@ model Farmer {
   otpExpiry        DateTime?
   lastLoginAt      DateTime?
   // Personal
+  orgId   String?
   fullName         String
   fatherName       String?
   dateOfBirth      DateTime?
