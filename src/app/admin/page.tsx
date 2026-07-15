@@ -40,7 +40,6 @@ export default async function AdminDashboard() {
               plantationPartner: true },
   }).catch(() => []);
 
-  const [siteCount, siteAgg, assignmentCount] = siteStats;
   const treesPlanted  = siteAgg._sum.treesPlanted  || 0;
   const plannedTrees  = siteAgg._sum.plannedTrees  || 0;
   const totalArea     = siteAgg._sum.totalPlannedArea || 0;
