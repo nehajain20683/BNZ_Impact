@@ -489,6 +489,13 @@ model Organization {
   created_at          DateTime @default(now())
 
 
+  users            User[]
+  campaigns        Campaign[]
+  donations        Donation[]
+  farmers          Farmer[]
+  plantationSites  PlantationSite[]
+  masterProjects   MasterProject[]
+
   @@map("organizations")
 }
 
