@@ -1,7 +1,9 @@
 // src/app/layout.tsx
 import type { Metadata } from 'next';
+import { OrgConfigProvider } from '@/components/OrgConfigProvider';
 import './globals.css';
 import Providers from '@/components/layout/Providers';
+
 
 export const metadata: Metadata = {
   title: 'JITO Green Legacy — A Family Tree Plantation Drive by Mumbai Zone',
@@ -19,7 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[#fafdf7]">
-        <Providers>{children}</Providers>
+        <SessionProvider>
+  <OrgConfigProvider>
+    {children}
+  </OrgConfigProvider>
+</SessionProvider>
       </body>
     </html>
   );
