@@ -1,10 +1,4 @@
 // src/middleware.ts
-// Routes:
-//   /sadmin/*    → SUPER_ADMIN only, isolated from tenant layout
-//   /admin/*     → ADMIN or SUPER_ADMIN
-//   /dashboard/* → any authenticated user
-//   /superadmin  → redirect to /sadmin (legacy URL)
-
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
@@ -13,9 +7,16 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const role = req.nextauth?.token?.role as string | undefined;
 
-    // Legacy /superadmin → redirect to new /sadmin
+    // Clone request headers and add routing hint for layout
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-pathname', pathname);
+    requestHeaders.set('x-is-superadmin', pathname.startsWith('/sadmin') ? '1' : '0');
+
+    // Legacy redirect
     if (pathname === '/superadmin' || pathname.startsWith('/superadmin/')) {
-      return NextResponse.redirect(new URL(pathname.replace('/superadmin', '/sadmin'), req.url));
+      return NextResponse.redirect(
+        new URL(pathname.replace('/superadmin', '/sadmin'), req.url)
+      );
     }
 
     // /sadmin/* — SUPER_ADMIN only
@@ -32,13 +33,15 @@ export default withAuth(
       }
     }
 
-    return NextResponse.next();
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        if (pathname === '/sadmin/login') return true; // login page is public
+        if (pathname === '/sadmin/login') return true;
         if (pathname.startsWith('/sadmin'))    return !!token;
         if (pathname.startsWith('/admin'))     return !!token;
         if (pathname.startsWith('/dashboard')) return !!token;
