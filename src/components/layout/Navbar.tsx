@@ -1,212 +1,145 @@
 'use client';
-// src/components/layout/Navbar.tsx
+// src/components/layout/Navbar.tsx — Org-config driven navbar
+import { useState } from 'react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { Menu, X, LogOut, LayoutDashboard, User } from 'lucide-react';
-import { signOut, useSession } from 'next-auth/react';
-import { BRAND } from '@/lib/utils';
-
-const links = [
-  { href: '/about',     label: 'About Us' },
-  { href: '/campaigns', label: 'Sponsor Trees' },
-  { href: '/impact',    label: 'Impact Dashboard' },
-  { href: '/csr',       label: 'Corporate Support' },
-  { href: '/contact',   label: 'Contact' },
-];
+import { useSession, signOut } from 'next-auth/react';
+import { Menu, X, ChevronDown, User, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 export default function Navbar() {
-  const [open, setOpen]           = useState(false);
-  const [scrolled, setScrolled]   = useState(false);
-  const [userMenu, setUserMenu]   = useState(false);
-  const { data: session }         = useSession();
-  const user                      = session?.user;
-  const isAdmin = ['ADMIN','SUPER_ADMIN'].includes((user as any)?.role);
+  const { data: session } = useSession();
+  const org     = useOrgConfig();
+  const [open, setOpen]   = useState(false);
+  const [drop, setDrop]   = useState(false);
+  const user    = session?.user as any;
+  const isAdmin = ['ADMIN','SUPER_ADMIN'].includes(user?.role);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    if (!userMenu) return;
-    const close = () => setUserMenu(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [userMenu]);
-
-  function handleLogout() {
-    signOut({ callbackUrl: '/' });
-  }
+  const links = [
+    { href:'/about',    label:'About Us' },
+    { href:'/campaigns',label:'Sponsor Trees' },
+    { href:'/dashboard',label:'Impact Dashboard' },
+    { href:'/csr',      label:'Corporate Support' },
+    { href:'/contact',  label:'Contact' },
+  ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? 'bg-white/98 shadow-sm border-b border-sage-100' : 'bg-white/90'
-    } backdrop-blur-md`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
+    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-sage-700 flex items-center justify-center shadow-sm">
-            <svg viewBox="0 0 36 36" fill="none" className="w-6 h-6">
-              <ellipse cx="18" cy="13" rx="9" ry="8" fill="#a7d99e"/>
-              <ellipse cx="13" cy="16" rx="6" ry="5" fill="#7db870"/>
-              <ellipse cx="23" cy="16" rx="6" ry="5" fill="#5a9e4e"/>
-              <ellipse cx="18" cy="10" rx="7" ry="6.5" fill="#c8e8c3"/>
-              <rect x="16.5" y="21" width="3" height="9" rx="1.5" fill="#92613a"/>
-            </svg>
-          </div>
-          <div className="leading-none">
-            <div className="font-display font-bold text-sage-900 text-[15px]">{BRAND.name}</div>
-            <div className="text-[10px] text-sage-500 font-body tracking-wide hidden sm:block">{BRAND.tagline}</div>
+        <Link href="/" className="flex items-center gap-2.5">
+          {org.logoUrl ? (
+            <img src={org.logoUrl} alt={org.name} className="w-9 h-9 rounded-lg object-contain"/>
+          ) : (
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+              style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
+              {org.name.charAt(0)}
+            </div>
+          )}
+          <div className="hidden sm:block">
+            <div className="font-display text-base font-bold text-gray-900 leading-tight">{org.name}</div>
+            <div className="text-gray-400 text-[10px] leading-none">Afforestation · Carbon Credits</div>
           </div>
         </Link>
 
-        {/* Desktop links */}
+        {/* Desktop nav */}
         <div className="hidden lg:flex items-center gap-6">
-          {links.map((l) => (
+          {links.map(l => (
             <Link key={l.href} href={l.href}
-              className="text-sm text-sage-700 hover:text-sage-900 font-medium transition-colors relative group">
+              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors">
               {l.label}
-              <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-sage-500 group-hover:w-full transition-all duration-200 rounded-full"/>
             </Link>
           ))}
         </div>
 
-        {/* Right side CTA */}
+        {/* Right side */}
         <div className="hidden lg:flex items-center gap-3">
           <Link href="/farmer/register"
-            className="flex items-center gap-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-3 py-2 rounded-full transition-colors whitespace-nowrap">
+            className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-full transition-colors"
+            style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
             🌱 Register Land
           </Link>
-          {user ? (
-            /* Logged-in user menu */
-            <div className="relative" onClick={e => e.stopPropagation()}>
-              <button
-                onClick={() => setUserMenu(!userMenu)}
-                className="flex items-center gap-2 bg-sage-50 border border-sage-200 text-sage-800 text-sm font-medium px-4 py-2 rounded-full hover:bg-sage-100 transition-colors"
-              >
-                <User className="w-4 h-4 text-sage-500"/>
-                <span className="max-w-[120px] truncate">{user.name || user.email}</span>
-                <span className="text-sage-400">▾</span>
-              </button>
 
-              {userMenu && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-sage-100 rounded-2xl shadow-xl py-2 z-50">
-                  {/* User info */}
-                  <div className="px-4 py-2 border-b border-sage-50">
-                    <div className="text-xs font-semibold text-sage-900 truncate">{user.name}</div>
-                    <div className="text-xs text-sage-400 truncate">{user.email}</div>
-                    {isAdmin && (
-                      <span className="inline-block mt-1 text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                        Admin
+          {session?.user ? (
+            <div className="relative">
+              <button onClick={() => setDrop(d => !d)}
+                className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2">
+                <User className="w-4 h-4"/>
+                {user?.name || 'Account'}
+                <ChevronDown className="w-3 h-3"/>
+              </button>
+              {drop && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="font-semibold text-gray-900 text-sm">{user?.name}</p>
+                    <p className="text-gray-400 text-xs">{user?.email}</p>
+                    {user?.role && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mt-1 inline-block font-bold">
+                        {user.role.replace('_',' ')}
                       </span>
                     )}
                   </div>
-
-                  {/* Menu items */}
-                  <Link href={isAdmin ? "/admin" : "/dashboard"}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-sage-700 hover:bg-sage-50 transition-colors"
-                    onClick={() => setUserMenu(false)}>
-                    <LayoutDashboard className="w-4 h-4 text-sage-400"/>
-                    My Dashboard
+                  <Link href={isAdmin ? '/admin' : '/dashboard'}
+                    onClick={() => setDrop(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <LayoutDashboard className="w-4 h-4"/> My Dashboard
                   </Link>
-
                   {isAdmin && (
-                    <Link href="/admin"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-sage-700 hover:bg-sage-50 transition-colors"
-                      onClick={() => setUserMenu(false)}>
-                      <svg className="w-4 h-4 text-sage-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Admin Panel
+                    <Link href="/admin" onClick={() => setDrop(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <Settings className="w-4 h-4"/> Admin Panel
                     </Link>
                   )}
-
-                  <div className="border-t border-sage-50 mt-1 pt-1">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                      <LogOut className="w-4 h-4"/>
-                      Sign Out
-                    </button>
-                  </div>
+                  {user?.role === 'SUPER_ADMIN' && (
+                    <Link href="/superadmin" onClick={() => setDrop(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-purple-700 hover:bg-purple-50">
+                      ⚡ Superadmin
+                    </Link>
+                  )}
+                  <button onClick={() => { setDrop(false); signOut({ callbackUrl: '/' }); }}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left">
+                    <LogOut className="w-4 h-4"/> Sign Out
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Guest buttons */
-            <>
-              <Link href="/auth/login"
-                className="text-sm text-sage-600 hover:text-sage-800 font-medium transition-colors">
-                Sign In
-              </Link>
-              <Link href="/campaigns"
-                className="bg-sage-700 hover:bg-sage-800 text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-all hover:shadow-md">
-                Sponsor Trees
-              </Link>
-            </>
+            <Link href="/auth/login"
+              className="text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2">
+              Sign In
+            </Link>
           )}
         </div>
 
-        {/* Mobile toggle */}
-        <button className="lg:hidden p-2 text-sage-700 rounded-lg hover:bg-sage-50"
-          onClick={() => setOpen(!open)}>
+        {/* Mobile menu button */}
+        <button onClick={() => setOpen(o => !o)} className="lg:hidden p-2 text-gray-600">
           {open ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
         </button>
       </div>
 
       {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden bg-white border-t border-sage-100 px-4 py-4 space-y-1 shadow-lg">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href}
-              className="block text-sage-800 font-medium py-2.5 px-3 rounded-lg hover:bg-sage-50 transition-colors"
-              onClick={() => setOpen(false)}>
-              {l.label}
-            </Link>
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-3">
+          {links.map(l => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)}
+              className="block text-gray-700 text-sm py-1">{l.label}</Link>
           ))}
-          <div className="border-t border-sage-100 pt-3 mt-2 space-y-2">
-            {user ? (
-              <>
-                <div className="px-3 py-2 text-sm text-sage-500">
-                  Signed in as <strong className="text-sage-800">{user.name || user.email}</strong>
-                </div>
-                <Link href={isAdmin ? "/admin" : "/dashboard"}
-                  className="flex items-center gap-2 text-sage-700 py-2.5 px-3 rounded-lg hover:bg-sage-50"
-                  onClick={() => setOpen(false)}>
-                  <LayoutDashboard className="w-4 h-4"/> My Dashboard
-                </Link>
-                {isAdmin && (
-                  <Link href="/admin"
-                    className="flex items-center gap-2 text-sage-700 py-2.5 px-3 rounded-lg hover:bg-sage-50"
-                    onClick={() => setOpen(false)}>
-                    Admin Panel
-                  </Link>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full text-red-600 py-2.5 px-3 rounded-lg hover:bg-red-50 text-sm font-medium">
-                  <LogOut className="w-4 h-4"/> Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/auth/login"
-                  className="block text-sage-700 py-2.5 px-3 rounded-lg hover:bg-sage-50 font-medium"
-                  onClick={() => setOpen(false)}>
-                  Sign In
-                </Link>
-                <Link href="/campaigns"
-                  className="block bg-sage-700 text-white text-center py-3 rounded-xl font-semibold hover:bg-sage-800 transition-colors"
-                  onClick={() => setOpen(false)}>
-                  Sponsor Trees
-                </Link>
-              </>
-            )}
-          </div>
+          <Link href="/farmer/register" onClick={() => setOpen(false)}
+            className="block text-center text-white text-sm font-bold py-2 rounded-xl"
+            style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
+            🌱 Register Land
+          </Link>
+          {session?.user ? (
+            <>
+              <Link href={isAdmin ? '/admin' : '/dashboard'} onClick={() => setOpen(false)}
+                className="block text-gray-700 text-sm py-1">My Dashboard</Link>
+              <button onClick={() => signOut({ callbackUrl: '/' })}
+                className="block text-red-600 text-sm py-1 w-full text-left">Sign Out</button>
+            </>
+          ) : (
+            <Link href="/auth/login" onClick={() => setOpen(false)}
+              className="block text-gray-700 text-sm py-1">Sign In</Link>
+          )}
         </div>
       )}
     </nav>
