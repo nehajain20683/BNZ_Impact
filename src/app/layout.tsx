@@ -1,8 +1,3 @@
-// src/app/layout.tsx
-// Root layout — renders html/body shell only
-// Navbar/Footer/Providers are handled by ClientLayout for tenant routes
-// SuperAdmin routes: bare dark layout via x-is-superadmin header
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -17,9 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const headersList  = headers();
-  const isSuperAdmin = headersList.get('x-is-superadmin') === '1';
-
+  const isSuperAdmin = headers().get('x-is-superadmin') === '1';
   return (
     <html lang="en" className={isSuperAdmin ? 'dark' : ''}>
       <body className={`${inter.className} antialiased ${isSuperAdmin ? 'bg-gray-950 text-white' : ''}`}>
