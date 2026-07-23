@@ -1,7 +1,8 @@
 'use client';
 // src/components/layout/Providers.tsx
-// Tenant-side providers: SessionProvider + OrgConfigProvider
-// Navbar and Footer are rendered by src/app/layout.tsx (not here)
+// DEPRECATED — kept for backward compatibility only
+// Navbar and Footer are now managed by ClientLayout
+// This is a simple passthrough wrapper
 import { SessionProvider } from 'next-auth/react';
 import { OrgConfigProvider } from '@/components/OrgConfigProvider';
 

@@ -1,14 +1,13 @@
 // src/app/layout.tsx
-// Single root layout for the entire app
-// Uses x-is-superadmin header (set by middleware) to split tenant vs superadmin
+// Root layout — renders html/body shell only
+// Navbar/Footer/Providers are handled by ClientLayout for tenant routes
+// SuperAdmin routes: bare dark layout via x-is-superadmin header
 
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { headers } from 'next/headers';
-import Providers from '@/components/layout/Providers';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import ClientLayout from '@/components/layout/ClientLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,27 +20,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const headersList  = headers();
   const isSuperAdmin = headersList.get('x-is-superadmin') === '1';
 
-  // SuperAdmin routes: bare dark layout, zero tenant components
-  if (isSuperAdmin) {
-    return (
-      <html lang="en" className="dark">
-        <head><title>BNZ Admin — Control Panel</title></head>
-        <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
-          {children}
-        </body>
-      </html>
-    );
-  }
-
-  // Tenant routes: full layout with Navbar + Footer + Providers
   return (
-    <html lang="en">
-      <body className={`${inter.className} antialiased`}>
-        <Providers>
-          <Navbar />
+    <html lang="en" className={isSuperAdmin ? 'dark' : ''}>
+      <body className={`${inter.className} antialiased ${isSuperAdmin ? 'bg-gray-950 text-white' : ''}`}>
+        <ClientLayout isSuperAdmin={isSuperAdmin}>
           {children}
-          <Footer />
-        </Providers>
+        </ClientLayout>
       </body>
     </html>
   );
