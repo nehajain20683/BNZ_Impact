@@ -1,11 +1,14 @@
 // src/app/layout.tsx
-// Uses x-is-superadmin header (set by middleware) to decide which layout to apply
-// SuperAdmin: bare dark layout — zero tenant components
-// Tenant: full Navbar + Footer + OrgConfigProvider
+// Single root layout for the entire app
+// Uses x-is-superadmin header (set by middleware) to split tenant vs superadmin
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { headers } from 'next/headers';
+import Providers from '@/components/layout/Providers';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,17 +18,14 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const headersList    = headers();
-  const isSuperAdmin   = headersList.get('x-is-superadmin') === '1';
+  const headersList  = headers();
+  const isSuperAdmin = headersList.get('x-is-superadmin') === '1';
 
-  // ── SUPER ADMIN layout — completely isolated ──────────────────────────────
+  // SuperAdmin routes: bare dark layout, zero tenant components
   if (isSuperAdmin) {
     return (
       <html lang="en" className="dark">
-        <head>
-          <title>BNZ Admin — Control Panel</title>
-          <meta name="description" content="BNZ Green Technologies — SaaS Administration"/>
-        </head>
+        <head><title>BNZ Admin — Control Panel</title></head>
         <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
           {children}
         </body>
@@ -33,20 +33,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     );
   }
 
-  // ── TENANT layout — Navbar + Footer + OrgConfig ───────────────────────────
-  // Dynamic imports keep the superadmin bundle clean
-  const { TenantProviders } = await import('@/components/layout/TenantProviders');
-  const Navbar              = (await import('@/components/layout/Navbar')).default;
-  const Footer              = (await import('@/components/layout/Footer')).default;
-
+  // Tenant routes: full layout with Navbar + Footer + Providers
   return (
     <html lang="en">
       <body className={`${inter.className} antialiased`}>
-        <TenantProviders>
+        <Providers>
           <Navbar />
-          <main>{children}</main>
+          {children}
           <Footer />
-        </TenantProviders>
+        </Providers>
       </body>
     </html>
   );
