@@ -1,18 +1,20 @@
 'use client';
-// src/components/layout/Navbar.tsx — Org-config driven navbar
+// src/components/layout/Navbar.tsx — TENANT navbar only
+// This component is NEVER rendered in /sadmin/* routes (isolated layout)
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Menu, X, ChevronDown, User, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LayoutDashboard, Settings, LogOut, Shield } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 export default function Navbar() {
   const { data: session } = useSession();
-  const org     = useOrgConfig();
-  const [open, setOpen]   = useState(false);
-  const [drop, setDrop]   = useState(false);
-  const user    = session?.user as any;
-  const isAdmin = ['ADMIN','SUPER_ADMIN'].includes(user?.role);
+  const org   = useOrgConfig();
+  const [open, setOpen] = useState(false);
+  const [drop, setDrop] = useState(false);
+  const user  = session?.user as any;
+  const isAdmin       = ['ADMIN','SUPER_ADMIN'].includes(user?.role);
+  const isSuperAdmin  = user?.role === 'SUPER_ADMIN';
 
   const links = [
     { href:'/about',    label:'About Us' },
@@ -38,7 +40,7 @@ export default function Navbar() {
           )}
           <div className="hidden sm:block">
             <div className="font-display text-base font-bold text-gray-900 leading-tight">{org.name}</div>
-            <div className="text-gray-400 text-[10px] leading-none">Afforestation · Carbon Credits</div>
+            <div className="text-gray-400 text-[10px]">Afforestation · Carbon Credits</div>
           </div>
         </Link>
 
@@ -52,24 +54,23 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right side */}
+        {/* Right */}
         <div className="hidden lg:flex items-center gap-3">
           <Link href="/farmer/register"
-            className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-full transition-colors"
+            className="flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-full"
             style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
             🌱 Register Land
           </Link>
-
           {session?.user ? (
             <div className="relative">
               <button onClick={() => setDrop(d => !d)}
-                className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2">
+                className="flex items-center gap-2 text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2">
                 <User className="w-4 h-4"/>
                 {user?.name || 'Account'}
                 <ChevronDown className="w-3 h-3"/>
               </button>
               {drop && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50">
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="font-semibold text-gray-900 text-sm">{user?.name}</p>
                     <p className="text-gray-400 text-xs">{user?.email}</p>
@@ -79,8 +80,7 @@ export default function Navbar() {
                       </span>
                     )}
                   </div>
-                  <Link href={isAdmin ? '/admin' : '/dashboard'}
-                    onClick={() => setDrop(false)}
+                  <Link href={isAdmin ? '/admin' : '/dashboard'} onClick={() => setDrop(false)}
                     className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                     <LayoutDashboard className="w-4 h-4"/> My Dashboard
                   </Link>
@@ -90,13 +90,13 @@ export default function Navbar() {
                       <Settings className="w-4 h-4"/> Admin Panel
                     </Link>
                   )}
-                  {user?.role === 'SUPER_ADMIN' && (
-                    <Link href="/superadmin" onClick={() => setDrop(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-purple-700 hover:bg-purple-50">
-                      ⚡ Superadmin
+                  {isSuperAdmin && (
+                    <Link href="/sadmin" onClick={() => setDrop(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 border-t border-gray-100 mt-1 pt-2">
+                      <Shield className="w-4 h-4"/> BNZ Control Panel
                     </Link>
                   )}
-                  <button onClick={() => { setDrop(false); signOut({ callbackUrl: '/' }); }}
+                  <button onClick={() => { setDrop(false); signOut({ callbackUrl:'/' }); }}
                     className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left">
                     <LogOut className="w-4 h-4"/> Sign Out
                   </button>
@@ -104,22 +104,20 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <Link href="/auth/login"
-              className="text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2">
+            <Link href="/auth/login" className="text-sm text-gray-600 border border-gray-200 rounded-xl px-3 py-2">
               Sign In
             </Link>
           )}
         </div>
 
-        {/* Mobile menu button */}
+        {/* Mobile */}
         <button onClick={() => setOpen(o => !o)} className="lg:hidden p-2 text-gray-600">
           {open ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
         </button>
       </div>
 
-      {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-3">
+        <div className="lg:hidden border-t bg-white px-4 py-4 space-y-3">
           {links.map(l => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)}
               className="block text-gray-700 text-sm py-1">{l.label}</Link>
@@ -133,12 +131,14 @@ export default function Navbar() {
             <>
               <Link href={isAdmin ? '/admin' : '/dashboard'} onClick={() => setOpen(false)}
                 className="block text-gray-700 text-sm py-1">My Dashboard</Link>
-              <button onClick={() => signOut({ callbackUrl: '/' })}
-                className="block text-red-600 text-sm py-1 w-full text-left">Sign Out</button>
+              {isSuperAdmin && (
+                <Link href="/sadmin" onClick={() => setOpen(false)}
+                  className="block text-purple-700 text-sm py-1 font-semibold">⚡ BNZ Control Panel</Link>
+              )}
+              <button onClick={() => signOut({ callbackUrl:'/' })} className="block text-red-600 text-sm py-1 w-full text-left">Sign Out</button>
             </>
           ) : (
-            <Link href="/auth/login" onClick={() => setOpen(false)}
-              className="block text-gray-700 text-sm py-1">Sign In</Link>
+            <Link href="/auth/login" onClick={() => setOpen(false)} className="block text-gray-700 text-sm py-1">Sign In</Link>
           )}
         </div>
       )}

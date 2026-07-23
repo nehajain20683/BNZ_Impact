@@ -1,0 +1,3 @@
+# PATCH NOTE: Navbar already updated in Step 5 to use useOrgConfig
+# SUPER_ADMIN → /sadmin link already included in the dropdown
+# No further changes needed to Navbar

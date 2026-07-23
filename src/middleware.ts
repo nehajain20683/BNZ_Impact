@@ -1,4 +1,10 @@
 // src/middleware.ts
+// Routes:
+//   /sadmin/*    → SUPER_ADMIN only, isolated from tenant layout
+//   /admin/*     → ADMIN or SUPER_ADMIN
+//   /dashboard/* → any authenticated user
+//   /superadmin  → redirect to /sadmin (legacy URL)
+
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
@@ -7,16 +13,21 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const role = req.nextauth?.token?.role as string | undefined;
 
-    // Admin routes — allow ADMIN and SUPER_ADMIN
-    if (pathname.startsWith('/admin')) {
-      if (!role || !['ADMIN', 'SUPER_ADMIN'].includes(role)) {
-        return NextResponse.redirect(new URL('/', req.url));
+    // Legacy /superadmin → redirect to new /sadmin
+    if (pathname === '/superadmin' || pathname.startsWith('/superadmin/')) {
+      return NextResponse.redirect(new URL(pathname.replace('/superadmin', '/sadmin'), req.url));
+    }
+
+    // /sadmin/* — SUPER_ADMIN only
+    if (pathname.startsWith('/sadmin') && pathname !== '/sadmin/login') {
+      if (!role || role !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL('/sadmin/login', req.url));
       }
     }
 
-    // Superadmin routes — allow SUPER_ADMIN only
-    if (pathname.startsWith('/superadmin')) {
-      if (role !== 'SUPER_ADMIN') {
+    // /admin/* — ADMIN or SUPER_ADMIN
+    if (pathname.startsWith('/admin')) {
+      if (!role || !['ADMIN', 'SUPER_ADMIN'].includes(role)) {
         return NextResponse.redirect(new URL('/', req.url));
       }
     }
@@ -27,9 +38,10 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        if (pathname.startsWith('/dashboard'))  return !!token;
-        if (pathname.startsWith('/admin'))      return !!token;
-        if (pathname.startsWith('/superadmin')) return !!token;
+        if (pathname === '/sadmin/login') return true; // login page is public
+        if (pathname.startsWith('/sadmin'))    return !!token;
+        if (pathname.startsWith('/admin'))     return !!token;
+        if (pathname.startsWith('/dashboard')) return !!token;
         return true;
       },
     },
@@ -37,5 +49,10 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/admin/:path*', '/dashboard/:path*', '/superadmin/:path*'],
+  matcher: [
+    '/sadmin/:path*',
+    '/superadmin/:path*',
+    '/admin/:path*',
+    '/dashboard/:path*',
+  ],
 };
