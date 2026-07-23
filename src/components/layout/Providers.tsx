@@ -1,7 +1,13 @@
 'use client';
-// src/components/layout/Providers.tsx
 import { SessionProvider } from 'next-auth/react';
+import { OrgConfigProvider } from '@/components/OrgConfigProvider';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      <OrgConfigProvider>
+        {children}
+      </OrgConfigProvider>
+    </SessionProvider>
+  );
 }
