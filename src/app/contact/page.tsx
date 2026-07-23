@@ -1,8 +1,8 @@
 'use client';
 // src/app/contact/page.tsx
 import { useState } from 'react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+//import Navbar from '@/components/layout/Navbar';
+//import Footer from '@/components/layout/Footer';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 
 const inputCls = "w-full border border-sage-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white";
@@ -28,8 +28,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar/>
-      <div className="pt-16">
+           <div className="pt-16">
 
         {/* Hero */}
         <section className="bg-forest-950 text-white py-16 px-4 text-center">
@@ -134,7 +133,6 @@ export default function ContactPage() {
           </div>
         </section>
       </div>
-      <Footer/>
-    </div>
+      </div>
   );
 }
