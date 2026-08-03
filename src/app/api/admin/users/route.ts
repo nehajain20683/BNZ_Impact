@@ -2,164 +2,132 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { z } from 'zod';
 
-const ADMIN_ROLES = ['ADMIN','SUPER_ADMIN'];
-
-async function requireAdmin(req: Request) {
+async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || !ADMIN_ROLES.includes((session.user as any).role))
+  if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role))
     throw new Error('Unauthorized');
   return session.user as any;
 }
 
-// GET — list users
-export async function GET(req: Request) {
+// GET — list all users for active org
+export async function GET() {
   try {
-    const actor = await requireAdmin(req);
-    const params  = new URL(req.url).searchParams;
-    const search  = params.get('search') || '';
-    const role    = params.get('role')   || '';
-    const status  = params.get('status') || '';
-    const page    = parseInt(params.get('page') || '1');
-    const limit   = 20;
+    await requireAdmin();
+    const orgId = await getActiveOrgId();
 
-    const where: any = { deletedAt: null };
-    if (search) where.OR = [
-      { name:   { contains: search, mode: 'insensitive' } },
-      { email:  { contains: search, mode: 'insensitive' } },
-      { mobile: { contains: search } },
-    ];
-    if (role)   where.role     = role;
-    if (status === 'active')   where.isActive = true;
-    if (status === 'inactive') where.isActive = false;
-    if (status === 'locked')   where.isLocked = true;
+    const users = await prisma.user.findMany({
+      where:   { orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, name: true, email: true, mobile: true,
+        role: true, orgId: true, createdAt: true,
+      },
+    });
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true, name: true, email: true, mobile: true,
-          role: true, isActive: true, isLocked: true,
-          lastLoginAt: true, createdAt: true,
-          _count: { select: { donations: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    return NextResponse.json({ users, total, page, pages: Math.ceil(total / limit) });
+    return NextResponse.json({ users });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 });
   }
 }
 
-// POST — create user
+// POST — create new user
 export async function POST(req: Request) {
   try {
-    const actor = await requireAdmin(req);
+    const actor = await requireAdmin();
+    const orgId = await getActiveOrgId();
     const body  = await req.json();
-    const { name, email, mobile, password, role } = body;
 
-    if (!name || !email || !password)
-      return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 });
+    if (!body.email || !body.name)
+      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 });
 
-    const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+    // Check if email already exists
+    const existing = await prisma.user.findUnique({ where: { email: body.email } });
     if (existing)
       return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
 
-    const hashed = await bcrypt.hash(password, 12);
-    const user   = await prisma.user.create({
-      data: { name, email, mobile, password: hashed, role: role || 'DONOR', isActive: true },
+    const password = body.password || 'Welcome@123';
+    const hash     = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        name:     body.name,
+        email:    body.email,
+        mobile:   body.mobile   || undefined,
+        password: hash,
+        role:     body.role     || 'DONOR',
+        orgId,
+      },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
     await prisma.auditLog.create({
-      data: { actorId: actor.id, actorRole: actor.role, action: 'USER_CREATED',
-              details: { userId: user.id, email, role } }
+      data: {
+        actorId:   actor.id,
+        actorRole: actor.role,
+        action:    'USER_CREATED',
+        details:   { userId: user.id, email: user.email, role: user.role, orgId },
+      }
     }).catch(() => {});
 
-    return NextResponse.json({ success: true, userId: user.id });
+    return NextResponse.json({ success: true, user, tempPassword: password });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-// PATCH — edit user / toggle status / reset password
+// PATCH — update user role or deactivate
 export async function PATCH(req: Request) {
   try {
-    const actor  = await requireAdmin(req);
-    const body   = await req.json();
-    const { userId, action, ...data } = body;
+    const actor = await requireAdmin();
+    const orgId = await getActiveOrgId();
+    const { userId, role, name, mobile } = await req.json();
 
     if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
-    let updateData: any = {};
-    let auditAction = 'USER_UPDATED';
+    // Ensure user belongs to this org
+    const existing = await prisma.user.findFirst({ where: { id: userId, orgId } });
+    if (!existing) return NextResponse.json({ error: 'User not found in this organisation' }, { status: 404 });
 
-    if (action === 'toggle_active') {
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      updateData = { isActive: !user?.isActive };
-      auditAction = updateData.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED';
-    } else if (action === 'toggle_lock') {
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      updateData = { isLocked: !user?.isLocked, loginAttempts: 0 };
-      auditAction = updateData.isLocked ? 'USER_LOCKED' : 'USER_UNLOCKED';
-    } else if (action === 'reset_password') {
-      if (!data.newPassword) return NextResponse.json({ error: 'newPassword required' }, { status: 400 });
-      updateData = { password: await bcrypt.hash(data.newPassword, 12), loginAttempts: 0, isLocked: false };
-      auditAction = 'PASSWORD_RESET';
-    } else if (action === 'change_role') {
-      updateData = { role: data.role };
-      auditAction = 'ROLE_CHANGED';
-    } else {
-      // General update
-      if (data.name)   updateData.name   = data.name;
-      if (data.email)  updateData.email  = data.email;
-      if (data.mobile) updateData.mobile = data.mobile;
-      if (data.role)   updateData.role   = data.role;
-    }
+    // Prevent downgrading own account
+    if (userId === actor.id && role && role !== actor.role)
+      return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 });
 
-    const user = await prisma.user.update({ where: { id: userId }, data: updateData });
-    await prisma.auditLog.create({
-      data: { actorId: actor.id, actorRole: actor.role, action: auditAction,
-              details: { userId, ...updateData } }
-    }).catch(() => {});
+    const data: any = {};
+    if (role)   data.role   = role;
+    if (name)   data.name   = name;
+    if (mobile) data.mobile = mobile;
+
+    const user = await prisma.user.update({ where: { id: userId }, data,
+      select: { id: true, name: true, email: true, role: true } });
 
     return NextResponse.json({ success: true, user });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-// DELETE — soft delete user
+// DELETE — remove user from org (soft — set orgId to null)
 export async function DELETE(req: Request) {
   try {
-    const actor  = await requireAdmin(req);
-    const { userId, reason } = await req.json();
-    if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    const actor = await requireAdmin();
+    const orgId = await getActiveOrgId();
+    const { userId } = await req.json();
 
-    // Prevent deleting super admins unless actor is super admin
-    const target = await prisma.user.findUnique({ where: { id: userId } });
-    if (target?.role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN')
-      return NextResponse.json({ error: 'Cannot delete Super Admin' }, { status: 403 });
+    if (userId === actor.id)
+      return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 400 });
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { deletedAt: new Date(), deletedById: actor.id, deleteReason: reason || 'Deleted by admin', isActive: false },
-    });
+    const existing = await prisma.user.findFirst({ where: { id: userId, orgId } });
+    if (!existing) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    await prisma.auditLog.create({
-      data: { actorId: actor.id, actorRole: actor.role, action: 'USER_DELETED',
-              details: { userId, reason } }
-    }).catch(() => {});
+    // Soft delete — remove from org but keep account
+    await prisma.user.update({ where: { id: userId }, data: { orgId: null } });
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
