@@ -1,8 +1,6 @@
 // src/app/about/page.tsx — v2: professional team cards, no team.png
 import Image from 'next/image';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 
 // ── Team data ────────────────────────────────────────────
 const TEAM_APEX = [
@@ -86,7 +84,6 @@ function SectionHeading({ title }: { title: string }) {
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar/>
       <div className="pt-16">
 
         {/* Hero */}
@@ -268,7 +265,6 @@ export default function AboutPage() {
         </section>
 
       </div>
-      <Footer/>
     </div>
   );
 }

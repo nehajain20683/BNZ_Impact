@@ -1,8 +1,6 @@
 'use client';
 // src/app/csr/page.tsx
 import { useState } from 'react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { Building2, FileBarChart, Award, Leaf } from 'lucide-react';
 
 const CSR_BENEFITS = [
@@ -30,7 +28,6 @@ export default function CSRPage() {
 
   return (
     <div className="min-h-screen bg-[#fafdf7]">
-      <Navbar />
       <div className="pt-24 pb-16">
         <div className="max-w-6xl mx-auto px-4">
           {/* Hero */}
@@ -135,7 +132,6 @@ export default function CSRPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

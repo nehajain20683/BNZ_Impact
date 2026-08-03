@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle, Download, LayoutDashboard, Share2, MessageCircle, Copy, Mail } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
 import { formatCurrency, BRAND, NATURE_IMAGES } from '@/lib/utils';
 
 function SuccessContent() {
@@ -58,7 +57,6 @@ function SuccessContent() {
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
       <div className="pt-20 pb-16">
         <div className="max-w-lg mx-auto px-4">
 

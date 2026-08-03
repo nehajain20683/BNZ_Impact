@@ -1,0 +1,4 @@
+# The fix is simple:
+# Remove <Navbar /> and <Footer /> from src/app/page.tsx
+# They are already added by ClientLayout in layout.tsx
+# page.tsx should only contain the page CONTENT, not the layout shell

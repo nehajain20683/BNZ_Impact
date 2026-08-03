@@ -1,9 +1,6 @@
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 export default function RefundPolicy() {
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar/>
       <div className="pt-16 max-w-3xl mx-auto px-4 py-16">
         <h1 className="font-display text-4xl text-forest-950 mb-2">Refund Policy</h1>
         <p className="text-sage-400 text-sm mb-10">Last updated: June 2026</p>
@@ -20,7 +17,6 @@ export default function RefundPolicy() {
           </div>
         ))}
       </div>
-      <Footer/>
     </div>
   );
 }

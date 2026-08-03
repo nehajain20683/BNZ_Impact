@@ -1,6 +1,4 @@
 // src/app/impact/page.tsx — with real plantation sites
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import Image from 'next/image';
 import prisma from '@/lib/prisma';
 import { formatCurrency, NATURE_IMAGES } from '@/lib/utils';
@@ -59,8 +57,6 @@ export default async function ImpactPage() {
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
-
       {/* Hero */}
       <div className="relative h-64 mt-16">
         <Image src={NATURE_IMAGES.aerial} alt="Forest" fill className="object-cover"/>
@@ -208,7 +204,6 @@ export default async function ImpactPage() {
           </div>
         )}
       </div>
-      <Footer />
     </div>
   );
 }

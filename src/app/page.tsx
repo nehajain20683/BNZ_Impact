@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Leaf, Globe, Shield, FileText, TreePine } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, BRAND, NATURE_IMAGES, WHY_PLANT_IMAGES } from '@/lib/utils';
 
 const STATS = [
@@ -32,8 +30,6 @@ const TESTIMONIALS = [
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
-
       {/* ══════════ HERO ══════════ */}
       <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
         {/* Real tree photograph as background */}
@@ -343,8 +339,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }

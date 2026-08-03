@@ -3,8 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, DEDICATION_TYPES, formatCurrency, BRAND, NATURE_IMAGES } from '@/lib/utils';
 import { Shield, FileText, TreePine, Minus, Plus } from 'lucide-react';
 
@@ -122,8 +120,6 @@ function DonateForm() {
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
-
       {/* Page header with photo */}
       <div className="relative h-40 mt-16">
         <Image src={NATURE_IMAGES.tree1} alt="Tree" fill className="object-cover"/>
@@ -367,7 +363,6 @@ function DonateForm() {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

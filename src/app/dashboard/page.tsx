@@ -5,8 +5,6 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import { Download, MapPin, TreePine } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function DashboardPage() {
@@ -33,7 +31,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
       <div className="pt-24 pb-16">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-10">
@@ -129,7 +126,6 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

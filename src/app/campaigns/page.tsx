@@ -4,8 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, NATURE_IMAGES } from '@/lib/utils';
 
 // Default package per campaign
@@ -70,7 +68,6 @@ function CampaignCard({ c }: { c: typeof CAMPAIGNS[0] }) {
 export default function CampaignsPage() {
   return (
     <div className="min-h-screen bg-cream-50">
-      <Navbar />
       <div className="relative h-64 mt-16">
         <Image src={NATURE_IMAGES.aerial} alt="Forest canopy" fill className="object-cover"/>
         <div className="absolute inset-0 bg-sage-900/70"/>
@@ -114,7 +111,6 @@ export default function CampaignsPage() {
           </Link>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }
