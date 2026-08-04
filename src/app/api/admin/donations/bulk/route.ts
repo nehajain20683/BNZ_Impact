@@ -2,72 +2,68 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getActiveOrgId } from '@/lib/get-active-org';
+import { resolveTenantFromRequest } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
+
+async function requireAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role))
+    throw new Error('Unauthorized');
+  return session.user as any;
+}
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const actor = session.user as any;
+    const actor  = await requireAdmin();
+    const orgId  = await getActiveOrgId();
+    const org    = await resolveTenantFromRequest(req);
+    const { rows } = await req.json();
 
-    const { rows } = await req.json(); // array of donation rows from CSV
-    if (!Array.isArray(rows) || rows.length === 0)
-      return NextResponse.json({ error: 'No rows provided' }, { status: 400 });
+    if (!rows?.length) return NextResponse.json({ error: 'No rows provided' }, { status: 400 });
 
-    // Find default campaign
-    const campaigns = await prisma.campaign.findMany();
-    const campaignMap = Object.fromEntries(campaigns.map(c => [c.slug.toLowerCase(), c.id]));
+    const campaign = await prisma.campaign.findFirst({
+      where: { slug: 'individual' }
+    });
+    if (!campaign) return NextResponse.json({ error: 'Default campaign not found' }, { status: 404 });
 
-    let created = 0, skipped = 0, errors: string[] = [];
+    let created = 0;
+    const errors: string[] = [];
 
     for (const row of rows) {
       try {
-        const name   = (row['Donor Name'] || row['Name'] || '').trim();
-        const email  = (row['Email'] || '').trim().toLowerCase();
-        const mobile = (row['Mobile'] || row['Phone'] || '').trim();
-        const trees  = parseInt(row['Trees'] || row['Number of Trees'] || '0');
-        const amount = parseFloat(row['Amount'] || String(trees * 500));
-        const chapter= (row['Chapter'] || '').trim();
-        const dedName= (row['Dedication'] || row['Dedication Name'] || '').trim();
-        const payMode= (row['Payment Mode'] || 'CASH').trim().toUpperCase();
-        const payRef = (row['Payment Ref'] || row['Transaction ID'] || '').trim();
-        const payBank= (row['Bank'] || '').trim();
-        const campaignSlug = (row['Campaign'] || 'individual').trim().toLowerCase();
-        const pan    = (row['PAN'] || '').trim();
-
-        if (!name || !trees) { skipped++; continue; }
-
-        const campaignId = campaignMap[campaignSlug] || campaigns[0]?.id;
-        if (!campaignId) { errors.push(`No campaign for row: ${name}`); continue; }
-
-        const count = await prisma.donation.count();
-        const refId = `#JITO-${String(count + 1).padStart(5, '0')}`;
-        const receiptNumber = `JGL${Date.now().toString().slice(-10)}${created}`;
+        if (!row.donorName || !row.amount) { errors.push(`Row missing name/amount`); continue; }
+        const count         = await prisma.donation.count({ where: { orgId } });
+        const refId         = `#${org.donationRefPrefix || 'JGL'}-${String(count + 1).padStart(5, '0')}`;
+        const receiptNumber = `${org.donationRefPrefix || 'JGL'}${Date.now().toString().slice(-10)}`;
 
         await prisma.donation.create({
           data: {
-            campaignId, donorName: name, donorEmail: email,
-            donorMobile: mobile || undefined,
-            donorPan: pan || undefined,
-            donorChapter: chapter || undefined,
-            dedicationName: dedName || undefined,
-            numberOfTrees: trees, amount,
-            paymentStatus: 'COMPLETED',
-            paymentMode: payMode,
-            paymentBank: payBank || undefined,
-            paymentGatewayId: payRef || undefined,
-            receiptNumber, refId,
-            createdById: actor.id,
-          },
+            campaignId:      campaign.id,
+            orgId,
+            donorName:       row.donorName,
+            certificateName: row.certificateName || row.donorName,
+            donorEmail:      row.donorEmail      || '',
+            donorMobile:     row.donorMobile     || undefined,
+            donorPan:        row.donorPan        || undefined,
+            donorChapter:    row.donorChapter    || undefined,
+            dedicationName:  row.dedicationName  || undefined,
+            numberOfTrees:   parseInt(row.numberOfTrees) || 11,
+            amount:          parseFloat(row.amount),
+            paymentStatus:   'COMPLETED',
+            paymentMode:     row.paymentMode     || 'CASH',
+            refId,
+            receiptNumber,
+            createdById:     actor.id,
+          } as any,
         });
         created++;
       } catch (e: any) {
-        errors.push(`Row error: ${e.message}`);
+        errors.push(`Row ${row.donorName}: ${e.message}`);
       }
     }
 
-    return NextResponse.json({ success: true, created, skipped, errors });
+    return NextResponse.json({ success: true, created, errors });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

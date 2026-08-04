@@ -1,156 +1,156 @@
-// src/app/admin/farmers/page.tsx
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+'use client';
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Users, Search, Filter, TreePine, MapPin, FileText } from 'lucide-react';
 
-const STATUS_COLORS: Record<string, string> = {
-  REGISTERED:           'bg-blue-100 text-blue-700',
-  DOCUMENTS_PENDING:    'bg-amber-100 text-amber-700',
-  DOCUMENTS_VERIFIED:   'bg-teal-100 text-teal-700',
-  INSPECTION_PENDING:   'bg-orange-100 text-orange-700',
-  INSPECTION_COMPLETED: 'bg-cyan-100 text-cyan-700',
-  APPROVED:             'bg-green-100 text-green-700',
-  ACTIVE:               'bg-emerald-100 text-emerald-700',
-  SUSPENDED:            'bg-red-100 text-red-700',
+const STATUS_COLORS: Record<string,string> = {
+  REGISTERED:        'bg-blue-100 text-blue-700',
+  DOCUMENTS_PENDING: 'bg-amber-100 text-amber-700',
+  DOCUMENTS_SUBMITTED:'bg-purple-100 text-purple-700',
+  VERIFIED:          'bg-green-100 text-green-700',
+  APPROVED:          'bg-emerald-100 text-emerald-700',
+  REJECTED:          'bg-red-100 text-red-700',
 };
 
-interface PageProps { searchParams: Record<string, string | undefined> }
+const STATUSES = ['REGISTERED','DOCUMENTS_PENDING','DOCUMENTS_SUBMITTED','VERIFIED','APPROVED','REJECTED'];
 
-export default async function AdminFarmersPage({ searchParams }: PageProps) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== 'ADMIN') redirect('/');
+export default function AdminFarmersPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [farmers, setFarmers]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
-  const status = searchParams.status;
-  const search = searchParams.search;
-  const where: any = {};
-  if (status) where.status = status;
-  if (search) where.OR = [
-    { fullName: { contains: search, mode: 'insensitive' } },
-    { mobile: { contains: search } },
-  ];
+  const role = (session?.user as any)?.role;
 
-  const [farmers, totalFarmers, totalLand, statusCounts] = await Promise.all([
-    prisma.farmer.findMany({
-      where,
-      include: {
-        lands:  { select: { id: true, areaAcres: true, verified: true } },
-        _count: { select: { lands: true, plantations: true, documents: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    }),
-    prisma.farmer.count(),
-    prisma.land.aggregate({ _sum: { areaAcres: true } }),
-    prisma.farmer.groupBy({ by: ['status'], _count: true }),
-  ]);
+  useEffect(() => {
+    if (status === 'unauthenticated') { router.push('/auth/login'); return; }
+    if (status === 'loading') return;
+    if (!['ADMIN','SUPER_ADMIN'].includes(role)) { router.push('/'); return; }
+    load();
+  }, [status, role]);
+
+  async function load(s = search, fs = filterStatus) {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (s)  params.set('search', s);
+    if (fs) params.set('status', fs);
+    const res  = await fetch(`/api/admin/farmers?${params}`);
+    const data = await res.json();
+    setFarmers(data.farmers || []);
+    setLoading(false);
+  }
+
+  function handleSearch(val: string) {
+    setSearch(val);
+    clearTimeout((window as any)._farmerSearch);
+    (window as any)._farmerSearch = setTimeout(() => load(val, filterStatus), 400);
+  }
+
+  function handleFilter(val: string) {
+    setFilterStatus(val);
+    load(search, val);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-sage-800 text-white px-6 py-4 flex items-center justify-between">
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-sage-400 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
-          <span className="font-display text-lg">Farmer Management</span>
+          <Users className="w-5 h-5 text-sage-600"/>
+          <div>
+            <h1 className="font-bold text-gray-900">Land Owner Registry</h1>
+            <p className="text-gray-400 text-xs">{farmers.length} registered land owners</p>
+          </div>
         </div>
-        <Link href="/admin" className="text-sage-400 hover:text-white text-sm">← Admin</Link>
+        <Link href="/farmer/register"
+          className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
+          + Register Land Owner
+        </Link>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Farmers',  value: totalFarmers },
-            { label: 'Total Land',     value: `${(totalLand._sum.areaAcres || 0).toFixed(1)} ac` },
-            { label: 'Approved',       value: statusCounts.find(s => s.status === 'APPROVED')?._count || 0 },
-            { label: 'Pending Review', value: statusCounts.find(s => s.status === 'DOCUMENTS_PENDING')?._count || 0 },
-          ].map(s => (
-            <div key={s.label} className="bg-white border rounded-xl p-4">
-              <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-              <div className="text-gray-500 text-sm">{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Status filter tabs */}
-        <div className="flex flex-wrap gap-2 mb-5">
-          <Link href="/admin/farmers" className={`px-3 py-1.5 rounded-full text-xs font-semibold ${!status ? 'bg-sage-700 text-white' : 'bg-white border text-gray-600'}`}>
-            All ({totalFarmers})
-          </Link>
-          {statusCounts.map(sc => (
-            <Link key={sc.status} href={`/admin/farmers?status=${sc.status}`}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold ${status === sc.status ? 'bg-sage-700 text-white' : `${STATUS_COLORS[sc.status] || 'bg-white border text-gray-600'}`}`}>
-              {sc.status.replace(/_/g,' ')} ({sc._count})
-            </Link>
-          ))}
-        </div>
-
-        {/* Search */}
-        <form className="flex gap-3 mb-6">
-          <input name="search" defaultValue={search} placeholder="Search by name or mobile..."
-            className="flex-1 border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400"/>
-          {status && <input type="hidden" name="status" value={status}/>}
-          <button type="submit" className="bg-sage-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Search</button>
-        </form>
-
-        {/* Farmers table */}
-        <div className="bg-white border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <tr>
-                  {['Farmer','Mobile','District','Land','Status','Documents','Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {farmers.map(f => (
-                  <tr key={f.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{f.fullName}</div>
-                      <div className="text-gray-400 text-xs">{f.village || '—'}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{f.mobile}</td>
-                    <td className="px-4 py-3 text-gray-600">{f.district || '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400"/>
-                        <span>{f._count.lands} parcel{f._count.lands !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="text-gray-400 text-xs">
-                        {f.lands.reduce((s, l) => s + (l.areaAcres || 0), 0).toFixed(1)} ac total
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[f.status] || 'bg-gray-100 text-gray-700'}`}>
-                        {f.status.replace(/_/g,' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${f._count.documents > 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {f._count.documents} docs
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Link href={`/admin/farmers/${f.id}`}
-                          className="text-xs text-sage-600 hover:text-sage-800 font-medium hover:underline">
-                          View
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {farmers.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">No farmers found</td></tr>
-                )}
-              </tbody>
-            </table>
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
+        {/* Filters */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+            <input value={search} onChange={e => handleSearch(e.target.value)}
+              placeholder="Search by name, mobile, farmer ID…"
+              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white"/>
           </div>
+          <select value={filterStatus} onChange={e => handleFilter(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white">
+            <option value="">All Statuses</option>
+            {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+          </select>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                {['Farmer ID','Name','Mobile','Location','Lands','Status','Registered','Actions'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">Loading…</td></tr>
+              ) : farmers.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-12">
+                  <TreePine className="w-8 h-8 text-gray-200 mx-auto mb-2"/>
+                  <p className="text-gray-400">No land owners registered yet</p>
+                  <Link href="/farmer/register" className="text-sage-600 text-sm hover:underline mt-1 inline-block">
+                    Register first land owner →
+                  </Link>
+                </td></tr>
+              ) : farmers.map(f => (
+                <tr key={f.id} className="border-t hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-sage-700 font-semibold">
+                      {f.farmerIdGenerated || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-gray-900">{f.fullName}</td>
+                  <td className="px-4 py-3 text-gray-600">{f.mobile}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">
+                    {[f.village, f.district, f.state].filter(Boolean).join(', ') || '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1 text-gray-600">
+                      <MapPin className="w-3 h-3"/>
+                      {f.lands?.length || 0} parcel{f.lands?.length !== 1 ? 's' : ''}
+                    </div>
+                    {f.lands?.map((l: any) => (
+                      <div key={l.id} className="text-[10px] text-gray-400">{l.areaAcres}ac · {l.surveyGutNumber}</div>
+                    ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[f.status] || 'bg-gray-100 text-gray-600'}`}>
+                      {f.status?.replace(/_/g,' ')}
+                    </span>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      Step {f.registrationStep || 0}/8
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">
+                    {new Date(f.createdAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/farmers/${f.id}`}
+                      className="flex items-center gap-1 text-xs text-sage-600 border border-sage-200 bg-sage-50 hover:bg-sage-100 px-2 py-1 rounded-lg">
+                      <FileText className="w-3 h-3"/> View
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

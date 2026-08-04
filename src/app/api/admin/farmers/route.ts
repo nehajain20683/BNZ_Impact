@@ -2,69 +2,53 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
 
-export async function GET(req: Request) {
+async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== 'ADMIN')
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const params   = new URL(req.url).searchParams;
-  const status   = params.get('status');
-  const district = params.get('district');
-  const search   = params.get('search');
-  const page     = parseInt(params.get('page') || '1');
-  const limit    = 20;
-
-  const where: any = {};
-  if (status)   where.status   = status;
-  if (district) where.district = district;
-  if (search)   where.OR = [
-    { fullName: { contains: search, mode: 'insensitive' } },
-    { mobile:   { contains: search } },
-    { aadhaarNumber: { contains: search } },
-  ];
-
-  const [farmers, total] = await Promise.all([
-    prisma.farmer.findMany({
-      where,
-      include: {
-        lands:       { select: { id: true, areaAcres: true, district: true, verified: true } },
-        documents:   { select: { docType: true, status: true } },
-        inspections: { select: { status: true, inspectedAt: true } },
-        _count:      { select: { lands: true, plantations: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip:  (page - 1) * limit,
-      take:  limit,
-    }),
-    prisma.farmer.count({ where }),
-  ]);
-
-  return NextResponse.json({ farmers, total, page, pages: Math.ceil(total / limit) });
+  if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role))
+    throw new Error('Unauthorized');
+  return session.user as any;
 }
 
-// PATCH — approve / update farmer status
-export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== 'ADMIN')
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function GET(req: Request) {
+  try {
+    await requireAdmin();
+    const orgId  = await getActiveOrgId();
+    const params = new URL(req.url).searchParams;
+    const search = params.get('search') || '';
+    const status = params.get('status') || '';
 
-  const { farmerId, status, assignedOfficerId } = await req.json();
-  const farmer = await prisma.farmer.update({
-    where: { id: farmerId },
-    data:  { status: status as any, assignedOfficerId },
-  });
+    const where: any = { orgId };
+    if (search) where.OR = [
+      { fullName: { contains: search, mode: 'insensitive' } },
+      { mobile:   { contains: search } },
+      { farmerIdGenerated: { contains: search, mode: 'insensitive' } },
+    ];
+    if (status) where.status = status;
 
-  await prisma.auditLog.create({
-    data: {
-      farmerId,
-      actorId:   (session.user as any).id,
-      actorRole: 'ADMIN',
-      action:    'STATUS_CHANGED',
-      details:   { newStatus: status },
-    },
-  });
+    const farmers = await prisma.farmer.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true, fullName: true, mobile: true, village: true,
+        district: true, state: true, status: true,
+        farmerIdGenerated: true, gisId: true,
+        registrationStep: true, createdAt: true,
+        lands: { select: { id: true, areaAcres: true, surveyGutNumber: true } },
+      },
+    });
 
-  return NextResponse.json({ success: true, farmer });
+    return NextResponse.json({ farmers });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 });
+  }
+}
+// DEBUG - remove after fix
+export async function POST(req: Request) {
+  const orgId = await getActiveOrgId().catch(() => 'error');
+  const count = await prisma.farmer.count({ where: { orgId } }).catch(() => -1);
+  return NextResponse.json({ debug: true, orgId, farmerCount: count });
 }
