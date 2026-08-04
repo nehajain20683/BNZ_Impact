@@ -278,7 +278,7 @@ export default function PlantationSitesPage() {
           <Link href="/admin" className="text-forest-400 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
           <div>
             <div className="font-display text-lg">Plantation Sites</div>
-            <div className="text-forest-400 text-xs">JITO Green Legacy — Master Project</div>
+            <div className="text-forest-400 text-xs">Plantation Projects</div>
           </div>
         </div>
         <button onClick={()=>setShowCreate(true)} className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white font-bold px-4 py-2 rounded-xl text-sm">
