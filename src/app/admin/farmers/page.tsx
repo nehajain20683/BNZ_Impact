@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Search, Filter, TreePine, MapPin, FileText } from 'lucide-react';
+import { Users, Search, TreePine, MapPin, FileText } from 'lucide-react';
+import PageHeader from '@/components/admin/PageHeader';
 
 const STATUS_COLORS: Record<string,string> = {
   REGISTERED:        'bg-blue-100 text-blue-700',
@@ -57,20 +58,12 @@ export default function AdminFarmersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="w-5 h-5 text-sage-600"/>
-          <div>
-            <h1 className="font-bold text-gray-900">Land Owner Registry</h1>
-            <p className="text-gray-400 text-xs">{farmers.length} registered land owners</p>
-          </div>
-        </div>
+      <PageHeader title="Land Owner Registry" subtitle={`${farmers.length} registered land owners`}>
         <Link href="/farmer/register"
           className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
           + Register Land Owner
         </Link>
-      </div>
+      </PageHeader>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
         {/* Filters */}

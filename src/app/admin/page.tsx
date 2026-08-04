@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { TreePine, Users, DollarSign, Leaf, MapPin, Activity, BarChart2, Shield } from 'lucide-react';
-import AdminSignOut from '@/components/admin/AdminSignOut';
-import OrgSwitcher from '@/components/admin/OrgSwitcher';
+import { TreePine, Users, DollarSign, Leaf, MapPin, Activity, BarChart2 } from 'lucide-react';
+
+
 
 const PHASE_COLORS: Record<string,string> = {
   PLANNING:'bg-gray-100 text-gray-600', LAND_PREPARATION:'bg-blue-100 text-blue-700',

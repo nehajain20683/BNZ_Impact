@@ -11,6 +11,7 @@ import {
   Edit2, Trash2, CheckCircle, Mail, Phone,
   Copy, Eye, EyeOff
 } from 'lucide-react';
+import PageHeader from '@/components/admin/PageHeader';
 
 const ROLES = ['DONOR', 'ADMIN', 'SUPER_ADMIN'];
 const ROLE_COLOR: Record<string,string> = {
@@ -226,20 +227,12 @@ export default function AdminUsersPage() {
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={() => { load(); showToast('User created ✓'); }}/>}
       {editUser  && <EditRoleModal user={editUser} onClose={() => setEditUser(null)} onSave={() => { setEditUser(null); load(); showToast('Role updated ✓'); }}/>}
 
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="w-5 h-5 text-sage-600"/>
-          <div>
-            <h1 className="font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-400 text-xs">{users.length} users in this organisation</p>
-          </div>
-        </div>
+      <PageHeader title="User Management" subtitle={`${users.length} users in this organisation`}>
         <button onClick={() => setShowInvite(true)}
           className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
           <Plus className="w-4 h-4"/> Add User
         </button>
-      </div>
+      </PageHeader>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 

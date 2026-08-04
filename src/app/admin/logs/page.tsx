@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Activity, Clock, User } from 'lucide-react';
+import PageHeader from '@/components/admin/PageHeader';
 
 export default function AdminLogsPage() {
   const { data: session, status } = useSession();
@@ -23,13 +24,7 @@ export default function AdminLogsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b px-6 py-4 flex items-center gap-3">
-        <Activity className="w-5 h-5 text-amber-600"/>
-        <div>
-          <h1 className="font-bold text-gray-900">Activity Logs</h1>
-          <p className="text-gray-400 text-xs">All actions in this organisation</p>
-        </div>
-      </div>
+      <PageHeader title="Activity Logs" subtitle="All actions in this organisation"/>
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">

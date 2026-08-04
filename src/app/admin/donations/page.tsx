@@ -5,8 +5,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DollarSign, Plus, Search, Download, Upload, Eye, Edit2,
-         MessageCircle, Mail, Trash2, X, CheckCircle, Filter } from 'lucide-react';
+import { DollarSign, Plus, Search, Download, Trash2, X, CheckCircle } from 'lucide-react';
+import PageHeader from '@/components/admin/PageHeader';
 
 const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
 
@@ -206,28 +206,16 @@ export default function AdminDonationsPage() {
         />
       )}
 
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <DollarSign className="w-5 h-5 text-green-600"/>
-          <div>
-            <h1 className="font-bold text-gray-900">Donations</h1>
-            <p className="text-gray-400 text-xs">
-              {total} total · ₹{totalAmount.toLocaleString('en-IN')} collected
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => window.open('/api/admin/export-csv?type=donations','_blank')}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs hover:bg-gray-50">
-            <Download className="w-3.5 h-3.5"/> Export CSV
-          </button>
-          <button onClick={() => setShowManual(true)}
-            className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
-            <Plus className="w-4 h-4"/> Add Entry
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Donations" subtitle={`${total} total · ₹${totalAmount.toLocaleString('en-IN')} collected`}>
+        <button onClick={() => window.open('/api/admin/export-csv?type=donations','_blank')}
+          className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs hover:bg-gray-50">
+          <Download className="w-3.5 h-3.5"/> Export CSV
+        </button>
+        <button onClick={() => setShowManual(true)}
+          className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
+          <Plus className="w-4 h-4"/> Add Entry
+        </button>
+      </PageHeader>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
         {/* Org bank details */}
