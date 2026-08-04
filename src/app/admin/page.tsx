@@ -83,25 +83,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-forest-950 text-white px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <TreePine className="w-6 h-6 text-forest-400"/>
-          <div>
-            <div className="font-display text-lg">{activeOrg?.name || 'Admin Panel'}</div>
-            <div className="text-forest-400 text-xs">{isSuperAdmin ? 'Viewing as Super Admin' : 'Tenant Admin'}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {isSuperAdmin && <OrgSwitcher/>}
-          {isSuperAdmin && (
-            <Link href="/sadmin" className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-              <Shield className="w-3 h-3"/> BNZ Control Panel
-            </Link>
-          )}
-          <Link href="/" className="text-forest-400 hover:text-white text-sm">← Site</Link>
-          <AdminSignOut/>
-        </div>
-      </div>
+
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {isSuperAdmin && activeOrg && (

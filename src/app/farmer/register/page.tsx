@@ -1,879 +1,577 @@
 'use client';
-// src/app/farmer/register/page.tsx — Land Owner Registration (bilingual, multi-step)
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { CheckCircle, ChevronLeft, ChevronRight, Leaf, MapPin, User,
-         Building2, TreePine, FileText, Shield, Users, Save, AlertCircle } from 'lucide-react';
+// src/app/farmer/register/page.tsx
+// Bilingual (English/Hindi) 8-step land owner registration
+// Fully tenant-aware: branding, orgId, farmer ID prefix all from org config
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
+import {
+  Shield, User, Landmark, MapPin, Users,
+  TreePine, UserCheck, FileCheck, ChevronRight,
+  ChevronLeft, CheckCircle, Loader2
+} from 'lucide-react';
 
-// ── Types ────────────────────────────────────────────────
-type StepId = 1|2|3|4|5|6|7|8;
-interface StepConfig { id: StepId; en: string; hi: string; icon: any }
+// ── Types ──────────────────────────────────────────────────────
+type Step = 1|2|3|4|5|6|7|8;
 
-// ── Constants ────────────────────────────────────────────
-const STEPS: StepConfig[] = [
-  { id:1, en:'Verify Mobile',      hi:'मोबाइल सत्यापन',    icon: Shield },
-  { id:2, en:'Personal Details',   hi:'व्यक्तिगत विवरण',   icon: User },
-  { id:3, en:'Bank Details',       hi:'बैंक विवरण',         icon: Building2 },
-  { id:4, en:'Land Details',       hi:'भूमि विवरण',         icon: MapPin },
-  { id:5, en:'Ownership',          hi:'स्वामित्व',           icon: Users },
-  { id:6, en:'Plantation',         hi:'रोपण प्राथमिकता',   icon: TreePine },
-  { id:7, en:'Nominee',            hi:'नामांकित व्यक्ति',   icon: FileText },
-  { id:8, en:'Consent',            hi:'सहमति',               icon: Leaf },
+const STEPS = [
+  { step:1, en:'Verify Mobile',    hi:'मोबाइल सत्यापन',  icon: Shield },
+  { step:2, en:'Personal Details', hi:'व्यक्तिगत विवरण',  icon: User },
+  { step:3, en:'Bank Details',     hi:'बैंक विवरण',       icon: Landmark },
+  { step:4, en:'Land Details',     hi:'भूमि विवरण',       icon: MapPin },
+  { step:5, en:'Ownership',        hi:'स्वामित्व',        icon: Users },
+  { step:6, en:'Plantation',       hi:'वृक्षारोपण',       icon: TreePine },
+  { step:7, en:'Nominee',          hi:'नामांकित व्यक्ति', icon: UserCheck },
+  { step:8, en:'Consent',          hi:'सहमति',            icon: FileCheck },
 ];
 
-const SPECIES = ['Neem / नीम','Mango / आम','Bamboo / बांस','Peepal / पीपल',
-                 'Sagwan / सागवान','Fruit Trees / फलदार वृक्ष','Mixed Native Species / मिश्रित देशी प्रजातियाँ','Others / अन्य'];
-const LAND_TYPES = ['AGRICULTURAL','PRIVATE','WASTELAND','AGROFORESTRY','ORCHARD','COMMUNITY'];
-const PLANTATION_TYPES = ['AGROFORESTRY','MIYAWAKI','NATIVE_FOREST','FRUIT_TREES','BAMBOO','MIXED_SPECIES'];
-const INDIAN_STATES = ['Maharashtra','Gujarat','Rajasthan','Madhya Pradesh','Uttar Pradesh',
-  'Karnataka','Tamil Nadu','Kerala','Andhra Pradesh','Telangana','West Bengal','Bihar','Odisha'];
+const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0 bg-white";
+const STATES = ['Maharashtra','Gujarat','Rajasthan','Madhya Pradesh','Karnataka','Tamil Nadu','Uttar Pradesh','Goa'];
 
-// ── Styles ───────────────────────────────────────────────
-const inp = "w-full border border-sage-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white transition-colors";
-const inpErr = "w-full border-2 border-red-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-red-50 transition-colors";
-const lbl = "block text-sm font-semibold text-sage-800 mb-1";
-
-function BiLabel({ en, hi, required }: { en: string; hi: string; required?: boolean }) {
+function BiLabel({ en, hi, req }: { en: string; hi: string; req?: boolean }) {
   return (
-    <label className={lbl}>
-      {en}{required && <span className="text-red-500 ml-0.5">*</span>}
-      <span className="text-sage-400 font-normal ml-1.5 text-xs">/ {hi}</span>
+    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+      {en}{req && <span className="text-red-500 ml-0.5">*</span>}
+      <span className="text-gray-400 font-normal ml-1.5 text-xs">/ {hi}</span>
     </label>
   );
 }
 
-function FieldError({ msg }: { msg?: string }) {
-  if (!msg) return null;
-  return <p className="text-red-600 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0"/>{msg}</p>;
-}
-
-// ── Main Component ───────────────────────────────────────
-export default function LandOwnerRegisterPage() {
+export default function FarmerRegisterPage() {
+  const org    = useOrgConfig();
   const router = useRouter();
-  const [step, setStep]       = useState<StepId>(1);
-  const [completed, setCompleted] = useState<Set<StepId>>(new Set());
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors]   = useState<Record<string, string>>({});
-  const [toast, setToast]     = useState('');
-  const [farmerId, setFarmerId] = useState('');
-  const [landId, setLandId]   = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [devOtp, setDevOtp]   = useState('');
-  const firstErrRef           = useRef<HTMLDivElement>(null);
+  const params = useSearchParams();
 
-  // ── Form state ───────────────────────────────────────
-  const [mobile, setMobile]   = useState('');
-  const [otp, setOtp]         = useState('');
-  const [personal, setPersonal] = useState({
-    fullName:'', fatherName:'', dateOfBirth:'', gender:'',
-    aadhaarNumber:'', panNumber:'', email:'', alternateMobile:'',
-    village:'', taluka:'', district:'', state:'', pincode:'',
-    occupation:'', isFarmer: false, farmingExperience:'', password:'', confirmPw:'',
+  const [step, setStep]           = useState<Step>(1);
+  const [farmerId, setFarmerId]   = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [toast, setToast]         = useState('');
+  const [errors, setErrors]       = useState<Record<string,string>>({});
+
+  // Step 1 — OTP
+  const [mobile, setMobile]       = useState('');
+  const [otp, setOtp]             = useState('');
+  const [otpSent, setOtpSent]     = useState(false);
+
+  // Step 2 — Personal
+  const [personal, setPersonal]   = useState({
+    fullName:'', dob:'', gender:'', aadhaar:'', pan:'',
+    fatherName:'', occupation:'', alternateMobile:'', email:'',
   });
-  const [bank, setBank] = useState({ bankAccountName:'', bankName:'', accountNumber:'', ifscCode:'' });
-  const [land, setLand] = useState({
+
+  // Step 3 — Bank
+  const [bank, setBank]           = useState({
+    bankName:'', accountNumber:'', ifscCode:'', bankAccountName:'',
+  });
+
+  // Step 4 — Land
+  const [land, setLand]           = useState({
     surveyGutNumber:'', khataNumber:'', areaAcres:'', areaOfferedAcres:'',
-    areaOfferedUnit:'acres', landType:'', gpsLatitude:'', gpsLongitude:'',
-    village:'', taluka:'', district:'', state:'', pincode:'',
-    waterAvailability:'', securityStatus:'',
+    landType:'', village:'', taluka:'', district:'', state:'Maharashtra', pincode:'',
+    gpsLatitude:'', gpsLongitude:'', waterAvailability:'', securityStatus:'',
   });
+
+  // Step 5 — Ownership
   const [ownership, setOwnership] = useState({ ownershipType:'sole', jointOwnerCount:'' });
-  const [plantation, setPlantation] = useState({
-    plantationPreference:'', speciesPreference:[] as string[],
-    speciesOther:'', targetTreeCount:'', plantationStartDate:'',
-  });
-  const [nominee, setNominee] = useState({
+
+  // Step 6 — Plantation
+  const [plantation, setPlantation] = useState({ plantationPreference:'', speciesOther:'' });
+  const [species, setSpecies]       = useState<string[]>([]);
+
+  // Step 7 — Nominee
+  const [nominee, setNominee]     = useState({
     nomineeName:'', nomineeRelation:'', nomineeDob:'',
     nomineeMobile:'', nomineeAddress:'', nomineeAadhaar:'',
   });
-  const [consent, setConsent] = useState(false);
 
-  // Autosave draft every 30s
-  useEffect(() => {
-    const id = setInterval(() => {
-      const draft = { step, personal, bank, land, ownership, plantation, nominee };
-      localStorage.setItem('lo_draft', JSON.stringify(draft));
-    }, 30000);
-    return () => clearInterval(id);
-  }, [step, personal, bank, land, ownership, plantation, nominee]);
+  // Step 8 — Consent
+  const [consent, setConsent]     = useState(false);
 
-  // Restore draft on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('lo_draft');
-    if (saved) {
-      try {
-        const d = JSON.parse(saved);
-        if (d.personal?.fullName) setPersonal(p => ({ ...p, ...d.personal }));
-        if (d.bank?.bankName) setBank(b => ({ ...b, ...d.bank }));
-        if (d.land?.areaAcres) setLand(l => ({ ...l, ...d.land }));
-        if (d.ownership) setOwnership(d.ownership);
-        if (d.plantation) setPlantation(d.plantation);
-        if (d.nominee?.nomineeName) setNominee(d.nominee);
-      } catch {}
-    }
-    const id = localStorage.getItem('farmerId');
-    if (id) setFarmerId(id);
-  }, []);
+  const pct = Math.round((step / 8) * 100);
+  const primaryColor = org.primaryColor || '#2d5a1b';
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
-  }
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
-  function setErr(field: string, msg: string) {
-    setErrors(e => ({ ...e, [field]: msg }));
-  }
-  function clearErr(field: string) {
-    setErrors(e => { const n = {...e}; delete n[field]; return n; });
-  }
-
-  // ── GPS + Reverse Geocoding ──────────────────────────
-  async function captureGPS() {
-    if (!navigator.geolocation) { setErr('gps', 'GPS not available on this device.'); return; }
-    navigator.geolocation.getCurrentPosition(async pos => {
-      const lat = pos.coords.latitude.toFixed(6);
-      const lng = pos.coords.longitude.toFixed(6);
-      setLand(l => ({ ...l, gpsLatitude: lat, gpsLongitude: lng }));
-      clearErr('gps');
-      // Reverse geocode
-      try {
-        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-        const data = await res.json();
-        const addr = data.address || {};
-        setLand(l => ({
-          ...l,
-          village:  addr.village || addr.hamlet || addr.suburb || l.village,
-          taluka:   addr.county || addr.state_district || l.taluka,
-          district: addr.state_district || addr.county || l.district,
-          state:    addr.state || l.state,
-          pincode:  addr.postcode || l.pincode,
-        }));
-        showToast('GPS captured and location auto-filled');
-      } catch {
-        showToast('GPS captured — please verify location fields');
-      }
-    }, () => setErr('gps', 'Could not get GPS location. Please enter coordinates manually.'));
-  }
-
-  function toggleSpecies(s: string) {
-    setPlantation(p => ({
-      ...p,
-      speciesPreference: p.speciesPreference.includes(s)
-        ? p.speciesPreference.filter(x => x !== s)
-        : [...p.speciesPreference, s],
-    }));
-  }
-
-  // ── Validation per step ──────────────────────────────
-  function validateStep(s: StepId): boolean {
-    const errs: Record<string, string> = {};
-    if (s === 1) {
-      if (!mobile || mobile.length < 10) errs.mobile = 'Please enter a valid 10-digit mobile number.';
-      if (!otpSent) errs.otpPending = 'Please verify your mobile number first.';
-    }
-    if (s === 2) {
-      if (!personal.fullName.trim()) errs.fullName = 'Please enter your full name.';
-      if (personal.aadhaarNumber && !/^\d{12}$/.test(personal.aadhaarNumber.replace(/\s/g,'')))
-        errs.aadhaarNumber = 'Please enter a valid 12-digit Aadhaar number.';
-      if (!personal.password || personal.password.length < 8)
-        errs.password = 'Password must be at least 8 characters.';
-      if (personal.password !== personal.confirmPw)
-        errs.confirmPw = 'Passwords do not match.';
-    }
-    if (s === 4) {
-      if (!land.areaAcres || parseFloat(land.areaAcres) <= 0)
-        errs.areaAcres = 'Please enter an area greater than zero.';
-      if (land.areaOfferedAcres && parseFloat(land.areaOfferedAcres) > parseFloat(land.areaAcres || '0'))
-        errs.areaOfferedAcres = 'Area offered cannot exceed total area.';
-    }
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      setTimeout(() => firstErrRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-      return false;
-    }
-    return true;
-  }
-
-  // ── OTP ─────────────────────────────────────────────
-  async function sendOTP() {
-    if (!mobile || mobile.length < 10) { setErr('mobile','Please enter a valid 10-digit mobile number.'); return; }
-    clearErr('mobile'); setLoading(true);
-    const res = await fetch('/api/farmer/otp', {
+  // ── Step 1: Send OTP ──────────────────────────────────────────
+  async function sendOtp() {
+    if (!mobile || mobile.length < 10) { setErrors({ mobile: 'Enter valid 10-digit mobile' }); return; }
+    setLoading(true); setErrors({});
+    const res  = await fetch('/api/farmer/otp', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile: '+91' + mobile.replace(/^(\+91|91)/,'') }),
+      body: JSON.stringify({ mobile, action: 'send' }),
     });
     const data = await res.json();
     setLoading(false);
-    if (data.success) { setOtpSent(true); if (data.devOtp) setDevOtp(data.devOtp); }
-    else setErr('mobile', data.error || 'Failed to send OTP. Please try again.');
+    if (data.success) { setOtpSent(true); showToast('OTP sent to +91 ' + mobile); }
+    else setErrors({ mobile: data.error || 'Failed to send OTP' });
   }
 
-  async function verifyOTP() {
-    setLoading(true);
-    const res = await fetch('/api/farmer/otp', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile: '+91' + mobile.replace(/^(\+91|91)/,''), otp }),
+  async function verifyOtp() {
+    if (!otp || otp.length !== 6) { setErrors({ otp: 'Enter 6-digit OTP' }); return; }
+    setLoading(true); setErrors({});
+    const res  = await fetch('/api/farmer/otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile, otp, action: 'verify' }),
     });
     const data = await res.json();
     setLoading(false);
     if (data.success) {
       setFarmerId(data.farmerId);
       localStorage.setItem('farmerId', data.farmerId);
-      localStorage.setItem('farmerToken', data.token);
-      setCompleted(c => new Set([...c, 1 as StepId]));
+      localStorage.setItem('farmerMobile', `+91${mobile}`);
+      if (data.isProfileComplete) { router.push('/farmer/dashboard'); return; }
       setStep(2);
-    } else setErr('otp', data.error || 'Invalid OTP. Please check and try again.');
+    } else setErrors({ otp: data.error || 'Invalid OTP' });
   }
 
-  // ── Save each step ───────────────────────────────────
-  async function saveStep(s: StepId) {
-    if (!validateStep(s)) return;
-    if (s === 1) { await verifyOTP(); return; }
-
+  // ── Step 2-7: Save profile data ──────────────────────────────
+  async function saveStep(nextStep: Step) {
+    if (!farmerId) return;
     setLoading(true);
-    try {
-      if ([2,3,7].includes(s)) {
-        const payload: any = {
-          mobile: '+91' + mobile.replace(/^(\+91|91)/,''),
-          ...personal,
-          ...bank,
-          ...nominee,
-          registrationStep: s,
-        };
-        if (!payload.mobile && farmerId) payload.mobile = undefined;
-        const res  = await fetch('/api/farmer/register', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!data.success) { setErr('save', data.error || 'Failed to save.'); setLoading(false); return; }
-        if (data.farmerId) { setFarmerId(data.farmerId); localStorage.setItem('farmerId', data.farmerId); }
-      }
-      if ((s === 4 || (s === 5 && !landId)) && farmerId) {
-        // Step 4: create land. Step 5: only create if not already created
-        const res  = await fetch('/api/farmer/land', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            farmerId,
-            ...land,
-            ...ownership,
-            gpsLatitude:      land.gpsLatitude      ? parseFloat(land.gpsLatitude)      : undefined,
-            gpsLongitude:     land.gpsLongitude     ? parseFloat(land.gpsLongitude)     : undefined,
-            jointOwnerCount:  ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
-            areaAcres:        land.areaAcres        ? parseFloat(land.areaAcres)        : undefined,
-            areaOfferedAcres: land.areaOfferedAcres ? parseFloat(land.areaOfferedAcres) : undefined,
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) { setErr('save', data.error || 'Failed to save land.'); setLoading(false); return; }
-        if (data.landId) setLandId(data.landId);
-      } else if (s === 5 && landId && farmerId) {
-        // Step 5: update existing land with ownership details (PATCH)
-        const res  = await fetch('/api/farmer/land', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            landId,
-            ownershipType:    ownership.ownershipType,
-            jointOwnerCount:  ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) { setErr('save', data.error || 'Failed to update ownership.'); setLoading(false); return; }
-      }
-      clearErr('save');
-      setCompleted(c => new Set([...c, s]));
-      showToast('Saved successfully ✓');
-      if (s < 8) setStep((s + 1) as StepId);
-    } catch (e: any) {
-      setErr('save', 'Something went wrong. Please try again.');
-    }
-    setLoading(false);
-  }
 
-  // ── Final submit ─────────────────────────────────────
-  async function submitRegistration() {
-    if (!consent) { setErr('consent','Please accept the consent to complete registration.'); return; }
-    setLoading(true);
-    const res  = await fetch('/api/farmer/register', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile: '+91' + mobile.replace(/^(\+91|91)/,''),
-        ...personal, ...bank, ...nominee,
-        carbonConsent: true, registrationStep: 8,
-      }),
+    const payload: any = { farmerId };
+    if (step === 2) Object.assign(payload, personal);
+    if (step === 3) Object.assign(payload, bank);
+    if (step === 4) Object.assign(payload, {
+      ...land,
+      gpsLatitude:      land.gpsLatitude  ? parseFloat(land.gpsLatitude)  : undefined,
+      gpsLongitude:     land.gpsLongitude ? parseFloat(land.gpsLongitude) : undefined,
+      areaAcres:        land.areaAcres    ? parseFloat(land.areaAcres)    : undefined,
+      areaOfferedAcres: land.areaOfferedAcres ? parseFloat(land.areaOfferedAcres) : undefined,
+    });
+    if (step === 5) Object.assign(payload, {
+      ...ownership,
+      jointOwnerCount: ownership.jointOwnerCount ? parseInt(ownership.jointOwnerCount) : undefined,
+    });
+    if (step === 6) Object.assign(payload, { plantationPreference: plantation.plantationPreference || undefined, speciesPreference: species });
+    if (step === 7) Object.assign(payload, nominee);
+    payload.registrationStep = nextStep - 1;
+
+    const res  = await fetch('/api/farmer/profile', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setLoading(false);
-    if (data.success) {
-      localStorage.removeItem('lo_draft');
-      setCompleted(c => new Set([...c, 8 as StepId]));
-      router.push('/farmer/dashboard?registered=1');
-    } else setErr('consent', data.error || 'Submission failed.');
+    if (data.success || data.farmer) setStep(nextStep);
+    else showToast(data.error || 'Save failed');
   }
 
-  const totalSteps = STEPS.length;
-  const progressPct = Math.round((completed.size / totalSteps) * 100);
+  // ── Step 4: Save land separately ─────────────────────────────
+  async function saveLandAndNext() {
+    if (!land.areaAcres || parseFloat(land.areaAcres) <= 0) {
+      setErrors({ areaAcres: 'Enter a valid area' }); return;
+    }
+    setLoading(true); setErrors({});
+    // Save land parcel
+    await fetch('/api/farmer/land', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        farmerId,
+        ...land,
+        gpsLatitude:  land.gpsLatitude  ? parseFloat(land.gpsLatitude)  : undefined,
+        gpsLongitude: land.gpsLongitude ? parseFloat(land.gpsLongitude) : undefined,
+        areaAcres:    land.areaAcres    ? parseFloat(land.areaAcres)    : undefined,
+      }),
+    }).catch(() => {});
+    // Save profile step
+    await fetch('/api/farmer/profile', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmerId, registrationStep: 4 }),
+    }).catch(() => {});
+    setLoading(false);
+    setStep(5);
+  }
+
+  // ── Step 8: Complete registration ────────────────────────────
+  async function completeRegistration() {
+    if (!consent) { setErrors({ consent: 'Please accept the terms' }); return; }
+    setLoading(true);
+    await fetch('/api/farmer/profile', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmerId, registrationStep: 8, status: 'DOCUMENTS_PENDING', ...nominee }),
+    });
+    setLoading(false);
+    router.push('/farmer/dashboard?registered=1');
+  }
+
+  async function captureGPS() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      setLand(l => ({ ...l, gpsLatitude: lat, gpsLongitude: lng }));
+      try {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const addr = (await res.json()).address || {};
+        setLand(l => ({
+          ...l,
+          village:  addr.village || addr.hamlet || l.village,
+          taluka:   addr.county  || l.taluka,
+          district: addr.state_district || l.district,
+          state:    addr.state   || l.state,
+          pincode:  addr.postcode|| l.pincode,
+        }));
+        showToast('GPS captured ✓');
+      } catch {}
+    });
+  }
+
+  const focusStyle = { '--tw-ring-color': primaryColor } as any;
 
   return (
-    <div className="min-h-screen bg-sage-50">
-      {/* Toast */}
+    <div className="min-h-screen bg-gray-50">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2"
+          style={{ backgroundColor: primaryColor }}>
           <CheckCircle className="w-4 h-4"/> {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-sage-800 text-white px-4 py-4">
-        <div className="flex items-center gap-3 max-w-xl mx-auto">
-          <Leaf className="w-6 h-6 text-sage-300"/>
-          <div>
-            <div className="font-bold text-sm">JITO Green Legacy</div>
-            <div className="text-sage-300 text-xs">Land Owner Registration / भूमि स्वामी पंजीकरण</div>
-          </div>
-          {farmerId && (
-            <div className="ml-auto text-right">
-              <div className="text-sage-400 text-[10px]">Progress</div>
-              <div className="text-sage-200 text-xs font-bold">{progressPct}%</div>
+      {/* Header — tenant branded */}
+      <div className="text-white px-4 py-4 sticky top-0 z-40" style={{ backgroundColor: primaryColor }}>
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            {org.logoUrl ? (
+              <img src={org.logoUrl} alt={org.name} className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-sm">
+                {org.name.charAt(0)}
+              </div>
+            )}
+            <div>
+              <div className="font-bold text-sm">{org.name}</div>
+              <div className="text-white/70 text-[10px]">Land Owner Registration / भूमि स्वामी पंजीकरण</div>
             </div>
-          )}
+          </div>
+          <div className="text-right text-xs text-white/80">
+            <div>Progress</div>
+            <div className="font-bold text-white">{pct}%</div>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div className="max-w-xl mx-auto mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+          <div className="h-full bg-white rounded-full transition-all duration-500" style={{ width: `${pct}%` }}/>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1 bg-sage-900">
-        <div className="h-full bg-sage-400 transition-all duration-500" style={{ width: `${progressPct}%` }}/>
-      </div>
-
-      {/* Step navigation — ALL steps always clickable */}
-      <div className="bg-white border-b border-sage-100 px-3 py-2 overflow-x-auto">
-        <div className="flex gap-1 min-w-max max-w-xl mx-auto">
+      {/* Step tabs */}
+      <div className="bg-white border-b overflow-x-auto">
+        <div className="max-w-xl mx-auto flex px-2">
           {STEPS.map(s => {
-            const done = completed.has(s.id);
-            const active = s.id === step;
+            const done    = s.step < step;
+            const current = s.step === step;
             return (
-              <button key={s.id} onClick={() => setStep(s.id)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                  active ? 'bg-sage-700 text-white' :
-                  done   ? 'bg-green-100 text-green-700' :
-                           'text-sage-400 hover:text-sage-700 hover:bg-sage-50'
-                }`}>
-                {done ? <CheckCircle className="w-3 h-3"/> : <s.icon className="w-3 h-3"/>}
-                {s.en}
-              </button>
+              <div key={s.step} className={`flex-1 flex flex-col items-center py-2.5 px-1 text-center transition-colors text-[10px] font-medium border-b-2 ${
+                current ? 'border-current' : 'border-transparent'
+              } ${done ? 'text-green-600' : current ? '' : 'text-gray-300'}`}
+              style={current ? { color: primaryColor, borderColor: primaryColor } : {}}>
+                <s.icon className="w-3.5 h-3.5 mb-0.5"/>
+                <span className="hidden sm:block">{s.en}</span>
+              </div>
             );
           })}
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto px-4 py-5">
-        {/* Global save error */}
-        {errors.save && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 mb-4 text-sm flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0"/> {errors.save}
-          </div>
-        )}
+      {/* Step content */}
+      <div className="max-w-xl mx-auto px-4 py-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
 
-        {/* ── STEP 1: Mobile Verification ── */}
-        {step === 1 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Verify Mobile / मोबाइल सत्यापन</h2>
-            <p className="text-sage-500 text-sm mb-5">Enter your mobile number to get started</p>
-
-            {!otpSent ? (
-              <>
-                <BiLabel en="Mobile Number" hi="मोबाइल नंबर" required/>
-                <div className="flex gap-2 mb-1">
-                  <span className="border border-sage-200 rounded-xl px-3 py-3 text-sm text-sage-500 bg-sage-50">+91</span>
-                  <input type="tel" maxLength={10} placeholder="98765 43210"
-                    value={mobile} onChange={e => { setMobile(e.target.value.replace(/\D/,'')); clearErr('mobile'); }}
-                    className={errors.mobile ? inpErr : inp + " flex-1"}/>
-                </div>
-                <FieldError msg={errors.mobile}/>
-                <button onClick={sendOTP} disabled={loading}
-                  className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3.5 rounded-xl mt-4 disabled:opacity-60 transition-colors">
-                  {loading ? 'Sending OTP…' : 'Send OTP / OTP भेजें'}
-                </button>
-                <p className="text-center text-sage-400 text-xs mt-3">
-                  Already registered? <a href="/farmer/login" className="text-sage-700 font-semibold hover:underline">Login here</a>
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sage-700 text-sm mb-3 text-center">OTP sent to +91 {mobile}</p>
-                {devOtp && (
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-center mb-3">
-                    <div className="text-amber-600 text-xs font-bold uppercase mb-1">Dev OTP</div>
-                    <div className="text-amber-800 text-3xl font-mono font-bold tracking-widest">{devOtp}</div>
-                  </div>
-                )}
-                <BiLabel en="Enter OTP" hi="OTP दर्ज करें" required/>
-                <input type="number" maxLength={6} placeholder="• • • • • •"
-                  value={otp} onChange={e => { setOtp(e.target.value); clearErr('otp'); }}
-                  className={(errors.otp ? inpErr : inp) + " text-center text-2xl tracking-widest font-mono mb-1"}/>
-                <FieldError msg={errors.otp}/>
-                <button onClick={() => saveStep(1)} disabled={loading || otp.length !== 6}
-                  className="w-full bg-sage-700 text-white font-bold py-3.5 rounded-xl mt-3 disabled:opacity-60">
-                  {loading ? 'Verifying…' : 'Verify & Continue / सत्यापित करें'}
-                </button>
-                <button onClick={() => { setOtpSent(false); setOtp(''); setDevOtp(''); }}
-                  className="w-full text-sage-500 text-xs mt-2 hover:underline">
-                  Change number / नंबर बदलें
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── STEP 2: Personal Details ── */}
-        {step === 2 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Personal Details / व्यक्तिगत विवरण</h2>
-            {[
-              { key:'fullName',    en:'Full Name',       hi:'पूरा नाम',       type:'text',  req:true },
-              { key:'fatherName',  en:"Father's Name",   hi:'पिता का नाम',    type:'text',  req:false },
-              { key:'dateOfBirth', en:'Date of Birth',   hi:'जन्म तिथि',      type:'date',  req:false },
-              { key:'aadhaarNumber',en:'Aadhaar Number', hi:'आधार नंबर',       type:'text',  req:false },
-              { key:'panNumber',   en:'PAN Number',      hi:'पैन नंबर',        type:'text',  req:false },
-              { key:'email',       en:'Email',           hi:'ईमेल',            type:'email', req:false },
-              { key:'alternateMobile',en:'Alt. Mobile',  hi:'वैकल्पिक मोबाइल', type:'tel',   req:false },
-            ].map(f => (
-              <div key={f.key}>
-                <BiLabel en={f.en} hi={f.hi} required={f.req}/>
-                <input type={f.type} value={(personal as any)[f.key]}
-                  onChange={e => { setPersonal(p=>({...p,[f.key]:e.target.value})); clearErr(f.key); }}
-                  className={errors[f.key] ? inpErr : inp}/>
-                <FieldError msg={errors[f.key]}/>
+          {/* ── STEP 1: Verify Mobile ── */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="font-display text-xl text-gray-900">Verify Mobile / मोबाइल सत्यापन</h2>
+                <p className="text-gray-500 text-sm mt-1">Enter your mobile number to get started</p>
               </div>
-            ))}
-            <div>
-              <BiLabel en="Gender" hi="लिंग"/>
-              <select value={personal.gender}
-                onChange={e => setPersonal(p=>({...p,gender:e.target.value}))} className={inp}>
-                <option value="">Select / चुनें</option>
-                <option value="MALE">Male / पुरुष</option>
-                <option value="FEMALE">Female / महिला</option>
-                <option value="OTHER">Other / अन्य</option>
-              </select>
+              <div>
+                <BiLabel en="Mobile Number" hi="मोबाइल नंबर" req/>
+                <div className="flex gap-2">
+                  <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm font-medium bg-gray-50">+91</div>
+                  <input type="tel" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g,'').slice(0,10))}
+                    className={inp + (errors.mobile ? ' border-red-400' : '')} placeholder="98765 43210" maxLength={10}/>
+                </div>
+                {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
+              </div>
+              {!otpSent ? (
+                <button onClick={sendOtp} disabled={loading}
+                  className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: primaryColor }}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+                  Send OTP / OTP भेजें
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <BiLabel en="Enter OTP" hi="OTP दर्ज करें" req/>
+                    <input type="tel" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                      className={inp + (errors.otp ? ' border-red-400' : '')} placeholder="6-digit OTP" maxLength={6}/>
+                    {errors.otp && <p className="text-red-500 text-xs mt-1">{errors.otp}</p>}
+                  </div>
+                  <button onClick={verifyOtp} disabled={loading}
+                    className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60"
+                    style={{ backgroundColor: primaryColor }}>
+                    Verify & Continue / सत्यापित करें
+                  </button>
+                  <button onClick={() => setOtpSent(false)} className="w-full text-sm text-gray-400 hover:text-gray-600">
+                    ← Change number
+                  </button>
+                </div>
+              )}
+              <p className="text-center text-xs text-gray-400">
+                Already registered?{' '}
+                <a href="/farmer/login" className="font-bold" style={{ color: primaryColor }}>Login here</a>
+              </p>
             </div>
-            <div className="border-t border-sage-100 pt-4">
-              <h3 className="font-semibold text-sage-800 text-sm mb-3">Address / पता</h3>
+          )}
+
+          {/* ── STEP 2: Personal Details ── */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Personal Details / व्यक्तिगत विवरण</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {[
+                  { k:'fullName',    en:'Full Name',        hi:'पूरा नाम',           req:true },
+                  { k:'fatherName',  en:"Father's Name",    hi:'पिता का नाम',        req:true },
+                  { k:'dob',         en:'Date of Birth',    hi:'जन्म तिथि',          req:true, type:'date' },
+                  { k:'aadhaar',     en:'Aadhaar Number',   hi:'आधार नंबर',          req:true },
+                  { k:'pan',         en:'PAN Number',       hi:'पैन नंबर' },
+                  { k:'occupation',  en:'Occupation',       hi:'व्यवसाय' },
+                  { k:'alternateMobile', en:'Alternate Mobile', hi:'वैकल्पिक मोबाइल' },
+                  { k:'email',       en:'Email',            hi:'ईमेल',               type:'email' },
+                ].map(f => (
+                  <div key={f.k}>
+                    <BiLabel en={f.en} hi={f.hi} req={f.req}/>
+                    {f.k === 'gender' ? (
+                      <select value={(personal as any)[f.k]} onChange={e => setPersonal(p => ({ ...p, [f.k]: e.target.value }))} className={inp}>
+                        <option value="">Select</option>
+                        <option value="MALE">Male / पुरुष</option>
+                        <option value="FEMALE">Female / महिला</option>
+                        <option value="OTHER">Other / अन्य</option>
+                      </select>
+                    ) : (
+                      <input type={f.type || 'text'} value={(personal as any)[f.k]}
+                        onChange={e => setPersonal(p => ({ ...p, [f.k]: e.target.value }))}
+                        className={inp}/>
+                    )}
+                  </div>
+                ))}
+                <div>
+                  <BiLabel en="Gender" hi="लिंग" req/>
+                  <select value={personal.gender} onChange={e => setPersonal(p => ({ ...p, gender: e.target.value }))} className={inp}>
+                    <option value="">Select / चुनें</option>
+                    <option value="MALE">Male / पुरुष</option>
+                    <option value="FEMALE">Female / महिला</option>
+                    <option value="OTHER">Other / अन्य</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: Bank Details ── */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Bank Details / बैंक विवरण</h2>
+              <p className="text-sm text-gray-500">For future payments / भविष्य के भुगतान के लिए</p>
+              {[
+                { k:'bankAccountName', en:'Account Holder Name', hi:'खाताधारक का नाम' },
+                { k:'bankName',        en:'Bank Name',           hi:'बैंक का नाम' },
+                { k:'accountNumber',   en:'Account Number',      hi:'खाता नंबर' },
+                { k:'ifscCode',        en:'IFSC Code',           hi:'IFSC कोड' },
+              ].map(f => (
+                <div key={f.k}>
+                  <BiLabel en={f.en} hi={f.hi}/>
+                  <input value={(bank as any)[f.k]}
+                    onChange={e => setBank(b => ({ ...b, [f.k]: e.target.value }))}
+                    className={inp}/>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── STEP 4: Land Details ── */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Land Details / भूमि विवरण</h2>
               <div className="grid grid-cols-2 gap-3">
-                {['village','taluka','district','pincode'].map(f => (
-                  <div key={f}>
-                    <BiLabel en={f.charAt(0).toUpperCase()+f.slice(1)}
-                             hi={{village:'गांव',taluka:'तालुका',district:'जिला',pincode:'पिन कोड'}[f]!}/>
-                    <input type="text" value={(personal as any)[f]}
-                      onChange={e => setPersonal(p=>({...p,[f]:e.target.value}))} className={inp}/>
+                {[
+                  { k:'surveyGutNumber', en:'Survey/Gut Number', hi:'सर्वे नंबर', span:1 },
+                  { k:'khataNumber',     en:'Khata Number',      hi:'खाता नंबर',  span:1 },
+                  { k:'areaAcres',       en:'Total Area (Acres)',hi:'कुल क्षेत्र', span:1, req:true, type:'number' },
+                  { k:'areaOfferedAcres',en:'Area Offered',      hi:'प्रस्तावित',  span:1, type:'number' },
+                ].map(f => (
+                  <div key={f.k} className={f.span === 2 ? 'col-span-2' : ''}>
+                    <BiLabel en={f.en} hi={f.hi} req={f.req}/>
+                    <input type={f.type || 'text'} value={(land as any)[f.k]}
+                      onChange={e => { setLand(l => ({ ...l, [f.k]: e.target.value })); if (f.k==='areaAcres') setErrors(er => ({ ...er, areaAcres:'' })); }}
+                      className={inp + (f.k==='areaAcres' && errors.areaAcres ? ' border-red-400' : '')}/>
+                    {f.k==='areaAcres' && errors.areaAcres && <p className="text-red-500 text-xs mt-1">{errors.areaAcres}</p>}
                   </div>
                 ))}
               </div>
-              <div className="mt-3">
-                <BiLabel en="State" hi="राज्य"/>
-                <select value={personal.state}
-                  onChange={e => setPersonal(p=>({...p,state:e.target.value}))} className={inp}>
+              <div>
+                <BiLabel en="Land Type" hi="भूमि प्रकार"/>
+                <select value={land.landType} onChange={e => setLand(l => ({ ...l, landType: e.target.value }))} className={inp}>
                   <option value="">Select / चुनें</option>
-                  {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {['AGRICULTURAL','PRIVATE','WASTELAND','AGROFORESTRY','ORCHARD'].map(t => (
+                    <option key={t} value={t}>{t.replace('_',' ')}</option>
+                  ))}
                 </select>
               </div>
-            </div>
-            <div className="border-t border-sage-100 pt-4">
-              <h3 className="font-semibold text-sage-800 text-sm mb-3">Occupation & Farming / व्यवसाय</h3>
-              <div>
-                <BiLabel en="Occupation" hi="व्यवसाय"/>
-                <input type="text" placeholder="e.g. Farmer, Landowner, Business"
-                  value={personal.occupation}
-                  onChange={e => setPersonal(p=>({...p,occupation:e.target.value}))} className={inp}/>
-              </div>
-              <div className="mt-3">
-                <BiLabel en="Are you a Farmer?" hi="क्या आप किसान हैं?"/>
-                <div className="flex gap-4 mt-2">
-                  {[{v:true,l:'Yes / हाँ'},{v:false,l:'No / नहीं'}].map(o => (
-                    <label key={String(o.v)} className="flex items-center gap-2 cursor-pointer text-sm text-sage-700">
-                      <input type="radio" checked={personal.isFarmer === o.v}
-                        onChange={() => setPersonal(p=>({...p,isFarmer:o.v}))}
-                        className="accent-sage-700"/>
-                      {o.l}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {personal.isFarmer && (
-                <div className="mt-3">
-                  <BiLabel en="Farming Experience (years)" hi="खेती का अनुभव (वर्ष)"/>
-                  <input type="number" placeholder="e.g. 5"
-                    value={personal.farmingExperience}
-                    onChange={e => setPersonal(p=>({...p,farmingExperience:e.target.value}))} className={inp}/>
-                </div>
-              )}
-            </div>
-            <div className="border-t border-sage-100 pt-4">
-              <h3 className="font-semibold text-sage-800 text-sm mb-3">Set Password / पासवर्ड सेट करें</h3>
-              <div>
-                <BiLabel en="Password" hi="पासवर्ड" required/>
-                <input type="password" placeholder="Min 8 characters"
-                  value={personal.password}
-                  onChange={e => { setPersonal(p=>({...p,password:e.target.value})); clearErr('password'); }}
-                  className={errors.password ? inpErr : inp}/>
-                <FieldError msg={errors.password}/>
-              </div>
-              <div className="mt-3">
-                <BiLabel en="Confirm Password" hi="पासवर्ड की पुष्टि करें" required/>
-                <input type="password" placeholder="Repeat password"
-                  value={personal.confirmPw}
-                  onChange={e => { setPersonal(p=>({...p,confirmPw:e.target.value})); clearErr('confirmPw'); }}
-                  className={errors.confirmPw ? inpErr : inp}/>
-                <FieldError msg={errors.confirmPw}/>
-              </div>
-            </div>
-            <button onClick={() => saveStep(2)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save & Continue / सहेजें'}
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP 3: Bank Details ── */}
-        {step === 3 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Bank Details / बैंक विवरण</h2>
-            <p className="text-sage-500 text-xs mb-4">For plantation incentives and carbon revenue payments</p>
-            {[
-              { key:'bankAccountName', en:'Account Holder Name', hi:'खाताधारक का नाम' },
-              { key:'bankName',        en:'Bank Name',           hi:'बैंक का नाम' },
-              { key:'accountNumber',   en:'Account Number',      hi:'खाता संख्या' },
-              { key:'ifscCode',        en:'IFSC Code',           hi:'IFSC कोड' },
-            ].map(f => (
-              <div key={f.key}>
-                <BiLabel en={f.en} hi={f.hi}/>
-                <input type="text" value={(bank as any)[f.key]}
-                  onChange={e => setBank(b=>({...b,[f.key]:e.target.value}))} className={inp}/>
-              </div>
-            ))}
-            <button onClick={() => saveStep(3)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save & Continue / सहेजें'}
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP 4: Land Details ── */}
-        {step === 4 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Land Details / भूमि विवरण</h2>
-            <div>
-              <BiLabel en="Survey / Gut Number" hi="सर्वे नंबर / गट नंबर"/>
-              <input type="text" placeholder="e.g. 123/1 or 45-A"
-                value={land.surveyGutNumber}
-                onChange={e => setLand(l=>({...l,surveyGutNumber:e.target.value}))} className={inp}/>
-            </div>
-            <div>
-              <BiLabel en="Khata Number" hi="खाता नंबर"/>
-              <input type="text" value={land.khataNumber}
-                onChange={e => setLand(l=>({...l,khataNumber:e.target.value}))} className={inp}/>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <BiLabel en="Total Area (Acres)" hi="कुल क्षेत्र (एकड़)" required/>
-                <input type="number" step="0.01" placeholder="e.g. 2.5"
-                  value={land.areaAcres}
-                  onChange={e => { setLand(l=>({...l,areaAcres:e.target.value})); clearErr('areaAcres'); }}
-                  className={errors.areaAcres ? inpErr : inp}/>
-                {land.areaAcres && (
-                  <p className="text-sage-400 text-xs mt-1">= {(parseFloat(land.areaAcres)*0.404686).toFixed(3)} hectares</p>
-                )}
-                <FieldError msg={errors.areaAcres}/>
-              </div>
-              <div>
-                <BiLabel en="Area Offered for Project" hi="परियोजना हेतु भूमि"/>
-                <div className="flex gap-2">
-                  <input type="number" step="0.01" placeholder="0.0"
-                    value={land.areaOfferedAcres}
-                    onChange={e => { setLand(l=>({...l,areaOfferedAcres:e.target.value})); clearErr('areaOfferedAcres'); }}
-                    className={errors.areaOfferedAcres ? inpErr+' flex-1' : inp+' flex-1'}/>
-                  <select value={land.areaOfferedUnit}
-                    onChange={e => setLand(l=>({...l,areaOfferedUnit:e.target.value}))}
-                    className="border border-sage-200 rounded-xl px-2 text-sm bg-white">
-                    <option value="acres">Acres</option>
-                    <option value="hectares">Hectares</option>
-                  </select>
-                </div>
-                <FieldError msg={errors.areaOfferedAcres}/>
-              </div>
-            </div>
-            <div>
-              <BiLabel en="Land Type" hi="भूमि प्रकार"/>
-              <select value={land.landType}
-                onChange={e => setLand(l=>({...l,landType:e.target.value}))} className={inp}>
-                <option value="">Select / चुनें</option>
-                {LAND_TYPES.map(t => <option key={t} value={t}>{t.replace('_',' ')}</option>)}
-              </select>
-            </div>
-            <div>
-              <BiLabel en="Water Availability" hi="जल उपलब्धता"/>
-              <select value={land.waterAvailability}
-                onChange={e => setLand(l=>({...l,waterAvailability:e.target.value}))} className={inp}>
-                <option value="">Select / चुनें</option>
-                <option value="RAIN_FED">Rain Fed / वर्षा आधारित</option>
-                <option value="IRRIGATED">Irrigated / सिंचित</option>
-                <option value="BOREWELL">Borewell / बोरवेल</option>
-                <option value="CANAL">Canal / नहर</option>
-                <option value="RIVER">River / नदी</option>
-                <option value="OTHER">Other / अन्य</option>
-              </select>
-            </div>
-            <div>
-              <BiLabel en="Land Security / Fencing" hi="भूमि सुरक्षा / बाड़"/>
-              <select value={land.securityStatus}
-                onChange={e => setLand(l=>({...l,securityStatus:e.target.value}))} className={inp}>
-                <option value="">Select / चुनें</option>
-                <option value="FENCED">Fully Fenced / पूर्ण बाड़</option>
-                <option value="PARTIALLY_FENCED">Partially Fenced / आंशिक बाड़</option>
-                <option value="UNFENCED">Unfenced / बिना बाड़</option>
-                <option value="WALL">Compound Wall / दीवार</option>
-                <option value="OTHER">Other / अन्य</option>
-              </select>
-            </div>
-            {/* GPS */}
-            <div>
-              <BiLabel en="GPS Location" hi="GPS स्थान"/>
               <button onClick={captureGPS}
-                className="w-full border-2 border-dashed border-sage-300 text-sage-600 py-3 rounded-xl text-sm font-medium hover:bg-sage-50 flex items-center justify-center gap-2 mb-2">
+                className="w-full border-2 border-dashed border-gray-200 text-gray-500 py-3 rounded-xl text-sm hover:border-gray-300 flex items-center justify-center gap-2">
                 <MapPin className="w-4 h-4"/> Capture GPS / GPS कैप्चर करें
               </button>
-              <FieldError msg={errors.gps}/>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <input type="number" step="any" placeholder="Latitude / अक्षांश"
-                  value={land.gpsLatitude}
-                  onChange={e => setLand(l=>({...l,gpsLatitude:e.target.value}))} className={inp}/>
-                <input type="number" step="any" placeholder="Longitude / देशांतर"
-                  value={land.gpsLongitude}
-                  onChange={e => setLand(l=>({...l,gpsLongitude:e.target.value}))} className={inp}/>
-              </div>
-            </div>
-            {/* Location (auto-filled by GPS) */}
-            <div className="border-t border-sage-100 pt-4">
-              <p className="text-sage-500 text-xs mb-3">Auto-filled by GPS · editable / GPS द्वारा स्वतः भरा जाता है</p>
+              {land.gpsLatitude && (
+                <div className="bg-gray-50 rounded-xl p-3 text-xs font-mono text-gray-500">
+                  📍 {land.gpsLatitude}, {land.gpsLongitude}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  {k:'village',  en:'Village', hi:'गांव'},
-                  {k:'taluka',   en:'Taluka',  hi:'तालुका'},
-                  {k:'district', en:'District',hi:'जिला'},
-                  {k:'pincode',  en:'Pincode', hi:'पिन कोड'},
+                  { k:'village',  en:'Village', hi:'गांव' },
+                  { k:'taluka',   en:'Taluka',  hi:'तालुका' },
+                  { k:'district', en:'District',hi:'जिला' },
+                  { k:'pincode',  en:'Pincode', hi:'पिन कोड' },
                 ].map(f => (
                   <div key={f.k}>
                     <BiLabel en={f.en} hi={f.hi}/>
-                    <input type="text" value={(land as any)[f.k]}
-                      onChange={e => setLand(l=>({...l,[f.k]:e.target.value}))} className={inp}/>
+                    <input value={(land as any)[f.k]} onChange={e => setLand(l => ({ ...l, [f.k]: e.target.value }))} className={inp}/>
                   </div>
                 ))}
               </div>
-              <div className="mt-3">
+              <div>
                 <BiLabel en="State" hi="राज्य"/>
-                <select value={land.state}
-                  onChange={e => setLand(l=>({...l,state:e.target.value}))} className={inp}>
-                  <option value="">Select / चुनें</option>
-                  {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                <select value={land.state} onChange={e => setLand(l => ({ ...l, state: e.target.value }))} className={inp}>
+                  {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
-            <button onClick={() => saveStep(4)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save Land / भूमि सहेजें'}
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* ── STEP 5: Ownership ── */}
-        {step === 5 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Land Ownership / भूमि स्वामित्व</h2>
-            <div>
-              <BiLabel en="Ownership Type" hi="स्वामित्व प्रकार" required/>
-              <div className="flex gap-4 mt-2">
-                {[{v:'sole',en:'Sole Ownership',hi:'एकल स्वामित्व'},{v:'joint',en:'Joint Ownership',hi:'संयुक्त स्वामित्व'}].map(o => (
-                  <label key={o.v} className="flex items-center gap-2 cursor-pointer text-sm text-sage-700">
+          {/* ── STEP 5: Ownership ── */}
+          {step === 5 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Ownership / स्वामित्व</h2>
+              <div className="flex gap-4">
+                {[{v:'sole',en:'Sole / एकल'},{v:'joint',en:'Joint / संयुक्त'}].map(o => (
+                  <label key={o.v} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" value={o.v} checked={ownership.ownershipType === o.v}
-                      onChange={() => setOwnership(p=>({...p,ownershipType:o.v}))}
-                      className="accent-sage-700"/>
-                    {o.en} / {o.hi}
+                      onChange={() => setOwnership(p => ({ ...p, ownershipType: o.v }))}
+                      className="accent-current" style={{ accentColor: primaryColor }}/>
+                    {o.en}
                   </label>
                 ))}
               </div>
-            </div>
-            {ownership.ownershipType === 'joint' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              {ownership.ownershipType === 'joint' && (
                 <div>
                   <BiLabel en="Number of Joint Owners" hi="संयुक्त स्वामियों की संख्या"/>
-                  <input type="number" min="1" placeholder="e.g. 2"
-                    value={ownership.jointOwnerCount}
-                    onChange={e => setOwnership(p=>({...p,jointOwnerCount:e.target.value}))} className={inp}/>
-                </div>
-                <div className="bg-white rounded-xl border border-amber-200 p-4">
-                  <p className="text-sm font-semibold text-amber-800 mb-2">Joint Owner NOC / संयुक्त स्वामी NOC</p>
-                  <a href="/templates/joint-owner-noc.pdf" download
-                    className="inline-flex items-center gap-2 text-sage-600 hover:text-sage-800 text-sm font-medium border border-sage-200 rounded-lg px-3 py-2 hover:bg-sage-50 mb-3">
-                    ⬇ Download NOC Format / NOC प्रारूप डाउनलोड करें
-                  </a>
-                  <p className="text-amber-600 text-xs italic">
-                    NOC upload is <strong>optional</strong> during registration. You can upload it later from your dashboard.
-                    / पंजीकरण के दौरान NOC अपलोड <strong>अनिवार्य नहीं है</strong>।
-                  </p>
-                </div>
-              </div>
-            )}
-            <button onClick={() => saveStep(5)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save & Continue / सहेजें'}
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP 6: Plantation Preference ── */}
-        {step === 6 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Plantation Preference / रोपण प्राथमिकता</h2>
-            <div>
-              <BiLabel en="Plantation Type" hi="रोपण प्रकार"/>
-              <select value={plantation.plantationPreference}
-                onChange={e => setPlantation(p=>({...p,plantationPreference:e.target.value}))} className={inp}>
-                <option value="">Select / चुनें</option>
-                {PLANTATION_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g,' ')}</option>)}
-              </select>
-            </div>
-            <div>
-              <BiLabel en="Preferred Species" hi="पसंदीदा प्रजातियाँ"/>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {SPECIES.map(s => {
-                  const isOther = s.startsWith('Others');
-                  return (
-                    <button key={s} onClick={() => toggleSpecies(s)}
-                      className={`px-3 py-1.5 rounded-full text-xs border-2 transition-colors ${
-                        plantation.speciesPreference.includes(s)
-                          ? 'bg-sage-700 text-white border-sage-700'
-                          : 'border-sage-200 text-sage-600 hover:border-sage-400'
-                      }`}>
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-              {plantation.speciesPreference.some(s => s.startsWith('Others')) && (
-                <div className="mt-3">
-                  <BiLabel en="Please specify species" hi="कृपया प्रजाति बताएं"/>
-                  <input type="text" placeholder="Enter species name"
-                    value={plantation.speciesOther}
-                    onChange={e => setPlantation(p=>({...p,speciesOther:e.target.value}))} className={inp}/>
+                  <input type="number" value={ownership.jointOwnerCount}
+                    onChange={e => setOwnership(p => ({ ...p, jointOwnerCount: e.target.value }))}
+                    className={inp} placeholder="e.g. 2"/>
+                  <p className="text-amber-600 text-xs mt-1">NOC can be uploaded later from your dashboard</p>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+          )}
+
+          {/* ── STEP 6: Plantation Preference ── */}
+          {step === 6 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Plantation / वृक्षारोपण</h2>
               <div>
-                <BiLabel en="Number of Trees" hi="पेड़ों की संख्या"/>
-                <input type="number" placeholder="Estimated count"
-                  value={plantation.targetTreeCount}
-                  onChange={e => setPlantation(p=>({...p,targetTreeCount:e.target.value}))} className={inp}/>
-              </div>
-              <div>
-                <BiLabel en="Preferred Start Date" hi="पसंदीदा प्रारंभ तिथि"/>
-                <input type="date" value={plantation.plantationStartDate}
-                  onChange={e => setPlantation(p=>({...p,plantationStartDate:e.target.value}))} className={inp}/>
+                <BiLabel en="Species Preference" hi="पसंदीदा प्रजातियाँ"/>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {['Neem / नीम','Mango / आम','Bamboo / बांस','Peepal / पीपल','Teak / सागवान','Mixed / मिश्रित','Others / अन्य'].map(s => (
+                    <button key={s} type="button"
+                      onClick={() => setSpecies(sp => sp.includes(s) ? sp.filter(x=>x!==s) : [...sp,s])}
+                      className={`px-3 py-1.5 rounded-full text-xs border-2 transition-colors ${
+                        species.includes(s) ? 'text-white border-current' : 'border-gray-200 text-gray-600'
+                      }`}
+                      style={species.includes(s) ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <button onClick={() => saveStep(6)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save & Continue / सहेजें'}
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* ── STEP 7: Nominee Details ── */}
-        {step === 7 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm space-y-4" ref={firstErrRef}>
-            <h2 className="font-display text-xl text-sage-950 mb-1">Nominee Details / नामांकित व्यक्ति</h2>
-            <p className="text-sage-500 text-xs mb-2">All fields optional / सभी फ़ील्ड वैकल्पिक हैं</p>
-            {[
-              { k:'nomineeName',    en:'Nominee Name',         hi:'नामांकित का नाम' },
-              { k:'nomineeRelation',en:'Relationship',         hi:'संबंध' },
-              { k:'nomineeMobile',  en:'Mobile Number',        hi:'मोबाइल नंबर' },
-              { k:'nomineeAddress', en:'Address',              hi:'पता' },
-              { k:'nomineeAadhaar', en:'Aadhaar (Optional)',   hi:'आधार (वैकल्पिक)' },
-            ].map(f => (
-              <div key={f.k}>
-                <BiLabel en={f.en} hi={f.hi}/>
-                <input type="text" value={(nominee as any)[f.k]}
-                  onChange={e => setNominee(n=>({...n,[f.k]:e.target.value}))} className={inp}/>
+          {/* ── STEP 7: Nominee ── */}
+          {step === 7 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-xl text-gray-900">Nominee / नामांकित</h2>
+              {[
+                { k:'nomineeName',     en:'Nominee Name',     hi:'नामांकित का नाम' },
+                { k:'nomineeRelation', en:'Relation',         hi:'संबंध' },
+                { k:'nomineeMobile',   en:'Nominee Mobile',   hi:'मोबाइल', type:'tel' },
+                { k:'nomineeDob',      en:'Date of Birth',    hi:'जन्म तिथि', type:'date' },
+                { k:'nomineeAddress',  en:'Address',          hi:'पता' },
+                { k:'nomineeAadhaar',  en:'Aadhaar Number',   hi:'आधार नंबर' },
+              ].map(f => (
+                <div key={f.k}>
+                  <BiLabel en={f.en} hi={f.hi}/>
+                  <input type={f.type || 'text'} value={(nominee as any)[f.k]}
+                    onChange={e => setNominee(n => ({ ...n, [f.k]: e.target.value }))}
+                    className={inp}/>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── STEP 8: Consent ── */}
+          {step === 8 && (
+            <div className="space-y-5">
+              <h2 className="font-display text-xl text-gray-900">Consent / सहमति</h2>
+              <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 space-y-2 max-h-48 overflow-y-auto border">
+                <p className="font-semibold text-gray-800">Terms and Conditions / नियम और शर्तें</p>
+                <p>I hereby declare that all information provided is true and correct. I agree to participate in the plantation programme under {org.name} and authorize the organisation to use my land for tree plantation as agreed.</p>
+                <p>मैं एतद्द्वारा घोषणा करता/करती हूँ कि प्रदान की गई सभी जानकारी सत्य एवं सही है। मैं {org.name} के अंतर्गत वृक्षारोपण कार्यक्रम में भाग लेने के लिए सहमत हूँ।</p>
               </div>
-            ))}
-            <div>
-              <BiLabel en="Date of Birth" hi="जन्म तिथि"/>
-              <input type="date" value={nominee.nomineeDob}
-                onChange={e => setNominee(n=>({...n,nomineeDob:e.target.value}))} className={inp}/>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4" style={{ accentColor: primaryColor }}/>
+                <span className="text-sm text-gray-700">
+                  I agree to all terms and conditions / मैं सभी नियमों और शर्तों से सहमत हूँ
+                </span>
+              </label>
+              {errors.consent && <p className="text-red-500 text-xs">{errors.consent}</p>}
             </div>
-            <button onClick={() => saveStep(7)} disabled={loading}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-              <Save className="w-4 h-4"/> {loading ? 'Saving…' : 'Save & Continue / सहेजें'}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* ── STEP 8: Consent ── */}
-        {step === 8 && (
-          <div className="bg-white rounded-2xl border border-sage-100 p-6 shadow-sm" ref={firstErrRef}>
-            <div className="text-center mb-5">
-              <div className="text-5xl mb-2">🌱</div>
-              <h2 className="font-display text-xl text-sage-950 mb-1">Carbon Project Consent / कार्बन परियोजना सहमति</h2>
-            </div>
-            <div className="bg-sage-50 border border-sage-200 rounded-xl p-4 mb-5 text-sm text-sage-700 leading-relaxed">
-              <p className="font-semibold text-sage-900 mb-2">Declaration of Participation / भागीदारी की घोषणा</p>
-              <p>I voluntarily participate in carbon sequestration and environmental projects conducted under <strong>JITO Green Legacy</strong> and authorize monitoring including geo-tagged photography, satellite monitoring, and periodic field verification.</p>
-              <p className="mt-2 text-sage-500 text-xs">मैं स्वेच्छा से JITO Green Legacy के अंतर्गत कार्बन परियोजनाओं में भाग लेता/लेती हूँ।</p>
-              <p className="mt-2">I confirm that all information provided is true and correct to the best of my knowledge.</p>
-            </div>
-            <label className="flex items-start gap-3 cursor-pointer mb-4">
-              <input type="checkbox" checked={consent} onChange={e => { setConsent(e.target.checked); clearErr('consent'); }}
-                className="mt-0.5 w-5 h-5 accent-sage-700 flex-shrink-0"/>
-              <span className="text-sm text-sage-800 font-medium">
-                I agree / मैं सहमत हूँ <span className="text-red-500">*</span>
-              </span>
-            </label>
-            <FieldError msg={errors.consent}/>
-
-            {/* Registration summary */}
-            {farmerId && (
-              <div className="bg-sage-50 rounded-xl border border-sage-100 p-4 mb-4 text-sm space-y-1">
-                <div className="font-semibold text-sage-800 mb-2">Registration Summary / पंजीकरण सारांश</div>
-                <div className="flex justify-between"><span className="text-sage-500">Name / नाम</span><span className="font-medium text-sage-900">{personal.fullName}</span></div>
-                <div className="flex justify-between"><span className="text-sage-500">Mobile / मोबाइल</span><span className="font-medium text-sage-900">+91 {mobile}</span></div>
-                {land.areaAcres && <div className="flex justify-between"><span className="text-sage-500">Land Area / भूमि</span><span className="font-medium text-sage-900">{land.areaAcres} acres</span></div>}
-                <div className="flex justify-between"><span className="text-sage-500">Completed Steps</span>
-                  <span className="font-medium text-green-600">{completed.size}/{totalSteps}</span></div>
-              </div>
-            )}
-
-            <button onClick={submitRegistration} disabled={loading || !consent}
-              className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3.5 rounded-xl disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-              {loading ? 'Submitting…' : '✅ Complete Registration / पंजीकरण पूर्ण करें'}
-            </button>
-          </div>
-        )}
-
-        {/* Navigation row */}
-        {step > 1 && step < 8 && (
-          <div className="flex gap-3 mt-4">
-            <button onClick={() => setStep(s => (s - 1) as StepId)}
-              className="flex-1 border border-sage-300 text-sage-700 font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1 hover:bg-sage-50">
+        {/* Navigation buttons */}
+        <div className="flex gap-3">
+          {step > 1 && (
+            <button onClick={() => setStep(s => (s - 1) as Step)}
+              className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 font-semibold py-3.5 rounded-xl text-sm hover:bg-gray-50">
               <ChevronLeft className="w-4 h-4"/> Back
             </button>
-            <button onClick={() => setStep(s => (s + 1) as StepId)}
-              className="flex-1 border border-sage-300 text-sage-700 font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1 hover:bg-sage-50">
-              Skip <ChevronRight className="w-4 h-4"/>
+          )}
+          {step < 8 && (
+            <button
+              onClick={() => step === 4 ? saveLandAndNext() : saveStep((step + 1) as Step)}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60"
+              style={{ backgroundColor: primaryColor }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+              Next / आगे <ChevronRight className="w-4 h-4"/>
             </button>
-          </div>
-        )}
+          )}
+          {step === 8 && (
+            <button onClick={completeRegistration} disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60"
+              style={{ backgroundColor: primaryColor }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle className="w-4 h-4"/>}
+              Complete Registration / पंजीकरण पूर्ण करें
+            </button>
+          )}
+        </div>
 
-        <p className="text-center text-sage-400 text-xs mt-4">
-          Progress auto-saved · <button onClick={() => localStorage.setItem('lo_draft', JSON.stringify({ step, personal, bank, land, ownership, plantation, nominee }))} className="hover:underline">Save Draft</button>
+        <p className="text-center text-xs text-gray-400 mt-4">
+          Progress auto-saved · Save Draft
         </p>
       </div>
     </div>
