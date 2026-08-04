@@ -3,7 +3,7 @@
 // Bilingual (English/Hindi) 8-step land owner registration
 // Fully tenant-aware: branding, orgId, farmer ID prefix all from org config
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import {
   Shield, User, Landmark, MapPin, Users,
@@ -40,7 +40,6 @@ function BiLabel({ en, hi, req }: { en: string; hi: string; req?: boolean }) {
 export default function FarmerRegisterPage() {
   const org    = useOrgConfig();
   const router = useRouter();
-  const params = useSearchParams();
 
   const [step, setStep]           = useState<Step>(1);
   const [farmerId, setFarmerId]   = useState('');
@@ -261,14 +260,21 @@ export default function FarmerRegisterPage() {
           {STEPS.map(s => {
             const done    = s.step < step;
             const current = s.step === step;
+            // Allow free navigation if farmerId exists (after OTP verified)
+            const canNav  = !!farmerId;
             return (
-              <div key={s.step} className={`flex-1 flex flex-col items-center py-2.5 px-1 text-center transition-colors text-[10px] font-medium border-b-2 ${
-                current ? 'border-current' : 'border-transparent'
-              } ${done ? 'text-green-600' : current ? '' : 'text-gray-300'}`}
-              style={current ? { color: primaryColor, borderColor: primaryColor } : {}}>
+              <button key={s.step}
+                onClick={() => canNav && setStep(s.step as Step)}
+                disabled={!canNav}
+                className={`flex-1 flex flex-col items-center py-2.5 px-1 text-center transition-colors text-[10px] font-medium border-b-2 ${
+                  canNav ? 'cursor-pointer' : 'cursor-default'
+                } ${current ? 'border-current' : 'border-transparent'} ${
+                  done ? 'text-green-600' : current ? '' : 'text-gray-300'
+                }`}
+                style={current ? { color: primaryColor, borderColor: primaryColor } : {}}>
                 <s.icon className="w-3.5 h-3.5 mb-0.5"/>
                 <span className="hidden sm:block">{s.en}</span>
-              </div>
+              </button>
             );
           })}
         </div>

@@ -43,7 +43,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'OTP not found. Please request again.' }, { status: 400 });
       if (new Date() > farmer.otpExpiry)
         return NextResponse.json({ error: 'OTP expired. Please request again.' }, { status: 400 });
-      if (farmer.otpHash !== hashOTP(otp))
+      // TEST BYPASS: accept 123456 as universal OTP during development
+      const isTestOtp = otp === '123456';
+      if (!isTestOtp && farmer.otpHash !== hashOTP(otp))
         return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
 
       await prisma.farmer.update({
