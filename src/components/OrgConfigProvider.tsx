@@ -1,5 +1,7 @@
 'use client';
 // src/components/OrgConfigProvider.tsx
+// Fetches org config from /api/public/org-config and provides it via context
+// Default is empty/generic until API responds
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 export type OrgConfig = {
@@ -13,19 +15,23 @@ export type OrgConfig = {
   website:      string | null;
   treePrice:    number;
   plan:         string;
+  loaded:       boolean; // true once API has responded
 };
 
+// Generic default — no JITO hardcoding
+// Shows blank name until API responds so tenant sees their own name
 const DEFAULT_CONFIG: OrgConfig = {
-  id:           'org_jito_mumbai',
-  name:         'JITO Green Legacy',
-  slug:         'jito-mumbai',
-  primaryColor: '#2d5a1b',
+  id:           '',
+  name:         '',          // blank until loaded
+  slug:         '',
+  primaryColor: '#2d5a1b',  // default green
   logoUrl:      null,
-  email:        'mumbaizoneJES@jito.org',
-  phone:        '+919137741905',
+  email:        null,
+  phone:        null,
   website:      null,
   treePrice:    500,
-  plan:         'ENTERPRISE',
+  plan:         'STARTER',
+  loaded:       false,
 };
 
 const OrgContext = createContext<OrgConfig>(DEFAULT_CONFIG);
@@ -60,7 +66,7 @@ export function OrgConfigProvider({ children }: { children: ReactNode }) {
       .then(r => r.json())
       .then(data => {
         if (!data.id) return;
-        setConfig(data);
+        setConfig({ ...data, loaded: true });
         if (data.primaryColor) {
           const hsl = hexToHsl(data.primaryColor);
           document.documentElement.style.setProperty('--brand-primary', data.primaryColor);
@@ -68,7 +74,10 @@ export function OrgConfigProvider({ children }: { children: ReactNode }) {
         }
         if (data.name) document.title = data.name;
       })
-      .catch(() => {});
+      .catch(() => {
+        // On error, set loaded so UI doesn't hang
+        setConfig(c => ({ ...c, loaded: true }));
+      });
   }, []);
 
   return (

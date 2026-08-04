@@ -39,6 +39,7 @@ function BiLabel({ en, hi, req }: { en: string; hi: string; req?: boolean }) {
 
 export default function FarmerRegisterPage() {
   const org    = useOrgConfig();
+
   const router = useRouter();
 
   const [step, setStep]           = useState<Step>(1);
@@ -239,7 +240,7 @@ export default function FarmerRegisterPage() {
               </div>
             )}
             <div>
-              <div className="font-bold text-sm">{org.name}</div>
+              <div className="font-bold text-sm">{org.loaded ? org.name : 'Loading...'}</div>
               <div className="text-white/70 text-[10px]">Land Owner Registration / भूमि स्वामी पंजीकरण</div>
             </div>
           </div>
@@ -533,8 +534,8 @@ export default function FarmerRegisterPage() {
               <h2 className="font-display text-xl text-gray-900">Consent / सहमति</h2>
               <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 space-y-2 max-h-48 overflow-y-auto border">
                 <p className="font-semibold text-gray-800">Terms and Conditions / नियम और शर्तें</p>
-                <p>I hereby declare that all information provided is true and correct. I agree to participate in the plantation programme under {org.name} and authorize the organisation to use my land for tree plantation as agreed.</p>
-                <p>मैं एतद्द्वारा घोषणा करता/करती हूँ कि प्रदान की गई सभी जानकारी सत्य एवं सही है। मैं {org.name} के अंतर्गत वृक्षारोपण कार्यक्रम में भाग लेने के लिए सहमत हूँ।</p>
+                <p>I hereby declare that all information provided is true and correct. I agree to participate in the plantation programme under <strong>{org.loaded ? org.name : '...'}</strong> and authorize the organisation to use my land for tree plantation as agreed.</p>
+                <p>मैं एतद्द्वारा घोषणा करता/करती हूँ कि प्रदान की गई सभी जानकारी सत्य एवं सही है। मैं <strong>{org.loaded ? org.name : '...'}</strong> के अंतर्गत वृक्षारोपण कार्यक्रम में भाग लेने के लिए सहमत हूँ।</p>
               </div>
               <label className="flex items-start gap-3 cursor-pointer">
                 <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}

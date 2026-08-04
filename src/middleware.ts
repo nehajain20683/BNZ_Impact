@@ -45,6 +45,8 @@ export default withAuth(
         if (pathname.startsWith('/sadmin'))    return !!token;
         if (pathname.startsWith('/admin'))     return !!token;
         if (pathname.startsWith('/dashboard')) return !!token;
+        if (pathname.startsWith('/farmer/dashboard')) return !!token;
+        if (pathname.startsWith('/farmer/documents')) return !!token;
         return true;
       },
     },
@@ -57,5 +59,7 @@ export const config = {
     '/superadmin/:path*',
     '/admin/:path*',
     '/dashboard/:path*',
+    '/farmer/dashboard/:path*',
+    '/farmer/documents/:path*',
   ],
 };

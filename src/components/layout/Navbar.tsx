@@ -35,11 +35,11 @@ export default function Navbar() {
           ) : (
             <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm"
               style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
-              {org.name.charAt(0)}
+              {(org.name || 'G').charAt(0)}
             </div>
           )}
           <div className="hidden sm:block">
-            <div className="font-display text-base font-bold text-gray-900 leading-tight">{org.name}</div>
+            <div className="font-display text-base font-bold text-gray-900 leading-tight">{org.name || 'Green Legacy'}</div>
             <div className="text-gray-400 text-[10px]">Afforestation · Carbon Credits</div>
           </div>
         </Link>

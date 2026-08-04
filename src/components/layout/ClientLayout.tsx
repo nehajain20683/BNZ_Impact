@@ -19,9 +19,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // They MUST NOT get public Navbar/Footer
   const isAdmin      = pathname?.startsWith('/admin');
   const isSuperAdmin = pathname?.startsWith('/sadmin') || pathname?.startsWith('/superadmin');
+  const isFarmer     = pathname?.startsWith('/farmer');
 
-  // Admin and SuperAdmin: SessionProvider only — their own layout handles the rest
-  if (isAdmin || isSuperAdmin) {
+  // Admin, SuperAdmin, Farmer: their own layouts handle everything
+  if (isAdmin || isSuperAdmin || isFarmer) {
     return (
       <SessionProvider>
         {children}
