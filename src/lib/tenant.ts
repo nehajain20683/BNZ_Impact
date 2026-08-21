@@ -1,67 +1,43 @@
-// src/lib/tenant.ts
-// Tenant resolution — determines which org a request belongs to
-// Resolution order:
-//   1. TENANT_SLUG env variable (set per Vercel project) ← primary
-//   2. x-org-id header
-//   3. Custom domain match
-//   4. Subdomain match
-//   5. Default → JITO (fallback for localhost/dev)
+export const runtime = 'nodejs';
 import prisma from '@/lib/prisma';
 
 export type OrgConfig = {
-  id:                 string;
-  name:               string;
-  slug:               string;
-  primaryColor:       string;
-  logoUrl:            string | null;
-  email:              string | null;
-  phone:              string | null;
-  address:            string | null;
-  website:            string | null;
-  farmerIdPrefix:     string;
-  donationRefPrefix:  string;
-  treePrice:          number;
-  org80gNumber:       string | null;
-  campaignConfig:     any;
-  paymentBanks:       any[];
-  customDomain:       string | null;
-  plan:               string;
-  active:             boolean;
+  id: string; name: string; slug: string;
+  primaryColor: string; logoUrl: string | null;
+  email: string | null; phone: string | null;
+  address: string | null; website: string | null;
+  farmerIdPrefix: string; donationRefPrefix: string;
+  treePrice: number; org80gNumber: string | null;
+  campaignConfig: any; paymentBanks: any[];
+  customDomain: string | null; plan: string; active: boolean;
 };
 
 const cache = new Map<string, { config: OrgConfig; fetchedAt: number }>();
-const CACHE_TTL_MS  = 60_000;
+const CACHE_TTL_MS = 60_000;
 const DEFAULT_ORG_ID = 'org_jito_mumbai';
 
 export async function getOrgConfig(orgId: string): Promise<OrgConfig | null> {
   const cached = cache.get(orgId);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.config;
-
   try {
     const org = await (prisma as any).organization.findUnique({ where: { id: orgId } });
     if (!org) return null;
-
     const config: OrgConfig = {
-      id:                org.id,
-      name:              org.name,
-      slug:              org.slug,
-      primaryColor:      org.primary_color       || '#2d5a1b',
-      logoUrl:           org.logo_url            || null,
-      email:             org.email               || null,
-      phone:             org.phone               || null,
-      address:           org.address             || null,
-      website:           org.website             || null,
-      farmerIdPrefix:    org.farmer_id_prefix    || 'JGL',
+      id: org.id, name: org.name, slug: org.slug,
+      primaryColor: org.primary_color || '#2d5a1b',
+      logoUrl: org.logo_url || null, email: org.email || null,
+      phone: org.phone || null, address: org.address || null,
+      website: org.website || null,
+      farmerIdPrefix: org.farmer_id_prefix || 'JGL',
       donationRefPrefix: org.donation_ref_prefix || 'JGL',
-      treePrice:         org.tree_price          || 500,
-      org80gNumber:      org.org_80g_number      || null,
-      campaignConfig:    org.campaign_config     || null,
-      paymentBanks:      org.payment_banks       || [],
-      customDomain:      org.custom_domain       || null,
-      plan:              org.plan                || 'STARTER',
-      active:            org.active              ?? true,
+      treePrice: org.tree_price || 500,
+      org80gNumber: org.org_80g_number || null,
+      campaignConfig: org.campaign_config || null,
+      paymentBanks: org.payment_banks || [],
+      customDomain: org.custom_domain || null,
+      plan: org.plan || 'STARTER',
+      active: org.active ?? true,
     };
-
     cache.set(orgId, { config, fetchedAt: Date.now() });
     return config;
   } catch { return null; }
@@ -103,7 +79,6 @@ export async function resolveTenantFromRequest(req: Request): Promise<OrgConfig>
   if (hostname && hostname !== 'localhost') {
     const byDomain = await getOrgByDomain(hostname);
     if (byDomain) return byDomain;
-
     const parts = hostname.split('.');
     if (parts.length >= 3) {
       const bySubdomain = await getOrgBySlug(parts[0]);
