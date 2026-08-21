@@ -1,196 +1,123 @@
-# JITO Green Legacy — Production Deployment Guide
+# BNZ Green Technologies — Multi-Tenant Deployment Guide
 
-## Prerequisites
-- GitHub account
-- Vercel account (free tier works)
-- Supabase account (free tier: 500MB, 2 projects)
-- Razorpay account (live keys for production)
-- Resend account (free tier: 3,000 emails/month)
+## Architecture
 
----
+Same GitHub repo → Multiple Vercel projects → Same Supabase database
 
-## Step 1 — Supabase Database Setup
-
-1. Go to [supabase.com](https://supabase.com) → **New Project**
-2. Choose region: **South Asia (Mumbai)** for best latency
-3. Set a strong database password — save it securely
-
-4. Get your connection strings:
-   - Go to **Project Settings → Database → Connection string**
-   - Copy **Transaction** mode URL (port 6543) → `DATABASE_URL`
-   - Copy **Session** mode URL (port 5432) → `DIRECT_URL`
-
-   They look like:
-   ```
-   DATABASE_URL:  postgresql://postgres.xxxx:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
-   DIRECT_URL:    postgresql://postgres.xxxx:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
-   ```
-
-5. Run migrations against the direct connection:
-   ```bash
-   DIRECT_URL="your-direct-url" DATABASE_URL="your-direct-url" npx prisma migrate deploy
-   ```
-   Or set both in `.env.local` and run:
-   ```bash
-   npm run db:deploy
-   ```
-
-6. Seed the database:
-   ```bash
-   npm run db:seed
-   ```
-
----
-
-## Step 2 — Razorpay Setup
-
-1. Go to [dashboard.razorpay.com](https://dashboard.razorpay.com)
-2. **Settings → API Keys → Generate Live Key**
-3. Copy **Key ID** and **Key Secret**
-4. **Settings → Webhooks → Add New Webhook**:
-   - URL: `https://yourdomain.vercel.app/api/payment/webhook`
-   - Events: ✓ `payment.captured` ✓ `payment.failed`
-   - Secret: use the same `RAZORPAY_KEY_SECRET`
-
----
-
-## Step 3 — Resend Setup
-
-1. Go to [resend.com](https://resend.com) → Sign up
-2. **Domains → Add Domain** → add `jitomumbai.org` → verify DNS records
-3. **API Keys → Create API Key** → copy it
-4. For testing without a verified domain, use `onboarding@resend.dev` as `FROM_EMAIL`
-
----
-
-## Step 4 — Deploy to Vercel
-
-### Option A: One-click via Vercel Dashboard (recommended)
-
-1. Push your code to GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "JITO Green Legacy — initial production commit"
-   git remote add origin https://github.com/YOUR_USERNAME/jito-green-legacy.git
-   git push -u origin main
-   ```
-
-2. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import your GitHub repo
-
-3. Vercel auto-detects Next.js. In the **Environment Variables** section, add:
-
-   | Variable | Value |
-   |----------|-------|
-   | `DATABASE_URL` | Supabase transaction pooler URL |
-   | `DIRECT_URL` | Supabase direct connection URL |
-   | `NEXTAUTH_SECRET` | `openssl rand -hex 32` output |
-   | `NEXTAUTH_URL` | `https://your-app.vercel.app` |
-   | `RAZORPAY_KEY_ID` | `rzp_live_xxxx` |
-   | `RAZORPAY_KEY_SECRET` | Your Razorpay secret |
-   | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | `rzp_live_xxxx` (same as KEY_ID) |
-   | `RESEND_API_KEY` | `re_xxxx` |
-   | `FROM_EMAIL` | `greenlegacy@jitomumbai.org` |
-   | `FROM_NAME` | `JITO Green Legacy` |
-   | `NEXT_PUBLIC_APP_URL` | `https://your-app.vercel.app` |
-
-4. Click **Deploy**
-
-### Option B: Vercel CLI
-
-```bash
-npm install -g vercel
-vercel login
-vercel --prod
+```
+GitHub: nehajain20683/jito-green-legacy
+    │
+    ├── Vercel: jito-green-legacy      → TENANT_SLUG=jito-mumbai
+    ├── Vercel: bnz-rotary             → TENANT_SLUG=rotary-mumbai-north  
+    ├── Vercel: bnz-green-org          → TENANT_SLUG=bnz-green
+    └── Vercel: bnz-admin              → TENANT_SLUG=superadmin
+              ↓ all use ↓
+         Same Supabase DB
+         (orgId isolates data)
 ```
 
 ---
 
-## Step 5 — Post-Deployment Checklist
+## Creating a New Tenant Deployment on Vercel
 
-### Run database migrations on production
-```bash
-# Set DIRECT_URL to your Supabase direct connection string locally
-DIRECT_URL="postgresql://..." npx prisma migrate deploy
-```
+### Step 1 — Create new Vercel project
+1. Go to vercel.com → New Project
+2. Import: `nehajain20683/jito-green-legacy`
+3. Project name: e.g. `bnz-rotary`
 
-### Seed production database
-```bash
-DATABASE_URL="your-supabase-url" npm run db:seed
-```
+### Step 2 — Set Environment Variables
+Add ALL of these in Vercel → Settings → Environment Variables:
 
-### Update environment variables after deployment
-Once deployed, update these to your actual Vercel domain:
-```
-NEXTAUTH_URL=https://your-app.vercel.app
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
-```
-Then **redeploy** (Vercel Dashboard → Deployments → Redeploy).
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Same Supabase connection string |
+| `NEXTAUTH_SECRET` | Same secret as other projects |
+| `NEXTAUTH_URL` | **Unique** — this project's domain |
+| `NEXT_PUBLIC_APP_URL` | Same as NEXTAUTH_URL |
+| `TENANT_SLUG` | **Unique** — org slug from DB |
+| `RAZORPAY_KEY_ID` | Your Razorpay key |
+| `RAZORPAY_KEY_SECRET` | Your Razorpay secret |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Same as RAZORPAY_KEY_ID |
+| `RESEND_API_KEY` | Your Resend key |
+| `FROM_EMAIL` | Sender email |
+| `FROM_NAME` | Org name for emails |
 
-### Custom Domain (optional)
-1. Vercel Dashboard → Settings → Domains → Add domain
-2. Update DNS records with your registrar
-3. Update `NEXTAUTH_URL` and `NEXT_PUBLIC_APP_URL` to your custom domain
-4. Redeploy
+### Step 3 — Deploy
+Click Deploy. The build will:
+- Read `TENANT_SLUG` at runtime
+- Resolve all data to that org only
+- Apply that org's branding
 
-### Razorpay Webhook
-Update webhook URL to your actual domain:
-```
-https://yourdomain.com/api/payment/webhook
+### Step 4 — Add Custom Domain
+1. Vercel → Project → Settings → Domains
+2. Add domain (e.g. `rotary.bnzgreen.io`)
+3. Copy DNS records shown
+4. Add DNS records at your registrar
+5. Wait for SSL (usually 5-10 min)
+
+### Step 5 — Update organizations table
+```sql
+UPDATE organizations 
+SET custom_domain = 'rotary.bnzgreen.io'
+WHERE slug = 'rotary-mumbai-north';
 ```
 
 ---
 
-## Admin Access
+## Tenant Slugs Reference
 
-After seeding, log in at `/auth/login`:
-- **Email:** `admin@jitomumbai.org`
-- **Password:** `admin@123`
-
-⚠️ **Change this password immediately after first login in production.**
-
----
-
-## Troubleshooting
-
-### Build fails: "Environment variable not found"
-→ Make sure all required env vars are set in Vercel Dashboard before deploying.
-
-### Prisma: "Can't reach database server"
-→ Check `DATABASE_URL` uses the **pgBouncer pooler** URL (port 6543), not direct (port 5432).
-→ Ensure `?pgbouncer=true&connection_limit=1` is appended.
-
-### Razorpay: "Failed to create order"
-→ Verify `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set correctly.
-→ Ensure you're using **live keys** in production, **test keys** in development.
-
-### Resend: Email not sending
-→ Your `FROM_EMAIL` domain must be verified in Resend.
-→ For testing, use `onboarding@resend.dev` as `FROM_EMAIL`.
-
-### Images not loading
-→ Unsplash images load via CDN — no changes needed.
-→ Local images in `/public/` are served by Vercel automatically.
-
-### NextAuth: "JWT secret not set"
-→ `NEXTAUTH_SECRET` must be a random 32+ character string.
-→ Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+| Tenant | TENANT_SLUG | NEXTAUTH_URL |
+|--------|-------------|--------------|
+| JITO Mumbai Zone | `jito-mumbai` | `https://jito-green-legacy.vercel.app` |
+| Rotary Mumbai North | `rotary-mumbai-north` | `https://rotary.bnzgreen.io` |
+| BNZ Green | `bnz-green` | `https://bnz.bnzgreen.io` |
+| BNZ Admin | `superadmin` | `https://admin.bnzgreen.io` |
 
 ---
 
-## Architecture on Vercel
+## Adding a New Tenant (complete checklist)
 
-```
-Vercel Edge Network
-    ↓
-Next.js 14 (Serverless Functions)
-    ↓
-Supabase PostgreSQL (Connection Pooler → pgBouncer)
-    ↓
-Razorpay (Payment Gateway)
-    ↓
-Resend (Transactional Email)
+### Database
+- [ ] Run: `INSERT INTO organizations (...)` with new org details
+- [ ] Run: `INSERT INTO campaigns (...)` with org's campaigns
+- [ ] Run: `INSERT INTO users (...)` for org admin user
+- [ ] Verify: `SELECT * FROM organizations WHERE slug = 'new-slug'`
+
+### Vercel
+- [ ] Create new Vercel project from same GitHub repo
+- [ ] Set all environment variables
+- [ ] Set `TENANT_SLUG=new-slug`
+- [ ] Set `NEXTAUTH_URL=https://their-domain.com`
+- [ ] Deploy
+- [ ] Add custom domain
+- [ ] Verify SSL
+
+### DNS
+- [ ] Add A/CNAME records at domain registrar
+- [ ] Wait for propagation (up to 48hrs, usually <1hr)
+
+### Post-deploy
+- [ ] Visit their domain → verify org branding shows
+- [ ] Test login with their admin account
+- [ ] Test donation flow
+- [ ] Test farmer registration
+- [ ] Verify `/api/public/org-config` returns their org
+
+---
+
+## Local Development
+
+For localhost, set `TENANT_SLUG` in `.env.local`:
+
+```env
+# Test as JITO (default if blank)
+TENANT_SLUG=
+
+# Test as Rotary
+TENANT_SLUG=rotary-mumbai-north
+
+# Test as BNZ Green
+TENANT_SLUG=bnz-green
 ```
 
-Each API route runs as an isolated serverless function with a 30s timeout.
-The Prisma client uses connection pooling via pgBouncer to handle cold starts efficiently.
+No domain setup needed locally — TENANT_SLUG overrides everything.
