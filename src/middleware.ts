@@ -2,6 +2,13 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
+// DEPLOYMENT_TARGET: unset (default) = current single-deployment behavior, unchanged.
+// Set to 'superadmin' on the admin.bnzgreen.io Vercel project, or 'tenant' on a
+// per-org project (jito-app / rotary-app), once those are split out. This is a
+// second, independent layer of defense on top of DNS — even if a tenant bundle
+// is ever reachable on the wrong host, this blocks the other deployment's routes.
+const DEPLOYMENT_TARGET = process.env.DEPLOYMENT_TARGET; // 'superadmin' | 'tenant' | undefined
+
 export default withAuth(
   function middleware(req) {
     const { pathname } = req.nextUrl;
@@ -11,6 +18,14 @@ export default withAuth(
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', pathname);
     requestHeaders.set('x-is-superadmin', pathname.startsWith('/sadmin') ? '1' : '0');
+
+    // Deployment-boundary enforcement (no-op unless DEPLOYMENT_TARGET is set)
+    if (DEPLOYMENT_TARGET === 'superadmin' && pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/sadmin/login', req.url));
+    }
+    if (DEPLOYMENT_TARGET === 'tenant' && pathname.startsWith('/sadmin')) {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
 
     // Legacy redirect
     if (pathname === '/superadmin' || pathname.startsWith('/superadmin/')) {
