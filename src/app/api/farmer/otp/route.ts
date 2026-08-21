@@ -4,67 +4,92 @@ import prisma from '@/lib/prisma';
 import { resolveTenantFromRequest } from '@/lib/tenant';
 import crypto from 'crypto';
 
-function generateOTP() { return Math.floor(100000 + Math.random() * 900000).toString(); }
-function hashOTP(otp: string) { return crypto.createHash('sha256').update(otp).digest('hex'); }
+const TEST_OTP = '123456';
+
+function hashOTP(otp: string) {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
 
 export async function POST(req: Request) {
   try {
-    const { mobile, otp, action } = await req.json();
-    const org = await resolveTenantFromRequest(req);
+    const body   = await req.json();
+    const { mobile, otp, action } = body;
+    const org    = await resolveTenantFromRequest(req);
+    const mobile_formatted = `+91${mobile.replace(/\D/g,'')}`;
 
+    // ── SEND OTP ──────────────────────────────────────────────
     if (action === 'send') {
       if (!mobile) return NextResponse.json({ error: 'Mobile required' }, { status: 400 });
-      const otpCode = generateOTP();
-      const expiry  = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiry  = new Date(Date.now() + 10 * 60 * 1000);
 
       await prisma.farmer.upsert({
-        where:  { mobile: `+91${mobile.replace(/\D/g,'')}` },
+        where:  { mobile: mobile_formatted },
         update: { otpHash: hashOTP(otpCode), otpExpiry: expiry },
         create: {
-          mobile:   `+91${mobile.replace(/\D/g,'')}`,
-          fullName: 'Pending',
-          otpHash:  hashOTP(otpCode),
+          mobile:    mobile_formatted,
+          fullName:  'Pending',
+          otpHash:   hashOTP(otpCode),
           otpExpiry: expiry,
-          orgId:    org.id,   // ← assign to correct org
+          orgId:     org.id,
         },
       });
 
-      // TODO: Send via MSG91 SMS
-      console.log(`OTP for ${mobile}: ${otpCode}`); // remove in production
-      return NextResponse.json({ success: true, message: 'OTP sent' });
+      // TODO: Send via MSG91
+      console.log(`[OTP] ${mobile_formatted}: ${otpCode}`);
+
+      return NextResponse.json({
+        success: true,
+        message: 'OTP sent',
+        // Remove this in production:
+        _testOtp: otpCode,
+      });
     }
 
+    // ── VERIFY OTP ────────────────────────────────────────────
     if (action === 'verify') {
       if (!mobile || !otp) return NextResponse.json({ error: 'Mobile and OTP required' }, { status: 400 });
-      const mobileFormatted = `+91${mobile.replace(/\D/g,'')}`;
-      const farmer = await prisma.farmer.findUnique({ where: { mobile: mobileFormatted } });
 
-      if (!farmer?.otpHash || !farmer?.otpExpiry)
-        return NextResponse.json({ error: 'OTP not found. Please request again.' }, { status: 400 });
-      if (new Date() > farmer.otpExpiry)
-        return NextResponse.json({ error: 'OTP expired. Please request again.' }, { status: 400 });
-      // TEST BYPASS: accept 123456 as universal OTP during development
-      const isTestOtp = otp === '123456';
-      if (!isTestOtp && farmer.otpHash !== hashOTP(otp))
-        return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
+      const farmer = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted } });
 
+      if (!farmer) return NextResponse.json({ error: 'Mobile not registered. Please register first.' }, { status: 404 });
+
+      // ✅ TEST BYPASS — always accept 123456
+      const isTestOtp = otp === TEST_OTP;
+
+      if (!isTestOtp) {
+        if (!farmer.otpHash || !farmer.otpExpiry)
+          return NextResponse.json({ error: 'OTP not found. Request a new one.' }, { status: 400 });
+        if (new Date() > farmer.otpExpiry)
+          return NextResponse.json({ error: 'OTP expired. Request a new one.' }, { status: 400 });
+        if (farmer.otpHash !== hashOTP(otp))
+          return NextResponse.json({ error: 'Incorrect OTP. Try again.' }, { status: 400 });
+      }
+
+      // Clear OTP after successful verify
       await prisma.farmer.update({
-        where: { mobile: mobileFormatted },
-        data:  { otpHash: null, otpExpiry: null, orgId: org.id }, // ensure orgId set
+        where: { mobile: mobile_formatted },
+        data:  { otpHash: null, otpExpiry: null, orgId: farmer.orgId || org.id },
       });
 
-      const isProfileComplete = farmer.fullName !== 'Pending' && farmer.fullName !== '';
-      const token = Buffer.from(JSON.stringify({
-        farmerId: farmer.id, mobile: mobileFormatted, role: 'FARMER',
-        exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      })).toString('base64');
+      // Check if profile is complete (fullName not 'Pending' and registrationStep >= 8)
+      const isProfileComplete =
+        farmer.fullName !== 'Pending' &&
+        farmer.fullName !== '' &&
+        (farmer as any).registrationStep >= 8;
 
-      return NextResponse.json({ success: true, token, farmerId: farmer.id, isProfileComplete });
+      return NextResponse.json({
+        success:           true,
+        farmerId:          farmer.id,
+        isProfileComplete,
+        registrationStep:  (farmer as any).registrationStep || 0,
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (e: any) {
-    console.error('OTP error:', e);
+    console.error('[OTP]', e.message);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
