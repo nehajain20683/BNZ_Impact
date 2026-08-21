@@ -1,107 +1,150 @@
 'use client';
-// src/app/auth/login/page.tsx
-import { useState, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { TreePine } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { LogIn, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Suspense } from 'react';
 
 function LoginForm() {
-  const params      = useSearchParams();
-  const router      = useRouter();
-  const callbackUrl = params.get('callbackUrl') || '/dashboard';
-  const registered  = params.get('registered');
+  const org    = useOrgConfig();
+  const router = useRouter();
+  const params = useSearchParams();
+  const { data: session, status } = useSession();
 
-  const [form, setForm]     = useState({ email: '', password: '' });
-  const [error, setError]   = useState('');
+  const [email, setEmail]     = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw]   = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const role = (session?.user as any)?.role;
+      if (['ADMIN','SUPER_ADMIN'].includes(role)) router.push('/admin');
+      else router.push('/dashboard');
+    }
+  }, [status]);
+
+  // Show error from URL params (NextAuth redirects errors here)
+  useEffect(() => {
+    const err = params.get('error');
+    if (err === 'CredentialsSignin') setError('Invalid email or password');
+  }, [params]);
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
+
     const result = await signIn('credentials', {
-      email: form.email, password: form.password, redirect: false,
+      email, password, redirect: false,
     });
+
+    setLoading(false);
+
     if (result?.error) {
-      setError('Invalid email or password.');
-      setLoading(false);
-    } else {
-      router.push(callbackUrl);
+      if (result.error.includes('WRONG_ORG:')) {
+        const orgName = result.error.split('WRONG_ORG:')[1];
+        setError(`This account belongs to ${orgName}. Please use the correct portal.`);
+      } else {
+        setError('Invalid email or password');
+      }
+      return;
+    }
+
+    if (result?.ok) {
+      const role = (session?.user as any)?.role;
+      if (['ADMIN','SUPER_ADMIN'].includes(role)) router.push('/admin');
+      else router.push('/dashboard');
     }
   }
 
+  const primaryColor = org.primaryColor || '#2d5a1b';
+
   return (
-    <div className="min-h-screen bg-cream-50 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
 
+        {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-sage-600 rounded-xl flex items-center justify-center">
-              <TreePine className="w-6 h-6 text-white"/>
+          {org.logoUrl ? (
+            <img src={org.logoUrl} alt={org.name}
+              className="w-16 h-16 rounded-2xl object-contain mx-auto mb-4 shadow-lg"/>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg"
+              style={{ backgroundColor: primaryColor }}>
+              {(org.name || 'G').charAt(0)}
             </div>
-            <span className="font-display text-xl text-forest-900">JITO Green Legacy</span>
-          </Link>
-          <h1 className="font-display text-3xl text-forest-950">Welcome back</h1>
-          <p className="text-sage-600 mt-2">Sign in to your donor account</p>
+          )}
+          <h1 className="text-2xl font-bold text-gray-900">
+            {org.loaded ? org.name : 'Loading…'}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
         </div>
 
-        <div className="bg-white border border-forest-100 rounded-2xl p-8 shadow-sm">
-          {registered && (
-            <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl p-3 mb-4">
-              Account created! Please sign in.
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-xl mb-5 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5"/>
+              {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">
-                {error}
-              </div>
-            )}
-
-            {/* Email */}
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Email</label>
-              <input type="email" required value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full border border-sage-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sage-400"
-                placeholder="you@example.com"/>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  required autoFocus
+                  className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': primaryColor } as any}
+                  placeholder="you@example.com"/>
+              </div>
             </div>
 
-            {/* Password + Forgot link */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-forest-700">Password</label>
-                <Link href="/auth/forgot-password"
-                  className="text-xs text-sage-500 hover:text-sage-700 hover:underline">
-                  Forgot Password?
-                </Link>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                <input type={showPw ? 'text' : 'password'} value={password}
+                  onChange={e => setPassword(e.target.value)} required
+                  className="w-full border border-gray-200 rounded-xl pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2"
+                  placeholder="••••••••"/>
+                <button type="button" onClick={() => setShowPw(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                </button>
               </div>
-              <input type="password" required value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className="w-full border border-sage-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sage-400"
-                placeholder="••••••••"/>
             </div>
 
             <button type="submit" disabled={loading}
-              className="w-full bg-sage-600 hover:bg-sage-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors">
-              {loading ? 'Signing in...' : 'Sign In'}
+              className="w-full text-white font-bold py-3 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              style={{ backgroundColor: primaryColor }}>
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin"/> Signing in…</>
+                : <><LogIn className="w-4 h-4"/> Sign In</>}
             </button>
           </form>
 
-          <p className="text-center text-sm text-forest-500 mt-6">
-            Don&apos;t have an account?{' '}
-            <Link href="/auth/register" className="text-sage-600 font-semibold hover:underline">
-              Register
-            </Link>
-          </p>
-
-          <div className="mt-4 pt-4 border-t border-forest-100 text-center">
-            <p className="text-xs text-forest-400">Admin: admin@jitomumbai.org / admin@123</p>
+          <div className="mt-6 pt-5 border-t border-gray-100 text-center space-y-2">
+            <a href="/auth/forgot-password"
+              className="text-sm hover:underline block"
+              style={{ color: primaryColor }}>
+              Forgot your password?
+            </a>
           </div>
         </div>
 
+        <p className="text-center text-gray-400 text-xs mt-6">
+          {org.loaded ? org.name : ''} · Powered by BNZ Green Technologies
+        </p>
       </div>
     </div>
   );
@@ -109,7 +152,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400"/>
+      </div>
+    }>
       <LoginForm/>
     </Suspense>
   );

@@ -1,55 +1,93 @@
-// src/lib/auth.ts — NextAuth v4 with next-auth's built-in PrismaAdapter
+// src/lib/auth.ts
+// Tenant-aware authentication
+// Users can ONLY login on their own org's domain
+// SUPER_ADMIN can login on any domain
 import { NextAuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import prisma from './prisma';
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
-  pages: {
-    signIn: '/auth/login',
-    error: '/auth/error',
-  },
+  pages:   { signIn: '/auth/login' },
+
   providers: [
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        email:    { label: 'Email',    type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-        if (!user || !user.password) return null;
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
 
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-        if (!isValid) return null;
+          if (!user || !user.password) return null;
 
-        return { id: user.id, email: user.email, name: user.name, role: user.role , orgId: user.orgId };
+          const isValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isValid) return null;
+
+          // ── Tenant isolation check ─────────────────────────────
+          // SUPER_ADMIN can login anywhere
+          if (user.role === 'SUPER_ADMIN') {
+            return {
+              id:    user.id,
+              email: user.email,
+              name:  user.name,
+              role:  user.role,
+              orgId: user.orgId,
+            };
+          }
+
+          // For all other roles, verify the user belongs to this deployment's org
+          const tenantSlug = process.env.TENANT_SLUG;
+
+          if (tenantSlug && tenantSlug !== 'superadmin') {
+            // Resolve the org for this deployment
+            const deploymentOrg = await (prisma as any).organization.findUnique({
+              where: { slug: tenantSlug },
+            });
+
+            if (deploymentOrg && user.orgId !== deploymentOrg.id) {
+              // User doesn't belong to this org — reject login
+              throw new Error(`WRONG_ORG:${deploymentOrg.name}`);
+            }
+          }
+
+          return {
+            id:    user.id,
+            email: user.email,
+            name:  user.name,
+            role:  user.role,
+            orgId: user.orgId,
+          };
+        } catch (e: any) {
+          // Pass through WRONG_ORG error so login page can show it
+          if (e.message?.startsWith('WRONG_ORG:')) throw e;
+          console.error('Auth error:', e);
+          return null;
+        }
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
-        token.id = user.id;
+        token.role  = (user as any).role;
+        token.id    = user.id;
         token.orgId = (user as any).orgId;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).id = token.id;
+        (session.user as any).role  = token.role;
+        (session.user as any).id    = token.id;
         (session.user as any).orgId = token.orgId;
       }
       return session;
