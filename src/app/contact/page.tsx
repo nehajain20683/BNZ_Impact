@@ -44,9 +44,9 @@ export default function ContactPage() {
             <div className="space-y-5">
               <h2 className="font-display text-xl text-forest-950 mb-4">Contact Information</h2>
               {[
-                { icon: Mail,    label:'Email',   value:'mumbaizoneJES@jito.org', href:'mailto:mumbaizoneJES@jito.org' },
-                { icon: Phone,   label:'Phone',   value:'+91 91377 41905',        href:'tel:+919137741905' },
-                { icon: MapPin,  label:'Address', value:'Mumbai Zone, Maharashtra, India', href:null },
+                { icon: Mail,    label:'Email',   value:'info@bnzgreen.io', href:'mailto:info@bnzgreen.io' },
+                { icon: Phone,   label:'Phone',   value:'+91 9372989074',        href:'tel:+919372989074' },
+                { icon: MapPin,  label:'Address', value:'Mumbai, Maharashtra, India', href:null },
               ].map(c=>(
                 <div key={c.label} className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-sage-100 rounded-xl flex items-center justify-center flex-shrink-0">
