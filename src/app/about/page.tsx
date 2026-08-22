@@ -3,10 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 // ── Team data ────────────────────────────────────────────
-const TEAM_APEX = [
-  { name: 'Prithviraj Kothari', role: 'Chairman',         linkedin: '' },
-  { name: 'Vijay Bhandari',     role: 'President',        linkedin: '' },
-  { name: 'Lalit Kumar Dangi',  role: 'Secretary General',linkedin: '' },
+const TEAM_BNZ = [
+  { name: 'CA Ashish Jain', role: 'Co-founder',         linkedin: '' },
+  { name: 'Dr. Neha Jain',     role: 'Co-founder',        linkedin: '' },
 ];
 
 const TEAM_ENV = [
@@ -43,8 +42,7 @@ const CHAPTERS = [
 ];
 
 const TIMELINE = [
-  { year: 'May 2026',              title: 'JES Team Formation',          desc: 'JITO Environment & Sustainability team assembled in Mumbai Zone under the leadership of Anand Chordia.' },
-  { year: '5 June 2026',           title: 'JITO Green Legacy Launch',    desc: 'Official World Environment Day launch of JITO Green Legacy with a vision for 1 lakh trees across Maharashtra.' },
+  { year: '5 June 2026',           title: 'BNZ Green Legacy Launch',    desc: 'Official World Environment Day launch of BNZ Green Legacy with a vision for 1 lakh trees across Maharashtra.' },
   { year: 'June 2026',             title: 'Phase 1 — Kalyan Plantation', desc: 'First plantation drive of 10,000 trees at Palghar district farms covering 12.5 acres of verified land.' },
   { year: 'July – September 2026', title: 'Phase 2 Expansion',           desc: 'Expansion to additional districts across Maharashtra and onboarding of more farmer partners.' },
 ];
@@ -92,8 +90,8 @@ export default function AboutPage() {
             style={{backgroundImage:"url('https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=1600&q=80')",backgroundSize:'cover',backgroundPosition:'center'}}/>
           <div className="relative z-10 max-w-3xl mx-auto">
             <p className="text-sage-400 text-sm tracking-widest uppercase mb-3 font-semibold">About Us</p>
-            <h1 className="font-display text-4xl sm:text-5xl mb-4">JITO Green Legacy</h1>
-            <p className="text-sage-300 text-lg">A long-term family-driven tree plantation movement by JITO Mumbai Zone</p>
+            <h1 className="font-display text-4xl sm:text-5xl mb-4">BNZ Green Impact</h1>
+            <p className="text-sage-300 text-lg">A long-term family-driven tree plantation movement by BNZ Green</p>
           </div>
         </section>
 
@@ -103,10 +101,10 @@ export default function AboutPage() {
             <div>
               <h2 className="font-display text-3xl text-forest-950 mb-4">About the Initiative</h2>
               <p className="text-sage-700 leading-relaxed mb-4">
-                JITO Green Legacy is a long-term, community-driven tree plantation initiative conceived by JITO Mumbai Zone's Environment & Sustainability wing. This is not a one-time event — it is a legacy programme designed to span generations.
+                BNZ Green Legacy is a long-term, community-driven tree plantation initiative conceived by BNZ Green Technologies. This is not a one-time event — it is a legacy programme designed to span generations.
               </p>
               <p className="text-sage-700 leading-relaxed mb-4">
-                Phase 1 begins with a family plantation drive, inviting every JITO member to plant trees in the names of the most important women in their lives — Dadi, Maa, Beti, and Poti. Each tree is geo-tagged, photographed, and monitored.
+                Phase 1 begins with a family plantation drive, inviting everyone to plant trees in the names of the most important women in their lives — Dadi, Maa, Beti, and Poti. Each tree is geo-tagged, photographed, and monitored.
               </p>
               <p className="text-sage-700 leading-relaxed">
                 Beyond Phase 1, the programme supports farmer livelihoods, builds carbon credit portfolios under international standards, and creates a measurable environmental legacy for the Mumbai Jain community.
@@ -135,7 +133,7 @@ export default function AboutPage() {
           <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
             {[
               { title:'Our Mission', icon:'🎯', text:'To create family-driven environmental stewardship and support farmers through sustainable tree plantations, generating long-term ecological and economic value for communities across Maharashtra.' },
-              { title:'Our Vision',  icon:'🌏', text:"To build India's largest community-led family plantation movement — where every JITO family has a living legacy of trees that will grow for generations, sequester carbon, and restore India's green cover." },
+              { title:'Our Vision',  icon:'🌏', text:"To build India's largest community-led family plantation movement — where every family has a living legacy of trees that will grow for generations, sequester carbon, and restore India's green cover." },
             ].map(mv=>(
               <div key={mv.title} className="bg-white/10 rounded-2xl p-8 border border-white/10">
                 <div className="text-4xl mb-4">{mv.icon}</div>
@@ -173,88 +171,18 @@ export default function AboutPage() {
           <div className="max-w-5xl mx-auto">
             <h2 className="font-display text-3xl text-forest-950 text-center mb-3">Our Team</h2>
             <p className="text-sage-500 text-center mb-12 max-w-2xl mx-auto text-sm">
-              JITO Green Legacy is led by dedicated volunteers across Mumbai Zone and all its chapters.
+              BNZ Green Legacy is led by dedicated volunteers across India.
             </p>
 
             {/* JITO Apex */}
             <div className="bg-sage-50 rounded-3xl p-8 border border-sage-100 mb-8">
-              <SectionHeading title="Team JITO Apex"/>
+              <SectionHeading title="Team BNZ Green"/>
               <div className="flex justify-center gap-10 flex-wrap">
                 {TEAM_APEX.map(m=><MemberCard key={m.name} {...m}/>)}
               </div>
             </div>
 
-            {/* Env Team */}
-            <div className="bg-sage-50 rounded-3xl p-8 border border-sage-100 mb-8">
-              <SectionHeading title="Team Anand JITO Environment & Sustainability"/>
-              <div className="flex justify-center gap-10 flex-wrap">
-                {TEAM_ENV.map(m=><MemberCard key={m.name} name={m.name} role={m.role}/>)}
-              </div>
-            </div>
-
-            {/* Mumbai Zone — row of 5, then row of 2 centred */}
-            <div className="bg-forest-950 rounded-3xl p-8 mb-8">
-              <div className="text-center mb-6">
-                <h3 className="font-display text-xl text-white mb-1">Team JITO Mumbai Zone</h3>
-                <div className="w-12 h-0.5 bg-sage-400 mx-auto"/>
-              </div>
-              {/* Row 1 — 5 members equal width */}
-              <div className="grid grid-cols-5 gap-4 mb-6">
-                {TEAM_MZ_ROW1.map(m=>(
-                  <div key={m.name} className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-sage-700 border-2 border-sage-500 flex items-center justify-center mb-2 flex-shrink-0">
-                      <span className="text-white font-bold text-sm">
-                        {m.name.split(' ').map(w=>w[0]).join('').slice(0,2)}
-                      </span>
-                    </div>
-                    <div className="font-bold text-white text-xs leading-tight">{m.name}</div>
-                    <div className="text-sage-400 text-[10px] mt-0.5 leading-tight">{m.role}</div>
-                  </div>
-                ))}
-              </div>
-              {/* Row 2 — 2 members centred */}
-              <div className="flex justify-center gap-16">
-                {TEAM_MZ_ROW2.map(m=>(
-                  <div key={m.name} className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-full bg-sage-700 border-2 border-sage-500 flex items-center justify-center mb-2">
-                      <span className="text-white font-bold text-sm">
-                        {m.name.split(' ').map(w=>w[0]).join('').slice(0,2)}
-                      </span>
-                    </div>
-                    <div className="font-bold text-white text-xs leading-tight">{m.name}</div>
-                    <div className="text-sage-400 text-[10px] mt-0.5 leading-tight">{m.role}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Chapters */}
-            <div>
-              <SectionHeading title="All Chapters"/>
-              <div className="grid sm:grid-cols-2 gap-5">
-                {CHAPTERS.map(ch=>(
-                  <div key={ch.name} className="bg-sage-50 rounded-2xl p-5 border border-sage-100">
-                    <h4 className="font-semibold text-sage-700 text-xs uppercase tracking-wide mb-4">{ch.name}</h4>
-                    <div className="flex flex-wrap gap-6">
-                      {ch.members.map(m=>(
-                        <div key={m.n} className="flex flex-col items-center text-center">
-                          <div className="w-10 h-10 rounded-full bg-white border-2 border-sage-200 flex items-center justify-center mb-1.5">
-                            <span className="text-sage-600 font-bold text-xs">
-                              {m.n.split(' ').map(w=>w[0]).join('').slice(0,2)}
-                            </span>
-                          </div>
-                          <div className="font-bold text-forest-950 text-[11px] leading-tight">{m.n}</div>
-                          <div className="text-sage-400 text-[10px]">{m.r}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
+          
         {/* CTA */}
         <section className="py-14 px-4 bg-sage-700 text-center text-white">
           <h2 className="font-display text-3xl mb-3">Join the Movement</h2>
