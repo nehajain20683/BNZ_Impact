@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
             <div className="w-10 h-10 bg-sage-700 rounded-xl flex items-center justify-center">
               <span className="text-white text-xl">🌳</span>
             </div>
-            <span className="font-display font-bold text-sage-900 text-xl">JITO Green Legacy</span>
+            <span className="font-display font-bold text-sage-900 text-xl">BNZ Green Legacy</span>
           </div>
         </div>
 
