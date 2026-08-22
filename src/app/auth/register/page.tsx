@@ -39,7 +39,7 @@ export default function RegisterPage() {
             <div className="w-10 h-10 bg-sage-600 rounded-xl flex items-center justify-center">
               <TreePine className="w-6 h-6 text-white" />
             </div>
-            <span className="font-display text-xl text-forest-900">JITO Green Legacy</span>
+            <span className="font-display text-xl text-forest-900">BNZ Green Legacy</span>
           </Link>
           <h1 className="font-display text-3xl text-forest-950">Create account</h1>
           <p className="text-sage-600 mt-2">Join thousands of tree donors</p>
