@@ -74,7 +74,7 @@ function LoginForm() {
           ) : (
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg"
               style={{ backgroundColor: primaryColor }}>
-              {(org.name || 'G').charAt(0)}
+              {(org.name || 'B').charAt(0)}
             </div>
           )}
           <h1 className="text-2xl font-bold text-gray-900">

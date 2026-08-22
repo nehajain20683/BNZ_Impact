@@ -5,7 +5,7 @@
 //   2. x-org-id header
 //   3. Custom domain match
 //   4. Subdomain match
-//   5. Default → JITO (fallback for localhost/dev)
+//   5. Default → BNZ (fallback for localhost/dev)
 import prisma from '@/lib/prisma';
 
 export type OrgConfig = {
@@ -31,7 +31,7 @@ export type OrgConfig = {
 
 const cache = new Map<string, { config: OrgConfig; fetchedAt: number }>();
 const CACHE_TTL_MS  = 60_000;
-const DEFAULT_ORG_ID = 'org_jito_mumbai';
+const DEFAULT_ORG_ID = 'bnz-green'; // resolved by slug via getOrgBySlug
 
 export async function getOrgConfig(orgId: string): Promise<OrgConfig | null> {
   const cached = cache.get(orgId);
@@ -111,13 +111,13 @@ export async function resolveTenantFromRequest(req: Request): Promise<OrgConfig>
     }
   }
 
-  // 4. Default → JITO
-  const fallback = await getOrgConfig(DEFAULT_ORG_ID);
+  // 4. Default → BNZ (lookup by slug)
+  const fallback = await getOrgBySlug(DEFAULT_ORG_ID);
   return fallback || {
-    id: DEFAULT_ORG_ID, name: 'JITO Green Legacy', slug: 'jito-mumbai',
-    primaryColor: '#2d5a1b', logoUrl: null, email: 'mumbaizoneJES@jito.org',
-    phone: '+919137741905', address: null, website: null,
-    farmerIdPrefix: 'JGL', donationRefPrefix: 'JITO', treePrice: 500,
+    id: 'org_bnz_green', name: 'BNZ Impact', slug: 'bnz-green',
+    primaryColor: '#059669', logoUrl: null, email: 'info@bnzgreen.io',
+    phone: '+919372989074', address: null, website: 'https://bnzgreen.io',
+    farmerIdPrefix: 'BNZ', donationRefPrefix: 'BNZ', treePrice: 500,
     org80gNumber: null, campaignConfig: null, paymentBanks: [],
     customDomain: null, plan: 'ENTERPRISE', active: true,
   };

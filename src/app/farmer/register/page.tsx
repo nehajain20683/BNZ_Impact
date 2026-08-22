@@ -59,7 +59,7 @@ export default function FarmerRegisterPage() {
   // Step 2 — Personal
   const [personal, setPersonal] = useState({
     fullName:'', fatherName:'', dob:'', gender:'',
-    aadhaar:'', pan:'', occupation:'', alternateMobile:'', email:'',
+    aadhaarNumber:'', panNumber:'', occupation:'', alternateMobile:'', email:'',
   });
 
   // Step 3 — Bank
@@ -422,8 +422,8 @@ export default function FarmerRegisterPage() {
                 { k:'occupation',     en:'Occupation',     hi:'व्यवसाय' },
                 { k:'alternateMobile',en:'Alternate Mobile',hi:'वैकल्पिक मोबाइल', type:'tel' },
                 { k:'email',          en:'Email',          hi:'ईमेल', type:'email' },
-                { k:'aadhaar',        en:'Aadhaar Number', hi:'आधार नंबर' },
-                { k:'pan',            en:'PAN Number',     hi:'पैन नंबर' },
+                { k:'aadhaarNumber',   en:'Aadhaar Number', hi:'आधार नंबर' },
+                { k:'panNumber',       en:'PAN Number',     hi:'पैन नंबर' },
               ].map(f => (
                 <div key={f.k}>
                   <BiLabel en={f.en} hi={f.hi}/>
