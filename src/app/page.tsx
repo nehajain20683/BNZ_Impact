@@ -1,21 +1,22 @@
 'use client';
-// src/app/page.tsx — JITO Green Legacy · Light Theme · Real Photography
+// src/app/page.tsx — Tenant-branded home page · Light Theme · Real Photography
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Leaf, Globe, Shield, FileText, TreePine } from 'lucide-react';
-import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, BRAND, NATURE_IMAGES, WHY_PLANT_IMAGES } from '@/lib/utils';
+import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, NATURE_IMAGES, WHY_PLANT_IMAGES } from '@/lib/utils';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 const STATS = [
   { number: '1,08,000+', label: 'Trees Pledged' },
   { number: '₹4.8 Cr+',  label: 'Raised' },
-  { number: '8,500+',    label: 'JITO Families' },
+  { number: '8,500+',    label: 'Donor Families' },
   { number: '2,376 MT',  label: 'CO₂ Offset / Year' },
 ];
 
 const WHY_PLANT = [
-  { icon: '🌍', title: 'Environmental Responsibility', desc: 'JITO Mumbai Zone believes in giving back to nature — contributing meaningfully to climate action for a sustainable tomorrow.', img: WHY_PLANT_IMAGES.environmental },
+  { icon: '🌍', title: 'Environmental Responsibility', desc: 'We believe in giving back to nature — contributing meaningfully to climate action for a sustainable tomorrow.', img: WHY_PLANT_IMAGES.environmental },
   { icon: '🌳', title: 'Family Legacy',                desc: 'Trees symbolise continuity, roots, and generations — just like our families. A tree planted today will shade your grandchildren.', img: WHY_PLANT_IMAGES.legacy },
-  { icon: '🤝', title: 'Community Participation',      desc: 'Encouraging every JITO member to join a shared green mission — because collective action creates the most lasting change.', img: WHY_PLANT_IMAGES.community },
+  { icon: '🤝', title: 'Community Participation',      desc: 'Encouraging every member to join a shared green mission — because collective action creates the most lasting change.', img: WHY_PLANT_IMAGES.community },
   { icon: '👶', title: 'Future Generations',           desc: 'Creating a healthier planet for our children and grandchildren is the greatest inheritance we can leave behind.', img: WHY_PLANT_IMAGES.future },
   { icon: '🕊️', title: 'Spiritual Responsibility',    desc: 'Aligning environmental stewardship with our values of compassion, service, and responsibility to all living beings.', img: WHY_PLANT_IMAGES.spiritual },
   { icon: '📊', title: 'Transparent Impact',           desc: 'Every tree is geo-tagged and photographed. Track your impact on our live dashboard — complete transparency guaranteed.', img: WHY_PLANT_IMAGES.transparent },
@@ -28,6 +29,7 @@ const TESTIMONIALS = [
 ];
 
 export default function HomePage() {
+  const org = useOrgConfig();
   return (
     <div className="min-h-screen bg-cream-50">
       {/* ══════════ HERO ══════════ */}
@@ -36,7 +38,7 @@ export default function HomePage() {
         <div className="absolute inset-0">
           <Image
             src={NATURE_IMAGES.hero}
-            alt="Majestic green tree — JITO Green Legacy"
+            alt={`Majestic green tree — ${org.name || 'BNZ Impact'}`}
             fill
             className="object-cover object-center"
             priority
@@ -50,16 +52,16 @@ export default function HomePage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center hero-grid">
           {/* Left: Content */}
           <div className="fade-up">
-            {/* JITO Badge */}
+            {/* Org badge */}
             <div className="inline-flex items-center gap-2 bg-white/90 border border-sage-200 text-sage-700 text-xs font-semibold px-4 py-2 rounded-full mb-7 shadow-sm backdrop-blur-sm">
               <span className="w-2 h-2 bg-sage-500 rounded-full"/>
-              JITO Mumbai Zone · Family Plantation Drive
+              {org.loaded ? org.name : 'BNZ Impact'} · Family Plantation Drive
             </div>
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl text-sage-950 leading-[0.95] tracking-tight mb-4 sm:mb-5">
-              {BRAND.name}
+              {org.loaded ? org.name : 'BNZ Impact'}
             </h1>
-            <p className="text-sage-600 text-lg font-medium mb-4 italic font-display">{BRAND.tagline}</p>
+            <p className="text-sage-600 text-lg font-medium mb-4 italic font-display">Grow a living legacy for your family.</p>
             <p className="text-sage-700 text-lg leading-relaxed mb-10 max-w-lg">
               Plant trees in honor of your family — Dadi, Maa, Beti, and Poti — and create a living legacy for generations to come.
             </p>
@@ -195,13 +197,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ══════════ WHY JITO SECTION ══════════ */}
+      {/* ══════════ WHY PLANT SECTION ══════════ */}
       <section id="about" className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <div className="inline-block bg-sage-100 text-sage-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">The Mission</div>
             <h2 className="font-display text-4xl sm:text-5xl text-sage-950 mb-4">
-              Why JITO Mumbai Zone<br/>Wants to Plant
+              Why Families<br/>Choose to Plant
             </h2>
             <p className="text-sage-600 text-lg max-w-2xl mx-auto leading-relaxed">
               This isn't just a plantation drive. It's a movement rooted in family, faith, and responsibility to the earth we share.
@@ -274,7 +276,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-14">
             <div className="inline-block bg-sage-100 text-sage-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">Stories of Legacy</div>
-            <h2 className="font-display text-4xl text-sage-950 mb-3">What JITO Families Say</h2>
+            <h2 className="font-display text-4xl text-sage-950 mb-3">What Our Families Say</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map(t => (
@@ -307,13 +309,13 @@ export default function HomePage() {
         </div>
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
           <div className="inline-block bg-white/10 border border-white/20 text-sage-200 text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full mb-6 backdrop-blur-sm">
-            JITO Mumbai Zone
+            {org.loaded ? org.name : 'BNZ Impact'}
           </div>
           <h2 className="font-display text-4xl sm:text-6xl text-white mb-5 leading-tight">
             Her legacy begins<br/>with a single tree.
           </h2>
           <p className="text-sage-200 text-xl mb-10 max-w-xl mx-auto leading-relaxed">
-            Join thousands of JITO families creating a greener India. It takes just 2 minutes.
+            Join thousands of families creating a greener India. It takes just 2 minutes.
           </p>
           <Link href="/campaigns"
             className="inline-flex items-center gap-3 bg-white text-sage-800 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-sage-50 transition-all hover:scale-105 hover:shadow-2xl shadow-lg">
@@ -328,7 +330,7 @@ export default function HomePage() {
           <h2 className="font-display text-3xl text-sage-950 mb-3">Get in Touch</h2>
           <p className="text-sage-500 mb-8">Questions about the initiative? We'd love to hear from you.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="mailto:greenlegacy@jitomumbai.org"
+            <a href={`mailto:${org.email || 'contact@bnzgreen.io'}`}
               className="inline-flex items-center gap-2 bg-sage-700 text-white font-semibold px-6 py-3 rounded-xl hover:bg-sage-800 transition-colors">
               Email Us
             </a>

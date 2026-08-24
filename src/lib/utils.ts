@@ -14,25 +14,21 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function generateReceiptNumber(): string {
+export function generateReceiptNumber(prefix: string = 'BNZ'): string {
   const year = new Date().getFullYear();
   const random = Math.floor(100000 + Math.random() * 900000);
-  return `JGL${year}${random}`;
+  return `${prefix}${year}${random}`;
 }
 
 export function calculateCO2(trees: number): number {
   return trees * 22;
 }
 
-export const BRAND = {
-  name: 'JITO Green Legacy',
-  tagline: 'A Family Tree Plantation Drive by Mumbai Zone',
-  shortName: 'JGL',
-  org: 'JITO Mumbai Zone',
-  email: 'greenlegacy@jitomumbai.org',
-  phone: '+91 98765 43210',
-  address: 'Mumbai, Maharashtra, India',
-};
+// NOTE: a hardcoded `BRAND` constant (name/tagline/org/email/phone) used to
+// live here. It has been removed — every consumer now sources branding from
+// the tenant via useOrgConfig() (client) or resolveTenantFromRequest()
+// (server), per docs/BRANDING_ANALYSIS.md. Do not reintroduce a hardcoded
+// brand object; add fields to the Organization model + OrgConfig type instead.
 
 export const NATURE_IMAGES = {
   hero:        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=1400&q=85&auto=format',
@@ -46,7 +42,7 @@ export const NATURE_IMAGES = {
   leaves:      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80&auto=format',
 };
 
-// Images for "Why JITO Wants to Plant" section — using uploaded custom images
+// Images for the "Why We Want to Plant" section — using uploaded custom images
 export const WHY_PLANT_IMAGES = {
   environmental: '/why/environmental.png',
   legacy:        '/why/legacy.png',

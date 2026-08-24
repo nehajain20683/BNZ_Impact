@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { getOrgConfig } from '@/lib/tenant';
 
 function generateOTP() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 function hashOTP(otp: string) { return crypto.createHash('sha256').update(otp).digest('hex'); }
@@ -46,14 +47,16 @@ export async function POST(req: Request) {
       if (process.env.RESEND_API_KEY) {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
+        const org = user.orgId ? await getOrgConfig(user.orgId) : null;
+        const orgName = org?.name || process.env.FROM_NAME || 'BNZ Impact';
         await resend.emails.send({
-          from:    `${process.env.FROM_NAME || 'JITO Green Legacy'} <${process.env.FROM_EMAIL || 'onboarding@resend.dev'}>`,
+          from:    `${orgName} <${process.env.FROM_EMAIL || 'onboarding@resend.dev'}>`,
           to:      email,
-          subject: 'Password Reset OTP — JITO Green Legacy',
+          subject: `Password Reset OTP — ${orgName}`,
           html:    `
             <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
               <h2 style="color:#264422">Password Reset Request</h2>
-              <p>You requested a password reset for your JITO Green Legacy account.</p>
+              <p>You requested a password reset for your ${orgName} account.</p>
               <div style="background:#f6f9f4;border:2px solid #aecfa4;border-radius:12px;padding:24px;text-align:center;margin:24px 0">
                 <p style="color:#448039;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px">Your OTP</p>
                 <p style="font-size:40px;font-weight:bold;color:#264422;letter-spacing:8px;margin:0">${generatedOTP}</p>

@@ -139,7 +139,7 @@ model Donation {
   certificateSentAt DateTime?
   form80GSent      Boolean         @default(false)
   notes            String?
-  refId            String?         @unique // auto-generated ref like #JITO-00001
+  refId            String?         @unique // auto-generated ref like #BNZ-00001
   createdById      String?         // admin who manually added
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -179,7 +179,7 @@ model MasterProject {
   orgId   String?
   organization Organization? @relation(fields: [orgId], references: [id])
   id          String   @id @default(cuid())
-  name        String                          // "JITO Green Legacy"
+  name        String                          // e.g. "Green Legacy Master Project"
   code        String?  @unique
   description String?
   startDate   DateTime?
@@ -477,8 +477,8 @@ model Organization {
   phone               String?
   address             String?
   website             String?
-  farmer_id_prefix    String?  @default("JGL")
-  donation_ref_prefix String?  @default("JITO")
+  farmer_id_prefix    String?  @default("BNZ")
+  donation_ref_prefix String?  @default("BNZ")
   tree_price          Int?     @default(500)
   org_80g_number      String?
   campaign_config     Json?
@@ -487,6 +487,13 @@ model Organization {
   plan                String?  @default("STARTER")
   active              Boolean  @default(true)
   created_at          DateTime @default(now())
+
+  // Tenant-editable legal content — set via Super Admin. When null, the
+  // public legal pages show a generic placeholder instead of assuming any
+  // other tenant's specific legal/jurisdiction facts (see BRANDING_ANALYSIS.md).
+  privacy_policy_text String?  @db.Text
+  terms_text          String?  @db.Text
+  refund_policy_text  String?  @db.Text
 
 
   users            User[]

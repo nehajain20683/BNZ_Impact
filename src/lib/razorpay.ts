@@ -19,12 +19,12 @@ export function getRazorpay(): Razorpay {
   return _razorpay;
 }
 
-export async function createOrder(amount: number, receipt: string) {
+export async function createOrder(amount: number, receipt: string, orgSlug?: string) {
   return getRazorpay().orders.create({
     amount: Math.round(amount * 100), // convert to paise
     currency: 'INR',
     receipt,
-    notes: { platform: 'JITOGreenLegacy' },
+    notes: { platform: 'BNZImpact', org: orgSlug || 'unknown' },
   });
 }
 

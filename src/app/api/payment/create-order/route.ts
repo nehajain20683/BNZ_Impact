@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { createOrder } from '@/lib/razorpay';
 import { generateReceiptNumber } from '@/lib/utils';
+import { resolveTenantFromRequest } from '@/lib/tenant';
 
 const schema = z.object({
   amount:          z.number().positive(),
@@ -43,11 +44,13 @@ export async function POST(req: Request) {
     const campaign = await prisma.campaign.findUnique({ where: { slug: data.campaignSlug } });
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 
-    const receiptNumber  = generateReceiptNumber();
-    const razorpayOrder  = await createOrder(data.amount, receiptNumber);
+    const org             = await resolveTenantFromRequest(req);
+    const receiptNumber   = generateReceiptNumber(org.donationRefPrefix || 'BNZ');
+    const razorpayOrder   = await createOrder(data.amount, receiptNumber, org.slug);
 
     const donation = await prisma.donation.create({
       data: {
+        orgId:           org.id,
         userId:          (session?.user as any)?.id || null,
         campaignId:      campaign.id,
         amount:          data.amount,

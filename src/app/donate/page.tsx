@@ -3,12 +3,14 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, DEDICATION_TYPES, formatCurrency, BRAND, NATURE_IMAGES } from '@/lib/utils';
+import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, DEDICATION_TYPES, formatCurrency, NATURE_IMAGES } from '@/lib/utils';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { Shield, FileText, TreePine, Minus, Plus } from 'lucide-react';
 
 declare global { interface Window { Razorpay: any; } }
 
 function DonateForm() {
+  const org    = useOrgConfig();
   const params = useSearchParams();
   const router = useRouter();
 
@@ -28,7 +30,7 @@ function DonateForm() {
   const [selectedTrees, setSelectedTrees]   = useState(initTrees);
   const [amount, setAmount]                 = useState(initAmount);
   const [customTrees, setCustomTrees]       = useState(1);
-  const [form, setForm] = useState({ name:'', email:'', mobile:'', address:'', pan:'', dedicationName:'', chapter:'', chapterCustom:'', certificateName:'' });
+  const [form, setForm] = useState({ name:'', email:'', mobile:'', address:'', pan:'', dedicationName:'', chapter:'', certificateName:'' });
   const [dbCampaigns, setDbCampaigns]       = useState<any[]>([]);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState('');
@@ -66,7 +68,7 @@ function DonateForm() {
   async function handlePay() {
     setError('');
     if (!form.name||!form.email||!form.mobile) { setError('Please fill in Name, Email, and Mobile.'); return; }
-    if (!form.chapter) { setError('Please select your JITO Chapter.'); return; }
+    if (!form.chapter) { setError('Please enter your Chapter / Organisation.'); return; }
     if (!dbCampaign?.slug) { setError('Campaign not found. Please try again.'); return; }
     setLoading(true);
     try {
@@ -80,7 +82,7 @@ function DonateForm() {
           dedicationName:   form.dedicationName,
           certificateName:  form.certificateName || form.name,
           dedicationType: donationType==='individual'?'OTHER':selectedCampaign.toUpperCase(),
-          chapter: (form.chapter === 'Other JITO Chapter' || form.chapter === 'Others' || form.chapter === 'Non Member') && form.chapterCustom ? `${form.chapter} — ${form.chapterCustom}` : form.chapter,
+          chapter: form.chapter,
         }),
       });
       const order = await orderRes.json();
@@ -96,11 +98,11 @@ function DonateForm() {
       new window.Razorpay({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: Math.round(amount*100), currency:'INR',
-        name: BRAND.name,
-        description: `${totalTrees} Trees · ${donationType==='individual'?'Individual':campaign.shortName} · ${BRAND.org}`,
+        name: org.name || 'BNZ Impact',
+        description: `${totalTrees} Trees · ${donationType==='individual'?'Individual':campaign.shortName} · ${org.name || 'BNZ Impact'}`,
         order_id: order.orderId,
         prefill:{ name:form.name, email:form.email, contact:form.mobile },
-        theme:{ color:'#448039' },
+        theme:{ color: org.primaryColor || '#448039' },
         handler: async (response:any) => {
           const verifyRes = await fetch('/api/payment/verify',{
             method:'POST', headers:{'Content-Type':'application/json'},
@@ -126,7 +128,7 @@ function DonateForm() {
         <div className="absolute inset-0 bg-sage-900/70"/>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <h1 className="font-display text-3xl text-white mb-1">Sponsor Your Trees</h1>
-          <p className="text-sage-200 text-sm">{BRAND.tagline}</p>
+          <p className="text-sage-200 text-sm">{org.loaded ? org.name : 'Sponsor a tree, grow a legacy'}</p>
         </div>
       </div>
 
@@ -238,54 +240,11 @@ function DonateForm() {
                   </div>
                 ))}
                   <div className="sm:col-span-2">
-                    <label className="block text-sm text-sage-700 font-medium mb-1">Select JITO Chapter *</label>
-                    <select
+                    <label className="block text-sm text-sage-700 font-medium mb-1">Chapter / Organisation *</label>
+                    <input type="text" placeholder="Enter your chapter, group, or organisation name" required
                       value={form.chapter}
-                      onChange={e=>setForm(p=>({...p,chapter:e.target.value,chapterCustom:''}))}
-                      className={inputCls}>
-                      <option value="">-- Select Your Chapter --</option>
-                      <option value="Mumbai Zone">Mumbai Zone</option>
-                      <optgroup label="JITO Chapters (A-Z)">
-                        <option value="Ghatkopar Chapter">Ghatkopar Chapter</option>
-                        <option value="Goregaon Chapter">Goregaon Chapter</option>
-                        <option value="Gowalia Tank Chapter">Gowalia Tank Chapter</option>
-                        <option value="Juhu Chapter">Juhu Chapter</option>
-                        <option value="Kalyan-Dombivali Chapter">Kalyan-Dombivali Chapter</option>
-                        <option value="Midtown Chapter">Midtown Chapter</option>
-                        <option value="Mulund Chapter">Mulund Chapter</option>
-                        <option value="Navi Mumbai Chapter">Navi Mumbai Chapter</option>
-                        <option value="Queen's Necklace Chapter">Queen's Necklace Chapter</option>
-                        <option value="Thane Chapter">Thane Chapter</option>
-                        <option value="Walkeshwar Chapter">Walkeshwar Chapter</option>
-                      </optgroup>
-                      <optgroup label="Wings">
-                        <option value="Ladies Wing">Ladies Wing</option>
-                        <option value="Youth Wing">Youth Wing</option>
-                      </optgroup>
-                      <optgroup label="Other">
-                        <option value="Other JITO Chapter">Other JITO Chapter</option>
-                        <option value="Non JITO Member">Non JITO Member</option>
-                        <option value="Others">Others</option>
-                      </optgroup>
-                    </select>
-                    {form.chapter === 'Other JITO Chapter' && (
-                      <input type="text" placeholder="Enter your JITO Chapter name *" required
-                        value={form.chapterCustom || ''}
-                        onChange={e=>setForm(p=>({...p,chapterCustom:e.target.value}))}
-                        className={inputCls + " mt-2"}/>
-                    )}
-                    {form.chapter === 'Others' && (
-                      <input type="text" placeholder="Enter your Organisation / Group name *" required
-                        value={form.chapterCustom || ''}
-                        onChange={e=>setForm(p=>({...p,chapterCustom:e.target.value}))}
-                        className={inputCls + " mt-2"}/>
-                    )}
-                    {form.chapter === 'Non Member' && (
-                      <input type="text" placeholder="Your organisation name (optional)"
-                        value={form.chapterCustom || ''}
-                        onChange={e=>setForm(p=>({...p,chapterCustom:e.target.value}))}
-                        className={inputCls + " mt-2"}/>
-                    )}
+                      onChange={e=>setForm(p=>({...p,chapter:e.target.value}))}
+                      className={inputCls}/>
                     <p className="text-sage-400 text-xs mt-1">Your chapter will appear on your certificate.</p>
                   </div>
                 <div className="sm:col-span-2">

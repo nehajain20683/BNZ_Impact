@@ -33,7 +33,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       'name', 'primary_color', 'logo_url', 'email', 'phone', 'address',
       'website', 'farmer_id_prefix', 'donation_ref_prefix', 'tree_price',
       'org_80g_number', 'payment_banks', 'campaign_config', 'custom_domain',
-      'plan', 'active',
+      'plan', 'active', 'privacy_policy_text', 'terms_text', 'refund_policy_text',
     ];
     const data: any = {};
     for (const k of allowed) {

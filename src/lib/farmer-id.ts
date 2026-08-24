@@ -1,7 +1,7 @@
 // src/lib/farmer-id.ts
-// Generates farmer IDs using org config prefix instead of hardcoded "JGL"
+// Generates farmer IDs using each org's configured prefix
 // Format: {PREFIX}-{STATE_CODE}-{DISTRICT_CODE}-F-{NUMBER}
-// Example: JGL-MH-THA-F-001 (JITO) or ROT-MH-THA-F-001 (Rotary)
+// Example: BNZ-MH-THA-F-001, or ROT-MH-THA-F-001 for a "ROT"-prefixed tenant
 
 import prisma from '@/lib/prisma';
 
@@ -27,8 +27,8 @@ export async function generateFarmerId(
   district?: string | null,
   orgId?: string | null
 ): Promise<string> {
-  // Get org prefix — default to JGL for JITO
-  let prefix = 'JGL';
+  // Get org prefix — generic default if the org has none configured
+  let prefix = 'BNZ';
   if (orgId) {
     try {
       const org = await (prisma as any).organization.findUnique({
@@ -51,7 +51,7 @@ export function generateFarmerIdSync(
   farmerId: string,
   state?: string | null,
   district?: string | null,
-  prefix: string = 'JGL'
+  prefix: string = 'BNZ'
 ): string {
   const sc  = stateCode(state);
   const dc  = districtCode(district);

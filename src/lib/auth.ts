@@ -39,8 +39,11 @@ export const authOptions: NextAuthOptions = {
 
           // Only sadmin@bnzgreen.io may ever hold SUPER_ADMIN. Downgrade any
           // other account that somehow carries that role in the database.
+          // Compare case-insensitively — emails are stored/typed inconsistently
+          // in practice and a mismatch here would incorrectly lock out the
+          // real Super Admin account.
           const effectiveRole =
-            user.role === 'SUPER_ADMIN' && user.email !== SUPER_ADMIN_EMAIL
+            user.role === 'SUPER_ADMIN' && user.email.trim().toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()
               ? 'ADMIN'
               : user.role;
 

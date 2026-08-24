@@ -5,9 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle, Download, LayoutDashboard, Share2, MessageCircle, Copy, Mail } from 'lucide-react';
-import { formatCurrency, BRAND, NATURE_IMAGES } from '@/lib/utils';
+import { formatCurrency, NATURE_IMAGES } from '@/lib/utils';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 function SuccessContent() {
+  const org        = useOrgConfig();
+  const orgName    = org.loaded ? org.name : 'BNZ Impact';
   const params     = useSearchParams();
   const donationId = params.get('donationId');
   const [donation, setDonation]   = useState<any>(null);
@@ -36,15 +39,15 @@ function SuccessContent() {
 
   function handleWhatsApp() {
     const msg = encodeURIComponent(
-      `🌳 I just sponsored ${donation?.numberOfTrees || ''} trees under the JITO Green Legacy initiative!\n\nView my Tree Sponsorship Certificate:\n${certUrl}\n\n*${BRAND.name}* · ${BRAND.tagline}`
+      `🌳 I just sponsored ${donation?.numberOfTrees || ''} trees with ${orgName}!\n\nView my Tree Sponsorship Certificate:\n${certUrl}\n\n*${orgName}*`
     );
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   }
 
   function handleEmailShare() {
-    const subject = encodeURIComponent(`My JITO Green Legacy Tree Certificate`);
+    const subject = encodeURIComponent(`My ${orgName} Tree Certificate`);
     const body    = encodeURIComponent(
-      `Hi,\n\nI just sponsored ${donation?.numberOfTrees || ''} trees under the JITO Green Legacy family plantation drive.\n\nView my Tree Sponsorship Certificate:\n${certUrl}\n\nJITO Green Legacy · ${BRAND.tagline}`
+      `Hi,\n\nI just sponsored ${donation?.numberOfTrees || ''} trees through the ${orgName} family plantation drive.\n\nView my Tree Sponsorship Certificate:\n${certUrl}\n\n${orgName}`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`);
   }
@@ -69,7 +72,7 @@ function SuccessContent() {
               <div className="absolute inset-0 bg-sage-900/70 flex flex-col items-center justify-center text-center p-6">
                 <CheckCircle className="w-10 h-10 text-sage-300 mb-2"/>
                 <h1 className="font-display text-2xl text-white">Thank You! 🌳</h1>
-                <p className="text-sage-300 text-xs mt-1">{BRAND.tagline}</p>
+                <p className="text-sage-300 text-xs mt-1">{orgName}</p>
               </div>
             </div>
 
@@ -164,7 +167,7 @@ function SuccessContent() {
 
               <p className="text-center text-sage-400 text-xs mt-4">
                 A confirmation email with your receipt &amp; certificate has been sent.<br/>
-                <strong>JITO Green Legacy · Mumbai Zone</strong>
+                <strong>{orgName}</strong>
               </p>
             </div>
           </div>

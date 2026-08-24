@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, NATURE_IMAGES } from '@/lib/utils';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 // Default package per campaign
 const CAMPAIGN_DEFAULTS: Record<string, number> = {
@@ -66,13 +67,14 @@ function CampaignCard({ c }: { c: typeof CAMPAIGNS[0] }) {
 }
 
 export default function CampaignsPage() {
+  const org = useOrgConfig();
   return (
     <div className="min-h-screen bg-cream-50">
       <div className="relative h-64 mt-16">
         <Image src={NATURE_IMAGES.aerial} alt="Forest canopy" fill className="object-cover"/>
         <div className="absolute inset-0 bg-sage-900/70"/>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-          <div className="text-sage-300 text-xs font-bold uppercase tracking-widest mb-3">JITO Green Legacy</div>
+          <div className="text-sage-300 text-xs font-bold uppercase tracking-widest mb-3">{org.loaded ? org.name : 'BNZ Impact'}</div>
           <h1 className="font-display text-4xl sm:text-5xl text-white mb-2">Family Campaigns</h1>
           <p className="text-sage-200 max-w-lg">Sponsor trees in honour of the most important women in your life.</p>
         </div>

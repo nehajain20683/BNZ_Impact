@@ -1,5 +1,20 @@
-// src/lib/pdf.ts — JITO Green Legacy · Light Premium Theme · v3
-import { JITO_LOGO_B64, ENV_LOGO_B64, MZ_LOGO_B64, BNZ_LOGO_B64 } from './logo-data';
+// src/lib/pdf.ts — Tenant-branded PDF receipts & certificates
+// Every string that used to be hardcoded to JITO is now sourced from an
+// `org` parameter, mirroring the pattern already used in src/lib/email.ts.
+import { BNZ_LOGO_B64 } from './logo-data';
+
+export type PdfOrgBranding = {
+  name:         string;
+  logoUrl?:     string | null;
+  org80gNumber?:string | null;
+};
+
+const DEFAULT_ORG: PdfOrgBranding = { name: 'BNZ Impact', logoUrl: null, org80gNumber: null };
+
+function logoImgTag(org: PdfOrgBranding, cssClass: string): string {
+  const src = org.logoUrl || BNZ_LOGO_B64;
+  return `<img src="${src}" class="${cssClass}" alt="${org.name}"/>`;
+}
 
 // ─── Tier badge from tree count ───────────────────────────────────────────────
 function getTierBadge(trees: number): { badge: string; emoji: string; badgeEn: string } {
@@ -22,10 +37,11 @@ export function generateReceiptPDF(data: {
   campaignName: string;
   paymentGatewayId?: string;
   date: Date;
+  org?: PdfOrgBranding;
 }): string {
+  const org     = data.org || DEFAULT_ORG;
   const dateStr = data.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
   const tier    = getTierBadge(data.numberOfTrees);
-  // Sizes: JITO=66px, ENV=60px (~90%), MZ=53px (~80%)
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -68,14 +84,13 @@ export function generateReceiptPDF(data: {
 <div class="page">
   <div class="border">
     <div class="inner-border"></div>
-    <div class="watermark">JITO GREEN LEGACY</div>
+    <div class="watermark">${org.name.toUpperCase()}</div>
     <div class="header">
-      <img src="${JITO_LOGO_B64}" class="logo-jito" alt="JITO"/>
+      ${logoImgTag(org, 'logo-jito')}
       <div class="header-text">
-        <div class="org-name">JITO Green Legacy</div>
-        <div class="org-tag">A Family Tree Plantation Drive by Mumbai Zone and its Chapters</div>
+        <div class="org-name">${org.name}</div>
+        <div class="org-tag">Tree Sponsorship & Carbon Impact Receipt</div>
       </div>
-      <img src="${ENV_LOGO_B64}" class="logo-env" alt="JITO Environment &amp; Sustainability"/>
     </div>
     <div class="receipt-title">Official Donation Receipt</div>
     <div class="receipt-number">Receipt No: <strong>#${data.receiptNumber}</strong> &nbsp;|&nbsp; Date: ${dateStr}</div>
@@ -97,19 +112,14 @@ export function generateReceiptPDF(data: {
     <div class="amount-box">
       <div class="amount-label">Total Amount Donated</div>
       <div class="amount-value">₹${data.amount.toLocaleString('en-IN')}</div>
-      <div class="trees-badge">${tier.emoji} ${tier.badge} · ${tier.badgeEn} · ${data.numberOfTrees} Trees · JITO Green Legacy</div>
+      <div class="trees-badge">${tier.emoji} ${tier.badge} · ${tier.badgeEn} · ${data.numberOfTrees} Trees · ${org.name}</div>
     </div>
     <div class="tax-note">
-      This receipt is issued as proof of donation and may be eligible for tax exemption under<br/>
-      Section 80G of the Income Tax Act, 1961 · JITO Mumbai Zone · 80G Reg: [Registration Number]
+      This receipt is issued as proof of donation${org.org80gNumber ? ` and may be eligible for tax exemption under<br/>Section 80G of the Income Tax Act, 1961 · ${org.name} · 80G Reg: ${org.org80gNumber}` : `.<br/>${org.name}`}
     </div>
-    <!-- Footer with Mumbai Zone logo centred -->
+    <!-- Footer -->
     <div class="footer-bar">
-      <div class="footer-text">Authorised Signatory · JITO Green Legacy · Mumbai, Maharashtra, India<br/>This is a computer-generated receipt.</div>
-      <div style="text-align:center;min-width:80px">
-        <img src="${MZ_LOGO_B64}" class="logo-mz" alt="Mumbai Zone"/>
-        <div style="font-size:9px;color:#448039;margin-top:2px">Mumbai Zone</div>
-      </div>
+      <div class="footer-text">Authorised Signatory · ${org.name}<br/>This is a computer-generated receipt.</div>
     </div>
   </div>
 </div>
@@ -117,7 +127,7 @@ export function generateReceiptPDF(data: {
 </html>`;
 }
 
-// ─── Certificate PDF — v3: content shifted up, logos enlarged, Mumbai Zone seal ──
+// ─── Certificate PDF ──────────────────────────────────────────────────────
 export function generateCertificatePDF(data: {
   donorName: string;
   certificateName?: string;
@@ -127,11 +137,13 @@ export function generateCertificatePDF(data: {
   date: Date;
   receiptNumber: string;
   chapter?: string;
+  org?: PdfOrgBranding;
 }): string {
+  const org     = data.org || DEFAULT_ORG;
   const dateStr = data.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
   const co2     = data.numberOfTrees * 22;
   const tier    = getTierBadge(data.numberOfTrees);
-  const chapter = data.chapter || 'Mumbai Zone';
+  const chapter = data.chapter || org.name;
 
   return `<!DOCTYPE html>
 <html>
@@ -185,7 +197,7 @@ export function generateCertificatePDF(data: {
       white-space:nowrap; letter-spacing:10px; z-index:1;
     }
 
-    /* JITO logo — top left, z:20 */
+    /* Org logo — top left, z:20 */
     .logo-jito {
       position:absolute; top:22px; left:30px;
       width:100px; height:auto;
@@ -234,8 +246,9 @@ export function generateCertificatePDF(data: {
       text-align:center;
       z-index:10;
       position:relative;
-      /* bottom padding ensures footer items don't crowd the bottom border */
-      padding-bottom:8px;
+      /* Outer border sits 12px from the page edge, inner border 18px — this
+         must clear both so footer text never overlaps/crosses the border. */
+      padding-bottom:26px;
     }
 
     /* Gold divider */
@@ -308,7 +321,7 @@ export function generateCertificatePDF(data: {
     .footer-label { font-family:'DM Sans',sans-serif; font-size:7.5px; color:#8a9e3a; text-transform:uppercase; letter-spacing:1.5px; display:block; margin-bottom:2px; }
     .footer-value { font-family:'DM Sans',sans-serif; font-size:9.5px; color:#264422; font-weight:600; }
     .seal-left { width:38px; height:38px; border:1.5px solid #c9a84c; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; margin:0 auto 3px; background:#fffef0; }
-    /* Mumbai Zone logo — anchored bottom-right, bigger */
+    
     .seal-mz { width:110px; height:auto; object-fit:contain; display:block; margin:0 auto 3px; }
 
     /* ── Print: mirror screen exactly ── */
@@ -336,14 +349,13 @@ export function generateCertificatePDF(data: {
   <div class="corner c-bl"></div>
   <div class="corner c-br"></div>
 
-  <!-- z:20 — Logos (absolutely positioned, float above all) -->
-  <img src="${JITO_LOGO_B64}" class="logo-jito" alt="JITO"/>
-  <img src="${ENV_LOGO_B64}"  class="logo-env"  alt="JITO Environment &amp; Sustainability"/>
+  <!-- z:20 — Logo (absolutely positioned, floats above all) -->
+  ${logoImgTag(org, 'logo-jito')}
 
-  <!-- ── TOP BAND: JITO Green Legacy title + tagline (centered between logos) ── -->
+  <!-- ── TOP BAND: org title + tagline ── -->
   <div class="top-band">
-    <span class="org-eyebrow">JITO Green Legacy</span>
-    <span class="org-tagline">A Family Tree Plantation Drive by Mumbai Zone and its Chapters</span>
+    <span class="org-eyebrow">${org.name}</span>
+    <span class="org-tagline">Tree Sponsorship & Carbon Impact Certificate</span>
   </div>
 
   <!-- ── CONTENT BODY: flex column, space-between fills 794px ── -->
@@ -359,7 +371,7 @@ export function generateCertificatePDF(data: {
     <!-- 2. Certificate title -->
     <div>
       <div class="cert-title">Certificate of Tree Sponsorship</div>
-      <span class="cert-sub">Presented by JITO Mumbai Zone and its Chapters</span>
+      <span class="cert-sub">Presented by ${org.name}</span>
     </div>
 
     <!-- 3. Thin divider -->
@@ -373,7 +385,7 @@ export function generateCertificatePDF(data: {
     <div>
       <span class="certifies-text">This certificate is proudly presented to</span>
       <div class="donor-name">${data.certificateName || data.donorName}</div>
-      <span class="chapter-line">JITO Chapter: ${chapter}</span>
+      <span class="chapter-line">Chapter: ${chapter}</span>
     </div>
 
     <!-- 5. Sponsorship description -->
@@ -405,7 +417,7 @@ export function generateCertificatePDF(data: {
       </div>
     </div>
 
-    <!-- 8. Bottom bar: verified | date+cert | Mumbai Zone (bottom-right) -->
+    <!-- 8. Bottom bar: verified | date+cert | authorised by -->
     <div class="cert-footer">
       <div class="footer-item">
         <div class="seal-left">📍</div>
@@ -419,9 +431,9 @@ export function generateCertificatePDF(data: {
         <span class="footer-value">#${data.receiptNumber}</span>
       </div>
       <div class="footer-item">
-        <img src="${MZ_LOGO_B64}" class="seal-mz" alt="Mumbai Zone"/>
+        <div class="seal-left" style="margin:0 auto 3px">🌳</div>
         <span class="footer-label">Authorised By</span>
-        <span class="footer-value">JITO Mumbai Zone</span>
+        <span class="footer-value">${org.name}</span>
       </div>
     </div>
 

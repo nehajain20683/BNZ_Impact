@@ -27,6 +27,9 @@ export type OrgConfig = {
   customDomain:       string | null;
   plan:               string;
   active:             boolean;
+  privacyPolicyText:  string | null;
+  termsText:          string | null;
+  refundPolicyText:   string | null;
 };
 
 const cache = new Map<string, { config: OrgConfig; fetchedAt: number }>();
@@ -60,6 +63,9 @@ export async function getOrgConfig(orgId: string): Promise<OrgConfig | null> {
       customDomain:      org.custom_domain       || null,
       plan:              org.plan                || 'STARTER',
       active:            org.active              ?? true,
+      privacyPolicyText: org.privacy_policy_text || null,
+      termsText:         org.terms_text          || null,
+      refundPolicyText:  org.refund_policy_text  || null,
     };
 
     cache.set(orgId, { config, fetchedAt: Date.now() });
@@ -120,6 +126,7 @@ export async function resolveTenantFromRequest(req: Request): Promise<OrgConfig>
     farmerIdPrefix: 'BNZ', donationRefPrefix: 'BNZ', treePrice: 500,
     org80gNumber: null, campaignConfig: null, paymentBanks: [],
     customDomain: null, plan: 'ENTERPRISE', active: true,
+    privacyPolicyText: null, termsText: null, refundPolicyText: null,
   };
 }
 

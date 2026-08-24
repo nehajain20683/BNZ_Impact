@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { generateCertificatePDF } from '@/lib/pdf';
+import { getOrgConfig, resolveTenantFromRequest } from '@/lib/tenant';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const donation = await prisma.donation.findUnique({
@@ -11,8 +12,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   });
   if (!donation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const org = ((donation as any).orgId && await getOrgConfig((donation as any).orgId))
+    || await resolveTenantFromRequest(req);
+
   // Use the chapter stored at time of donation — no hardcoded fallback
-  const chapter = (donation as any).donorChapter || 'JITO Mumbai Zone';
+  const chapter = (donation as any).donorChapter || org.name;
 
   const html = generateCertificatePDF({
     donorName:      donation.donorName,
@@ -22,6 +26,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     date:           donation.createdAt,
     receiptNumber:  donation.receiptNumber!,
     chapter,
+    org: { name: org.name, logoUrl: org.logoUrl, org80gNumber: org.org80gNumber },
   });
 
   return new NextResponse(html, {

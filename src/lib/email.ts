@@ -12,7 +12,7 @@ async function getOrgEmail(orgId?: string) {
     } catch {}
   }
   return {
-    name:  process.env.FROM_NAME  || 'JITO Green Legacy',
+    name:  process.env.FROM_NAME  || 'BNZ Impact',
     email: process.env.FROM_EMAIL || 'onboarding@resend.dev',
   };
 }

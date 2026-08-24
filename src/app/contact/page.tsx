@@ -1,13 +1,13 @@
 'use client';
 // src/app/contact/page.tsx
 import { useState } from 'react';
-//import Navbar from '@/components/layout/Navbar';
-//import Footer from '@/components/layout/Footer';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 const inputCls = "w-full border border-sage-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white";
 
 export default function ContactPage() {
+  const org = useOrgConfig();
   const [form, setForm]     = useState({ name:'', mobile:'', email:'', subject:'', message:'' });
   const [loading, setLoading] = useState(false);
   const [sent, setSent]       = useState(false);
@@ -34,7 +34,7 @@ export default function ContactPage() {
         <section className="bg-forest-950 text-white py-16 px-4 text-center">
           <p className="text-sage-400 text-sm tracking-widest uppercase mb-2">Get In Touch</p>
           <h1 className="font-display text-4xl mb-3">Contact Us</h1>
-          <p className="text-sage-300 max-w-xl mx-auto">We'd love to hear from you. Reach out for any questions about tree sponsorship, partnerships, or the JITO Green Legacy programme.</p>
+          <p className="text-sage-300 max-w-xl mx-auto">We'd love to hear from you. Reach out for any questions about tree sponsorship, partnerships, or the {org.loaded ? org.name : 'BNZ Impact'} programme.</p>
         </section>
 
         <section className="py-16 px-4">
@@ -44,8 +44,8 @@ export default function ContactPage() {
             <div className="space-y-5">
               <h2 className="font-display text-xl text-forest-950 mb-4">Contact Information</h2>
               {[
-                { icon: Mail,    label:'Email',   value:'info@bnzgreen.io', href:'mailto:info@bnzgreen.io' },
-                { icon: Phone,   label:'Phone',   value:'+91 9372989074',        href:'tel:+919372989074' },
+                { icon: Mail,    label:'Email',   value: org.email || 'info@bnzgreen.io', href:`mailto:${org.email || 'info@bnzgreen.io'}` },
+                { icon: Phone,   label:'Phone',   value: org.phone || '+91 9372989074',   href:`tel:${(org.phone || '+919372989074').replace(/\s/g,'')}` },
                 { icon: MapPin,  label:'Address', value:'Mumbai, Maharashtra, India', href:null },
               ].map(c=>(
                 <div key={c.label} className="flex items-start gap-3">

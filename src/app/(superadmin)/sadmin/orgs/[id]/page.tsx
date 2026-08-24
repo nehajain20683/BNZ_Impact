@@ -40,6 +40,9 @@ function EditOrgPage({ params }: { params: { id: string } }) {
             custom_domain:       d.org.custom_domain      || '',
             plan:                d.org.plan               || 'STARTER',
             active:              d.org.active             ?? true,
+            privacy_policy_text: d.org.privacy_policy_text|| '',
+            terms_text:          d.org.terms_text         || '',
+            refund_policy_text:  d.org.refund_policy_text || '',
           });
         } else {
           setError('Organisation not found');
@@ -214,6 +217,29 @@ function EditOrgPage({ params }: { params: { id: string } }) {
               <input value={form.org_80g_number} onChange={f('org_80g_number')} className={inp}/>
             </div>
           </div>
+        </div>
+
+        {/* Legal Pages */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
+          <div className="border-b border-gray-800 pb-3">
+            <h2 className="font-semibold text-white text-sm">Legal Pages</h2>
+            <p className="text-gray-500 text-xs mt-1">
+              Shown on this tenant's Privacy Policy / Terms / Refund Policy pages. Leave blank to show a
+              generic placeholder instead — do not assume another tenant's legal facts (jurisdiction,
+              registered address, etc.) apply here.
+            </p>
+          </div>
+          {[
+            { key: 'privacy_policy_text', label: 'Privacy Policy' },
+            { key: 'terms_text',          label: 'Terms & Conditions' },
+            { key: 'refund_policy_text',  label: 'Refund Policy' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+              <textarea rows={6} value={form[key]} onChange={f(key)} className={inp}
+                placeholder={`Paste this organisation's ${label.toLowerCase()} text here. Plain text, one paragraph per line — blank lines start a new section.`}/>
+            </div>
+          ))}
         </div>
 
         {/* Preview */}
