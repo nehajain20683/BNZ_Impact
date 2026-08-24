@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
 
-const ROLES = ['DONOR', 'ADMIN', 'SUPER_ADMIN'];
+// SUPER_ADMIN is intentionally excluded — it is a single, fixed identity
+// (sadmin@bnzgreen.io) and can never be assigned from tenant user management.
+const ROLES = ['DONOR', 'ADMIN'];
 const ROLE_COLOR: Record<string,string> = {
   DONOR:       'bg-gray-100 text-gray-600',
   ADMIN:       'bg-blue-100 text-blue-700',

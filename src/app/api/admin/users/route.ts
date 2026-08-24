@@ -13,6 +13,12 @@ async function requireAdmin() {
   return session.user as any;
 }
 
+// There must be exactly one Super Admin (sadmin@bnzgreen.io), provisioned
+// outside this app's normal user-management flow. Tenant/org-scoped user
+// management (this route) must never be able to create or promote a
+// SUPER_ADMIN, regardless of who the caller is.
+const ASSIGNABLE_ROLES = ['DONOR', 'ADMIN', 'FIELD_OFFICER', 'DATA_ENTRY', 'PROJECT_MANAGER', 'AUDITOR'];
+
 // GET — list all users for active org
 export async function GET() {
   try {
@@ -43,6 +49,9 @@ export async function POST(req: Request) {
 
     if (!body.email || !body.name)
       return NextResponse.json({ error: 'Name and email are required' }, { status: 400 });
+
+    if (body.role && !ASSIGNABLE_ROLES.includes(body.role))
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email: body.email } });
@@ -95,6 +104,9 @@ export async function PATCH(req: Request) {
     // Prevent downgrading own account
     if (userId === actor.id && role && role !== actor.role)
       return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 });
+
+    if (role && !ASSIGNABLE_ROLES.includes(role))
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
 
     const data: any = {};
     if (role)   data.role   = role;

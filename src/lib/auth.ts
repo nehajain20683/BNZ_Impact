@@ -7,6 +7,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+// There must be exactly one Super Admin identity. Even if a database row
+// somehow ends up with role SUPER_ADMIN on another email (bad migration,
+// manual DB edit, bug elsewhere), this is a hard backstop that prevents
+// that account from ever being granted Super Admin access.
+const SUPER_ADMIN_EMAIL = 'sadmin@bnzgreen.io';
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages:   { signIn: '/auth/login' },
@@ -31,14 +37,21 @@ export const authOptions: NextAuthOptions = {
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
 
+          // Only sadmin@bnzgreen.io may ever hold SUPER_ADMIN. Downgrade any
+          // other account that somehow carries that role in the database.
+          const effectiveRole =
+            user.role === 'SUPER_ADMIN' && user.email !== SUPER_ADMIN_EMAIL
+              ? 'ADMIN'
+              : user.role;
+
           // ── Tenant isolation check ─────────────────────────────
           // SUPER_ADMIN can login anywhere
-          if (user.role === 'SUPER_ADMIN') {
+          if (effectiveRole === 'SUPER_ADMIN') {
             return {
               id:    user.id,
               email: user.email,
               name:  user.name,
-              role:  user.role,
+              role:  effectiveRole,
               orgId: user.orgId,
             };
           }
@@ -62,7 +75,7 @@ export const authOptions: NextAuthOptions = {
             id:    user.id,
             email: user.email,
             name:  user.name,
-            role:  user.role,
+            role:  effectiveRole,
             orgId: user.orgId,
           };
         } catch (e: any) {

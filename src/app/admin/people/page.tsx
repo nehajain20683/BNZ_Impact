@@ -101,7 +101,9 @@ function AddUserModal({ onClose, onSave }: any) {
     else setError(data.error || 'Failed to create user');
   }
 
-  const ROLES = ['DONOR','ADMIN','SUPER_ADMIN','FIELD_OFFICER','DATA_ENTRY','PROJECT_MANAGER','AUDITOR'];
+  // SUPER_ADMIN is intentionally excluded — it is a single, fixed identity
+  // (sadmin@bnzgreen.io) and can never be assigned from tenant user management.
+  const ROLES = ['DONOR','ADMIN','FIELD_OFFICER','DATA_ENTRY','PROJECT_MANAGER','AUDITOR'];
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">

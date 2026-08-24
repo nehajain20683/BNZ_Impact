@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn, useSession, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { LogIn, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
@@ -37,26 +37,35 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true); setError('');
 
-    const result = await signIn('credentials', {
-      email, password, redirect: false,
-    });
+    try {
+      const result = await signIn('credentials', {
+        email, password, redirect: false,
+      });
 
-    setLoading(false);
-
-    if (result?.error) {
-      if (result.error.includes('WRONG_ORG:')) {
-        const orgName = result.error.split('WRONG_ORG:')[1];
-        setError(`This account belongs to ${orgName}. Please use the correct portal.`);
-      } else {
-        setError('Invalid email or password');
+      if (result?.error) {
+        if (result.error.includes('WRONG_ORG:')) {
+          const orgName = result.error.split('WRONG_ORG:')[1];
+          setError(`This account belongs to ${orgName}. Please use the correct portal.`);
+        } else {
+          setError('Invalid email or password');
+        }
+        return;
       }
-      return;
-    }
 
-    if (result?.ok) {
-      const role = (session?.user as any)?.role;
-      if (['ADMIN','SUPER_ADMIN'].includes(role)) router.push('/admin');
-      else router.push('/dashboard');
+      if (result?.ok) {
+        // Don't rely on the `session` from useSession() here — it's the value
+        // captured at the last render and hasn't picked up this signIn() yet.
+        // Fetch the freshly-issued session directly so the role check is correct.
+        const freshSession = await getSession();
+        const role = (freshSession?.user as any)?.role;
+        if (['ADMIN', 'SUPER_ADMIN'].includes(role)) router.push('/admin');
+        else router.push('/dashboard');
+        router.refresh();
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -139,6 +148,13 @@ function LoginForm() {
               style={{ color: primaryColor }}>
               Forgot your password?
             </a>
+            <p className="text-sm text-gray-500">
+              Don&apos;t have an account?{' '}
+              <a href="/auth/register" className="font-semibold hover:underline"
+                style={{ color: primaryColor }}>
+                Sign up
+              </a>
+            </p>
           </div>
         </div>
 
