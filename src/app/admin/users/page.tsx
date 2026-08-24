@@ -22,7 +22,7 @@ const ROLE_COLOR: Record<string,string> = {
   SUPER_ADMIN: 'bg-purple-100 text-purple-700',
 };
 
-const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
+const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
 function InviteModal({ onClose, onSave }: any) {
   const [form, setForm] = useState({ name:'', email:'', mobile:'', role:'DONOR', password:'' });
@@ -61,7 +61,7 @@ function InviteModal({ onClose, onSave }: any) {
           <div className="flex justify-between items-center">
             <span className="text-gray-500">Temp Password</span>
             <div className="flex items-center gap-2">
-              <span className="font-mono font-bold text-sage-700">{created.tempPassword}</span>
+              <span className="font-mono font-bold text-[var(--admin-primary)]">{created.tempPassword}</span>
               <button onClick={() => navigator.clipboard.writeText(created.tempPassword)}
                 className="text-gray-400 hover:text-gray-600">
                 <Copy className="w-3.5 h-3.5"/>
@@ -79,7 +79,7 @@ function InviteModal({ onClose, onSave }: any) {
           ⚠️ Share these credentials with the user. Password should be changed on first login.
         </p>
         <button onClick={() => { onSave(); onClose(); }}
-          className="w-full bg-sage-700 text-white font-bold py-2.5 rounded-xl text-sm">
+          className="w-full bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">
           Done
         </button>
       </div>
@@ -89,9 +89,9 @@ function InviteModal({ onClose, onSave }: any) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
-        <div className="bg-sage-800 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
+        <div className="bg-[var(--admin-primary)] text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
           <h3 className="font-bold">Add New User</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-sage-400 hover:text-white"/></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-white/50 hover:text-white"/></button>
         </div>
         <div className="p-5 space-y-4">
           {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{error}</div>}
@@ -131,7 +131,7 @@ function InviteModal({ onClose, onSave }: any) {
         <div className="px-5 py-4 border-t flex gap-3">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
           <button onClick={save} disabled={loading}
-            className="flex-1 bg-sage-700 hover:bg-sage-800 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+            className="flex-1 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
             {loading ? 'Creating…' : '+ Create User'}
           </button>
         </div>
@@ -167,7 +167,7 @@ function EditRoleModal({ user, onClose, onSave }: any) {
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
           <button onClick={save} disabled={loading}
-            className="flex-1 bg-sage-700 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+            className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
             {loading ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -224,14 +224,14 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm">✓ {toast}</div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[var(--admin-primary)] text-white px-5 py-3 rounded-xl shadow-lg text-sm">✓ {toast}</div>
       )}
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={() => { load(); showToast('User created ✓'); }}/>}
       {editUser  && <EditRoleModal user={editUser} onClose={() => setEditUser(null)} onSave={() => { setEditUser(null); load(); showToast('Role updated ✓'); }}/>}
 
       <PageHeader title="User Management" subtitle={`${users.length} users in this organisation`}>
         <button onClick={() => setShowInvite(true)}
-          className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
+          className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-sm">
           <Plus className="w-4 h-4"/> Add User
         </button>
       </PageHeader>
@@ -242,7 +242,7 @@ export default function AdminUsersPage() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label:'Total Users', value: users.length,          icon: Users,  color:'text-blue-600',   bg:'bg-blue-50' },
-            { label:'Admins',      value: roleCount('ADMIN'),     icon: Shield, color:'text-sage-700',   bg:'bg-sage-50' },
+            { label:'Admins',      value: roleCount('ADMIN'),     icon: Shield, color:'text-[var(--admin-primary)]',   bg:'bg-[var(--admin-primary)]/10' },
             { label:'Donors',      value: roleCount('DONOR'),     icon: User,   color:'text-green-600',  bg:'bg-green-50' },
           ].map(s => (
             <div key={s.label} className={`${s.bg} rounded-xl border border-gray-200 p-4 flex items-center gap-3`}>
@@ -260,7 +260,7 @@ export default function AdminUsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or email…"
-            className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white"/>
+            className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40 bg-white"/>
         </div>
 
         {/* Users table */}
@@ -284,14 +284,14 @@ export default function AdminUsersPage() {
                 <tr key={user.id} className="border-t hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 font-bold text-xs flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[var(--admin-primary)]/15 flex items-center justify-center text-[var(--admin-primary)] font-bold text-xs flex-shrink-0">
                         {user.name?.charAt(0)?.toUpperCase() || '?'}
                       </div>
                       <span className="font-semibold text-gray-900">{user.name}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <a href={`mailto:${user.email}`} className="text-gray-600 hover:text-sage-700 flex items-center gap-1">
+                    <a href={`mailto:${user.email}`} className="text-gray-600 hover:text-[var(--admin-primary)] flex items-center gap-1">
                       <Mail className="w-3 h-3"/> {user.email}
                     </a>
                   </td>
@@ -328,11 +328,11 @@ export default function AdminUsersPage() {
 
         {/* Info box */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
-          <p className="font-semibold mb-1">How user registration works</p>
+          <p className="font-semibold mb-1">Adding new users</p>
           <p className="text-xs text-blue-600">
-            Currently all registrations go to JITO by default. Once your domain <strong>trees.rotarymumbai.org</strong> is 
-            configured, users who register on that domain will automatically be added to Rotary. 
-            Until then, use <strong>Add User</strong> above to manually add users to this organisation.
+            Use <strong>Add User</strong> above to create an account for a team member and assign
+            their role. They'll be added directly to your organisation and can sign in right away
+            with the credentials you set.
           </p>
         </div>
       </div>

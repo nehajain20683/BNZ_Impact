@@ -60,7 +60,7 @@ export default function AdminFarmersPage() {
     <div className="min-h-screen bg-gray-50">
       <PageHeader title="Land Owner Registry" subtitle={`${farmers.length} registered land owners`}>
         <Link href="/farmer/register"
-          className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
+          className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-sm">
           + Register Land Owner
         </Link>
       </PageHeader>
@@ -72,10 +72,10 @@ export default function AdminFarmersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
             <input value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Search by name, mobile, farmer ID…"
-              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white"/>
+              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40 bg-white"/>
           </div>
           <select value={filterStatus} onChange={e => handleFilter(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white">
+            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40 bg-white">
             <option value="">All Statuses</option>
             {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
           </select>
@@ -98,14 +98,14 @@ export default function AdminFarmersPage() {
                 <tr><td colSpan={8} className="text-center py-12">
                   <TreePine className="w-8 h-8 text-gray-200 mx-auto mb-2"/>
                   <p className="text-gray-400">No land owners registered yet</p>
-                  <Link href="/farmer/register" className="text-sage-600 text-sm hover:underline mt-1 inline-block">
+                  <Link href="/farmer/register" className="text-[var(--admin-primary)] text-sm hover:underline mt-1 inline-block">
                     Register first land owner →
                   </Link>
                 </td></tr>
               ) : farmers.map(f => (
                 <tr key={f.id} className="border-t hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-sage-700 font-semibold">
+                    <span className="font-mono text-xs text-[var(--admin-primary)] font-semibold">
                       {f.farmerIdGenerated || '—'}
                     </span>
                   </td>
@@ -136,7 +136,7 @@ export default function AdminFarmersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Link href={`/admin/farmers/${f.id}`}
-                      className="flex items-center gap-1 text-xs text-sage-600 border border-sage-200 bg-sage-50 hover:bg-sage-100 px-2 py-1 rounded-lg">
+                      className="flex items-center gap-1 text-xs text-[var(--admin-primary)] border border-[var(--admin-primary)]/25 bg-[var(--admin-primary)]/10 hover:bg-[var(--admin-primary)]/15 px-2 py-1 rounded-lg">
                       <FileText className="w-3 h-3"/> View
                     </Link>
                   </td>

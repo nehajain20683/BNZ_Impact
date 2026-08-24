@@ -60,7 +60,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <TreePine className="w-8 h-8 text-sage-400 mx-auto mb-3 animate-pulse"/>
+          <TreePine className="w-8 h-8 text-[var(--admin-primary)]/50 mx-auto mb-3 animate-pulse"/>
           <p className="text-gray-500 text-sm">Loading admin dashboard…</p>
         </div>
       </div>
@@ -73,7 +73,7 @@ export default function AdminDashboard() {
         <div className="text-center">
           <p className="text-red-600 font-semibold mb-2">Dashboard Error</p>
           <p className="text-gray-500 text-sm mb-4">{error}</p>
-          <button onClick={loadDashboard} className="bg-sage-700 text-white px-4 py-2 rounded-xl text-sm">Retry</button>
+          <button onClick={loadDashboard} className="bg-[var(--admin-primary)] text-white px-4 py-2 rounded-xl text-sm">Retry</button>
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Plantation Operations</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: MapPin,    label:'Plantation Sites', value: s.siteCount||0,                             bg:'bg-sage-600' },
+            { icon: MapPin,    label:'Plantation Sites', value: s.siteCount||0,                             bg:'bg-[var(--admin-primary)]' },
             { icon: TreePine,  label:'Trees Planted',    value:(s.treesPlanted||0).toLocaleString('en-IN'), bg:'bg-green-600' },
             { icon: BarChart2, label:'Total Planned',    value:(s.plannedTrees||0).toLocaleString('en-IN'), bg:'bg-teal-600' },
             { icon: Activity,  label:'Farmers Assigned', value:(s.assignmentCount||0).toLocaleString(),     bg:'bg-indigo-500' },
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           {[
             { href:'/admin/donations',        icon:'💰', label:'Donations',        desc:'All transactions',          color:'bg-green-50  text-green-700  border-green-100' },
-            { href:'/admin/plantation-sites', icon:'🌳', label:'Plantation Sites', desc:'Sites, phases, activities', color:'bg-sage-50   text-sage-700   border-sage-100' },
+            { href:'/admin/plantation-sites', icon:'🌳', label:'Plantation Sites', desc:'Sites, phases, activities', color:'bg-[var(--admin-primary)]/10   text-[var(--admin-primary)]   border-[var(--admin-primary)]/20' },
             { href:'/admin/farmers',          icon:'🌾', label:'Land Owners',      desc:'Registrations & docs',      color:'bg-lime-50   text-lime-700   border-lime-100' },
             { href:'/admin/dmrv/dashboard',   icon:'⚡', label:'Digital MRV',      desc:'Trust Engine · dMRV',       color:'bg-emerald-50 text-emerald-700 border-emerald-100' },
             { href:'/admin/people',           icon:'👥', label:'People',           desc:'Farmers & users',           color:'bg-indigo-50 text-indigo-700 border-indigo-100' },
@@ -153,8 +153,8 @@ export default function AdminDashboard() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-4 border-b flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900 flex items-center gap-2"><TreePine className="w-4 h-4 text-sage-600"/> Active Plantation Sites</h2>
-              <Link href="/admin/plantation-sites" className="text-xs text-sage-600 hover:underline">View all →</Link>
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2"><TreePine className="w-4 h-4 text-[var(--admin-primary)]"/> Active Plantation Sites</h2>
+              <Link href="/admin/plantation-sites" className="text-xs text-[var(--admin-primary)] hover:underline">View all →</Link>
             </div>
             {recentSites.length === 0 ? (
               <div className="text-center py-8"><p className="text-gray-400 text-sm">No sites yet for this organisation</p></div>
@@ -164,11 +164,11 @@ export default function AdminDashboard() {
                   const pct = site.plannedTrees > 0 ? Math.round((site.treesPlanted/site.plannedTrees)*100) : 0;
                   return (
                     <Link key={site.id} href={`/admin/plantation-sites/${site.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
-                      <div className="w-8 h-8 bg-sage-100 rounded-lg flex items-center justify-center flex-shrink-0"><TreePine className="w-4 h-4 text-sage-700"/></div>
+                      <div className="w-8 h-8 bg-[var(--admin-primary)]/15 rounded-lg flex items-center justify-center flex-shrink-0"><TreePine className="w-4 h-4 text-[var(--admin-primary)]"/></div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-900 text-sm truncate">{site.siteName}</div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <div className="h-1 bg-gray-100 rounded-full overflow-hidden w-20"><div className="h-full bg-sage-500 rounded-full" style={{width:`${pct}%`}}/></div>
+                          <div className="h-1 bg-gray-100 rounded-full overflow-hidden w-20"><div className="h-full bg-[var(--admin-primary)] rounded-full" style={{width:`${pct}%`}}/></div>
                           <span className="text-gray-400 text-xs">{pct}% · {site.district||'—'}</span>
                         </div>
                       </div>
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
           <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
             <div className="px-5 py-4 border-b flex items-center justify-between">
               <h2 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign className="w-4 h-4 text-green-600"/> Recent Donations</h2>
-              <Link href="/admin/donations" className="text-xs text-sage-600 hover:underline">View all →</Link>
+              <Link href="/admin/donations" className="text-xs text-[var(--admin-primary)] hover:underline">View all →</Link>
             </div>
             <div className="divide-y">
               {recentDonations.map((d: any) => (

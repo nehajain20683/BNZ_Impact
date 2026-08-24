@@ -68,7 +68,7 @@ h1, h2, h3, h4 { font-family: var(--font-display), serif; }
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: #f6f9f4; }
-::-webkit-scrollbar-thumb { background: #aecfa4; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--admin-primary, #aecfa4); border-radius: 3px; }
 
 /* Image overlay utility */
 .img-overlay {

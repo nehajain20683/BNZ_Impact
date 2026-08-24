@@ -1,5 +1,8 @@
 // src/app/about/page.tsx
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { resolveTenantFromRequest } from '@/lib/tenant';
 
 const TEAM_BNZ = [
   { name: 'CA Ashish Jain', role: 'Co-founder',  linkedin: '' },
@@ -75,7 +78,13 @@ function SectionHeading({ title }: { title: string }) {
   );
 }
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  // This page's content (leadership, chapters, timeline) is written specifically
+  // for the BNZ Green tenant and isn't generic per-tenant content — so for every
+  // other tenant it's hidden from navigation (Navbar.tsx) and unreachable here.
+  const org = await resolveTenantFromRequest({ headers: headers() } as unknown as Request);
+  if (org.slug !== 'bnz-green') notFound();
+
   return (
     <div className="min-h-screen bg-cream-50">
       <div className="pt-16">

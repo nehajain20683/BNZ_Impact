@@ -4,12 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TreePine } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 export default function RegisterPage() {
+  const org = useOrgConfig();
   const router = useRouter();
   const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const primaryColor = org.primaryColor || '#2d5a1b';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,10 +40,18 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-sage-600 rounded-xl flex items-center justify-center">
-              <TreePine className="w-6 h-6 text-white" />
-            </div>
-            <span className="font-display text-xl text-forest-900">BNZ Green Legacy</span>
+            {org.logoUrl ? (
+              <img src={org.logoUrl} alt={org.name}
+                className="w-10 h-10 rounded-xl object-contain"/>
+            ) : (
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: primaryColor }}>
+                <TreePine className="w-6 h-6 text-white" />
+              </div>
+            )}
+            <span className="font-display text-xl text-forest-900">
+              {org.loaded ? org.name : 'Loading…'}
+            </span>
           </Link>
           <h1 className="font-display text-3xl text-forest-950">Create account</h1>
           <p className="text-sage-600 mt-2">Join thousands of tree donors</p>
@@ -60,21 +72,23 @@ export default function RegisterPage() {
                   type={f.type} required
                   value={(form as any)[f.key]}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  className="w-full border border-sage-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sage-400"
+                  className="w-full border border-sage-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': primaryColor } as any}
                   placeholder={f.placeholder}
                 />
               </div>
             ))}
             <button
               type="submit" disabled={loading}
-              className="w-full bg-sage-600 hover:bg-sage-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors"
+              className="w-full text-white font-bold py-3 rounded-xl transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: primaryColor }}
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
           <p className="text-center text-sm text-forest-500 mt-6">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-sage-600 font-semibold hover:underline">Sign in</Link>
+            <Link href="/auth/login" className="font-semibold hover:underline" style={{ color: primaryColor }}>Sign in</Link>
           </p>
         </div>
       </div>

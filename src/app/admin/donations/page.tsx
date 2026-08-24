@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { DollarSign, Plus, Search, Download, Trash2, X, CheckCircle } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
 
-const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
+const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
 const STATUS_COLOR: Record<string,string> = {
   COMPLETED: 'bg-green-100 text-green-700',
@@ -56,9 +56,9 @@ function ManualEntryModal({ orgConfig, campaigns, onClose, onSave }: any) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-4">
-        <div className="bg-sage-800 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
+        <div className="bg-[var(--admin-primary)] text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
           <h3 className="font-bold">Add Manual Donation</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-sage-400"/></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-white/50"/></button>
         </div>
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
           {error   && <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{error}</div>}
@@ -123,7 +123,7 @@ function ManualEntryModal({ orgConfig, campaigns, onClose, onSave }: any) {
         <div className="px-5 py-4 border-t flex gap-3">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
           <button onClick={save} disabled={loading}
-            className="flex-1 bg-sage-700 hover:bg-sage-800 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+            className="flex-1 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
             {loading ? 'Saving…' : 'Save Donation'}
           </button>
         </div>
@@ -195,7 +195,7 @@ export default function AdminDonationsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm">✓ {toast}</div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[var(--admin-primary)] text-white px-5 py-3 rounded-xl shadow-lg text-sm">✓ {toast}</div>
       )}
       {showManual && (
         <ManualEntryModal
@@ -212,7 +212,7 @@ export default function AdminDonationsPage() {
           <Download className="w-3.5 h-3.5"/> Export CSV
         </button>
         <button onClick={() => setShowManual(true)}
-          className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold px-4 py-2 rounded-xl text-sm">
+          className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-sm">
           <Plus className="w-4 h-4"/> Add Entry
         </button>
       </PageHeader>
@@ -239,10 +239,10 @@ export default function AdminDonationsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
             <input value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Search by name, email, mobile, ref ID…"
-              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white"/>
+              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40 bg-white"/>
           </div>
           <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); load(search, e.target.value); }}
-            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-400">
+            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40">
             <option value="">All Status</option>
             <option value="COMPLETED">Completed</option>
             <option value="PENDING">Pending</option>
@@ -267,12 +267,12 @@ export default function AdminDonationsPage() {
                 <tr><td colSpan={9} className="text-center py-12">
                   <DollarSign className="w-8 h-8 text-gray-200 mx-auto mb-2"/>
                   <p className="text-gray-400">No donations yet</p>
-                  <button onClick={() => setShowManual(true)} className="text-sage-600 text-sm hover:underline mt-1">Add first donation →</button>
+                  <button onClick={() => setShowManual(true)} className="text-[var(--admin-primary)] text-sm hover:underline mt-1">Add first donation →</button>
                 </td></tr>
               ) : donations.map(d => (
                 <tr key={d.id} className="border-t hover:bg-gray-50 transition-colors">
                   <td className="px-3 py-2.5">
-                    <span className="font-mono text-xs text-sage-700 font-semibold">{d.refId||'—'}</span>
+                    <span className="font-mono text-xs text-[var(--admin-primary)] font-semibold">{d.refId||'—'}</span>
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="font-semibold text-gray-900 text-xs">{d.donorName}</div>
@@ -293,7 +293,7 @@ export default function AdminDonationsPage() {
                   <td className="px-3 py-2.5">
                     <div className="flex gap-1">
                       <Link href={`/certificate?id=${d.id}`} target="_blank"
-                        className="text-[10px] text-sage-600 border border-sage-200 bg-sage-50 px-1.5 py-1 rounded-lg hover:bg-sage-100">
+                        className="text-[10px] text-[var(--admin-primary)] border border-[var(--admin-primary)]/25 bg-[var(--admin-primary)]/10 px-1.5 py-1 rounded-lg hover:bg-[var(--admin-primary)]/15">
                         Cert
                       </Link>
                       <button onClick={() => deleteDonation(d.id, d.donorName)}

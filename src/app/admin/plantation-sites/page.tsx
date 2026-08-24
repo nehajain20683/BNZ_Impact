@@ -12,7 +12,7 @@ const PHASE_COLORS: Record<string,string> = {
   COMPLETED:'bg-emerald-100 text-emerald-800',
 };
 const STATES = ['Maharashtra','Gujarat','Rajasthan','Madhya Pradesh','Karnataka','Uttar Pradesh'];
-const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
+const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
 function CreateSiteModal({ onClose, onSave }: any) {
   const [step, setStep]       = useState(1);
@@ -52,19 +52,19 @@ function CreateSiteModal({ onClose, onSave }: any) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl my-4">
-        <div className="bg-forest-950 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+        <div className="bg-[var(--admin-primary)] text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
           <div>
             <h3 className="font-bold text-lg">Create Plantation Site</h3>
-            <p className="text-forest-400 text-xs">Step {step} of 4</p>
+            <p className="text-white/50 text-xs">Step {step} of 4</p>
           </div>
-          <button onClick={onClose}><X className="w-5 h-5 text-forest-400 hover:text-white"/></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-white/50 hover:text-white"/></button>
         </div>
 
         {/* Step tabs */}
         <div className="flex border-b border-gray-100">
           {['Basic Info','Plantation Details','Targets','Species Plan'].map((t,i)=>(
             <button key={t} onClick={()=>setStep(i+1)}
-              className={`flex-1 py-3 text-xs font-semibold transition-colors ${step===i+1?'border-b-2 border-sage-600 text-sage-700':'text-gray-400 hover:text-gray-600'}`}>
+              className={`flex-1 py-3 text-xs font-semibold transition-colors ${step===i+1?'border-b-2 border-[var(--admin-primary)] text-[var(--admin-primary)]':'text-gray-400 hover:text-gray-600'}`}>
               {i+1}. {t}
             </button>
           ))}
@@ -98,7 +98,7 @@ function CreateSiteModal({ onClose, onSave }: any) {
                 <input value={form.taluka} onChange={f('taluka')} className={inp}/></div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Village</label>
                 <input value={form.village} onChange={f('village')} className={inp}/></div>
-              <div className="col-span-2 text-xs text-gray-400 italic bg-sage-50 rounded-xl px-4 py-3 border border-sage-100">
+              <div className="col-span-2 text-xs text-gray-400 italic bg-[var(--admin-primary)]/10 rounded-xl px-4 py-3 border border-[var(--admin-primary)]/20">
                 📍 GPS coordinates will be auto-populated from assigned farmer GIS data. No need to enter manually.
               </div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Total Planned Area (Acres)</label>
@@ -162,12 +162,12 @@ function CreateSiteModal({ onClose, onSave }: any) {
                 }} className={inp} placeholder="85"/>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon (tCO₂) <span className="text-sage-500">auto-calculated</span></label>
-                <input type="number" value={form.estimatedCarbon} onChange={f('estimatedCarbon')} className={inp + ' bg-sage-50'} placeholder="Auto"/>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon (tCO₂) <span className="text-[var(--admin-primary)]/70">auto-calculated</span></label>
+                <input type="number" value={form.estimatedCarbon} onChange={f('estimatedCarbon')} className={inp + ' bg-[var(--admin-primary)]/10'} placeholder="Auto"/>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon Credits <span className="text-sage-500">auto-calculated</span></label>
-                <input type="number" value={form.estimatedCredits} onChange={f('estimatedCredits')} className={inp + ' bg-sage-50'} placeholder="Auto"/>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Estimated Carbon Credits <span className="text-[var(--admin-primary)]/70">auto-calculated</span></label>
+                <input type="number" value={form.estimatedCredits} onChange={f('estimatedCredits')} className={inp + ' bg-[var(--admin-primary)]/10'} placeholder="Auto"/>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Budget (₹)</label>
@@ -193,7 +193,7 @@ function CreateSiteModal({ onClose, onSave }: any) {
                         {(['species','plannedQty','nurserySource','expectedSurvival','carbonFactor','remarks'] as const).map(k=>(
                           <td key={k} className="px-1 py-1">
                             <input value={row[k]} onChange={e=>setSpeciesRows(rows=>rows.map((r,j)=>j===i?{...r,[k]:e.target.value}:r))}
-                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-sage-400"
+                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-[var(--admin-primary)]/40"
                               placeholder={k==='species'?'Neem / Mango…':k==='expectedSurvival'?'85':k==='plannedQty'?'1000':''}/>
                           </td>
                         ))}
@@ -206,7 +206,7 @@ function CreateSiteModal({ onClose, onSave }: any) {
                 </table>
               </div>
               <button onClick={()=>setSpeciesRows(r=>[...r,{species:'',plannedQty:'',nurserySource:'',expectedSurvival:'85',carbonFactor:'',remarks:''}])}
-                className="mt-3 text-sage-600 text-xs font-semibold hover:underline flex items-center gap-1">
+                className="mt-3 text-[var(--admin-primary)] text-xs font-semibold hover:underline flex items-center gap-1">
                 <Plus className="w-3 h-3"/> Add Species
               </button>
               {speciesRows.length > 0 && (
@@ -224,10 +224,10 @@ function CreateSiteModal({ onClose, onSave }: any) {
             className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-40">← Back</button>
           <div className="flex gap-3">
             {step < 4 ? (
-              <button onClick={()=>setStep(s=>s+1)} className="bg-sage-700 text-white px-5 py-2 rounded-xl text-sm font-bold">Next →</button>
+              <button onClick={()=>setStep(s=>s+1)} className="bg-[var(--admin-primary)] text-white px-5 py-2 rounded-xl text-sm font-bold">Next →</button>
             ) : (
               <button onClick={handleCreate} disabled={loading}
-                className="bg-sage-700 hover:bg-sage-800 text-white px-6 py-2 rounded-xl text-sm font-bold disabled:opacity-60">
+                className="bg-[var(--admin-primary)] hover:opacity-90 text-white px-6 py-2 rounded-xl text-sm font-bold disabled:opacity-60">
                 {loading ? 'Creating…' : '✓ Create Plantation Site'}
               </button>
             )}
@@ -266,22 +266,22 @@ export default function PlantationSitesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[var(--admin-primary)] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>
       )}
       {showCreate && (
         <CreateSiteModal onClose={()=>setShowCreate(false)} onSave={(site:any)=>{setShowCreate(false);setToast(`Site "${site.siteName}" created`);load();}}/>
       )}
 
       {/* Header */}
-      <div className="bg-forest-950 text-white px-6 py-4 flex items-center justify-between">
+      <div className="bg-[var(--admin-primary)] text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-forest-400 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
+          <Link href="/admin" className="text-white/50 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
           <div>
             <div className="font-display text-lg">Plantation Sites</div>
-            <div className="text-forest-400 text-xs">Plantation Projects</div>
+            <div className="text-white/50 text-xs">Plantation Projects</div>
           </div>
         </div>
-        <button onClick={()=>setShowCreate(true)} className="flex items-center gap-2 bg-sage-600 hover:bg-sage-700 text-white font-bold px-4 py-2 rounded-xl text-sm">
+        <button onClick={()=>setShowCreate(true)} className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-sm">
           <Plus className="w-4 h-4"/> Create Plantation Site
         </button>
       </div>
@@ -308,13 +308,13 @@ export default function PlantationSitesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
             <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()}
               placeholder="Search by name, district, village…"
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sage-400"/>
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
           </div>
           <select value={phase} onChange={e=>setPhase(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm">
             <option value="">All Phases</option>
             {PHASES.map(p=><option key={p} value={p}>{p.replace(/_/g,' ')}</option>)}
           </select>
-          <button onClick={load} className="bg-forest-700 text-white font-bold px-4 py-2 rounded-xl text-sm">Apply</button>
+          <button onClick={load} className="bg-[var(--admin-primary)] text-white font-bold px-4 py-2 rounded-xl text-sm">Apply</button>
           <button onClick={()=>{setSearch('');setPhase('');setTimeout(load,0);}} className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm">Reset</button>
         </div>
 
@@ -325,7 +325,7 @@ export default function PlantationSitesPage() {
           <div className="text-center py-16">
             <TreePine className="w-12 h-12 text-gray-300 mx-auto mb-4"/>
             <p className="text-gray-500 mb-2">No plantation sites yet</p>
-            <button onClick={()=>setShowCreate(true)} className="text-sage-700 font-semibold hover:underline text-sm">Create your first site →</button>
+            <button onClick={()=>setShowCreate(true)} className="text-[var(--admin-primary)] font-semibold hover:underline text-sm">Create your first site →</button>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -334,7 +334,7 @@ export default function PlantationSitesPage() {
                 className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all p-5 group">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <div className="font-bold text-gray-900 group-hover:text-sage-700 transition-colors">{site.siteName}</div>
+                    <div className="font-bold text-gray-900 group-hover:text-[var(--admin-primary)] transition-colors">{site.siteName}</div>
                     <div className="text-gray-400 text-xs font-mono">{site.siteCode}</div>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${PHASE_COLORS[site.currentPhase]||'bg-gray-100 text-gray-600'}`}>
@@ -351,7 +351,7 @@ export default function PlantationSitesPage() {
                     <span>{(site.plannedTrees||0).toLocaleString('en-IN')} planned</span>
                   </div>
                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-sage-600 rounded-full" style={{width:`${site.plannedTrees?Math.min(100,(site.treesPlanted||0)/site.plannedTrees*100):0}%`}}/>
+                    <div className="h-full bg-[var(--admin-primary)] rounded-full" style={{width:`${site.plannedTrees?Math.min(100,(site.treesPlanted||0)/site.plannedTrees*100):0}%`}}/>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
@@ -371,7 +371,7 @@ export default function PlantationSitesPage() {
                 {site.plantationPartner && (
                   <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">{site.plantationPartner}</div>
                 )}
-                <div className="flex items-center justify-end mt-2 text-sage-600 text-xs font-medium group-hover:gap-2 gap-1 transition-all">
+                <div className="flex items-center justify-end mt-2 text-[var(--admin-primary)] text-xs font-medium group-hover:gap-2 gap-1 transition-all">
                   View Site <ChevronRight className="w-3.5 h-3.5"/>
                 </div>
               </Link>

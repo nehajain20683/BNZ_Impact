@@ -17,7 +17,9 @@ export default function Navbar() {
   const isSuperAdmin  = user?.role === 'SUPER_ADMIN';
 
   const links = [
-    { href:'/about',    label:'About Us' },
+    // "About Us" content is written specifically for the BNZ Green tenant —
+    // hidden for every other tenant (page itself also blocks direct access).
+    ...(org.slug === 'bnz-green' ? [{ href:'/about', label:'About Us' }] : []),
     { href:'/campaigns',label:'Sponsor Trees' },
     { href:'/dashboard',label:'Impact Dashboard' },
     { href:'/csr',      label:'Corporate Support' },

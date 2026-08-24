@@ -33,7 +33,7 @@ const ROLE_COLORS: Record<string, string> = {
   DONOR:           'bg-green-100 text-green-700',
 };
 
-const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
+const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
 // ── Modals ───────────────────────────────────────────────
 function DeleteModal({ type, name, onConfirm, onClose }: any) {
@@ -154,7 +154,7 @@ function AddUserModal({ onClose, onSave }: any) {
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl">Cancel</button>
           <button onClick={handleSave} disabled={loading || !form.name || !form.email || !form.password}
-            className="flex-1 bg-sage-700 hover:bg-sage-800 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60">
+            className="flex-1 bg-[var(--admin-primary)] hover:opacity-90 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60">
             {loading ? 'Saving...' : 'Save User'}
           </button>
         </div>
@@ -191,7 +191,7 @@ function ResetPasswordModal({ user, onClose, onSave }: any) {
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl">Cancel</button>
           <button onClick={handleReset} disabled={loading || !pw}
-            className="flex-1 bg-sage-700 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60">
+            className="flex-1 bg-[var(--admin-primary)] text-white font-semibold py-2.5 rounded-xl disabled:opacity-60">
             {loading ? 'Resetting...' : 'Reset'}
           </button>
         </div>
@@ -297,7 +297,7 @@ export default function PeopleManagementPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
+        <div className="fixed bottom-4 right-4 z-50 bg-[var(--admin-primary)] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
           ✓ {toast}
         </div>
       )}
@@ -316,12 +316,12 @@ export default function PeopleManagementPage() {
       )}
 
       {/* Header */}
-      <div className="bg-sage-800 text-white px-6 py-4 flex items-center justify-between">
+      <div className="bg-[var(--admin-primary)] text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-sage-400 hover:text-white"><ChevronLeft className="w-5 h-5"/></Link>
+          <Link href="/admin" className="text-white/50 hover:text-white"><ChevronLeft className="w-5 h-5"/></Link>
           <span className="font-display text-lg">People Management</span>
         </div>
-        <Link href="/admin/logs" className="text-sage-400 hover:text-white text-sm">Activity Logs →</Link>
+        <Link href="/admin/logs" className="text-white/50 hover:text-white text-sm">Activity Logs →</Link>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -347,7 +347,7 @@ export default function PeopleManagementPage() {
           {(['farmers','users'] as Tab[]).map(t => (
             <button key={t} onClick={() => { setTab(t); setSearch(''); setFilter(''); setPage(1); }}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
-                tab === t ? 'bg-sage-700 text-white shadow-sm' : 'bg-white border border-sage-200 text-sage-700 hover:bg-sage-50'
+                tab === t ? 'bg-[var(--admin-primary)] text-white shadow-sm' : 'bg-white border border-[var(--admin-primary)]/25 text-[var(--admin-primary)] hover:bg-[var(--admin-primary)]/10'
               }`}>
               {t === 'farmers' ? <TreePine className="w-4 h-4"/> : <Users className="w-4 h-4"/>}
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -362,7 +362,7 @@ export default function PeopleManagementPage() {
             <input
               type="text" placeholder={`Search ${tab}...`}
               value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400"
+              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"
             />
           </div>
           <select value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}
@@ -386,18 +386,18 @@ export default function PeopleManagementPage() {
           </select>
           {tab === 'users' && (
             <button onClick={() => setShowAddUser(true)}
-              className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-semibold px-4 py-2.5 rounded-xl text-sm">
+              className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-semibold px-4 py-2.5 rounded-xl text-sm">
               <Plus className="w-4 h-4"/> Add User
             </button>
           )}
           {tab === 'farmers' && (
             <Link href="/farmer/register"
-              className="flex items-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-semibold px-4 py-2.5 rounded-xl text-sm">
+              className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-semibold px-4 py-2.5 rounded-xl text-sm">
               <Plus className="w-4 h-4"/> Add Farmer
             </Link>
           )}
           <a href={`/api/admin/export-csv?type=${tab}`}
-            className="flex items-center gap-2 border border-sage-300 text-sage-700 hover:bg-sage-50 font-semibold px-4 py-2.5 rounded-xl text-sm">
+            className="flex items-center gap-2 border border-[var(--admin-primary)]/40 text-[var(--admin-primary)] hover:bg-[var(--admin-primary)]/10 font-semibold px-4 py-2.5 rounded-xl text-sm">
             <Download className="w-4 h-4"/> Export
           </a>
           <button onClick={load} className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50">
@@ -440,7 +440,7 @@ export default function PeopleManagementPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <Link href={`/admin/farmers/${f.id}`}
-                            className="p-1.5 rounded-lg hover:bg-sage-50 text-sage-600 transition-colors" title="View">
+                            className="p-1.5 rounded-lg hover:bg-[var(--admin-primary)]/10 text-[var(--admin-primary)] transition-colors" title="View">
                             <Eye className="w-4 h-4"/>
                           </Link>
                           <select

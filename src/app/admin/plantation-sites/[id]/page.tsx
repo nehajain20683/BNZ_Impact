@@ -19,7 +19,7 @@ const PHASE_COLORS: Record<string,string> = {
   COMPLETED:'bg-emerald-100 text-emerald-800',
 };
 
-const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400";
+const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
 export default function PlantationSiteDetailPage() {
   const { id } = useParams() as { id: string };
@@ -141,7 +141,7 @@ export default function PlantationSiteDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-sage-700 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[var(--admin-primary)] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>
       )}
 
       {/* Assign Farmer Modal */}
@@ -159,7 +159,7 @@ export default function PlantationSiteDetailPage() {
                   <input value={farmerSearch} onChange={e=>setFarmerSearch(e.target.value)}
                     onKeyDown={e=>e.key==='Enter'&&searchFarmers()}
                     placeholder="Name, Farmer ID, village…" className={inp}/>
-                  <button onClick={searchFarmers} className="bg-sage-600 text-white px-3 py-2 rounded-xl text-sm">Search</button>
+                  <button onClick={searchFarmers} className="bg-[var(--admin-primary)] text-white px-3 py-2 rounded-xl text-sm">Search</button>
                 </div>
                 {farmerResults.length > 0 && (
                   <div className="border border-gray-200 rounded-xl mt-1 max-h-40 overflow-y-auto">
@@ -168,7 +168,7 @@ export default function PlantationSiteDetailPage() {
                         setAssignForm((p:any)=>({...p,farmerId:f.id,landId:f.lands?.[0]?.id||''}));
                         setFarmerResults([]);
                         setFarmerSearch(f.fullName);
-                      }} className="w-full text-left px-3 py-2 hover:bg-sage-50 text-sm border-b last:border-0">
+                      }} className="w-full text-left px-3 py-2 hover:bg-[var(--admin-primary)]/10 text-sm border-b last:border-0">
                         <div className="font-medium">{f.fullName}</div>
                         <div className="text-gray-400 text-xs">{f.farmerIdGenerated} · {f.village}</div>
                       </button>
@@ -185,7 +185,7 @@ export default function PlantationSiteDetailPage() {
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={()=>setShowAssign(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
-              <button onClick={assignFarmer} className="flex-1 bg-sage-700 text-white font-bold py-2.5 rounded-xl text-sm">✓ Assign</button>
+              <button onClick={assignFarmer} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Assign</button>
             </div>
           </div>
         </div>
@@ -241,13 +241,13 @@ export default function PlantationSiteDetailPage() {
                               <input value={row.species}
                                 onChange={e=>setSpeciesRows(rows=>rows.map((r,j)=>j===i?{...r,species:e.target.value}:r))}
                                 placeholder="e.g. Mango, Neem, Teak"
-                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-sage-400"/>
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-[var(--admin-primary)]/40"/>
                             </td>
                             <td className="px-2 py-1.5">
                               <input type="number" value={row.qty}
                                 onChange={e=>setSpeciesRows(rows=>rows.map((r,j)=>j===i?{...r,qty:e.target.value}:r))}
                                 placeholder="0"
-                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-sage-400"/>
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-[var(--admin-primary)]/40"/>
                             </td>
                             <td className="px-2 py-1.5 text-center">
                               <button onClick={()=>setSpeciesRows(rows=>rows.filter((_,j)=>j!==i))}
@@ -259,7 +259,7 @@ export default function PlantationSiteDetailPage() {
                     </table>
                     <div className="px-3 py-2 border-t bg-gray-50 flex items-center justify-between">
                       <button onClick={()=>setSpeciesRows(r=>[...r,{species:'',qty:''}])}
-                        className="text-sage-600 text-xs font-semibold hover:underline">+ Add Species</button>
+                        className="text-[var(--admin-primary)] text-xs font-semibold hover:underline">+ Add Species</button>
                       <span className="text-gray-500 text-xs font-semibold">
                         Total: {speciesRows.reduce((s,r)=>s+(parseInt(r.qty)||0),0).toLocaleString('en-IN')} trees
                       </span>
@@ -292,7 +292,7 @@ export default function PlantationSiteDetailPage() {
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={()=>setShowActivity(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
-              <button onClick={logActivity} className="flex-1 bg-sage-700 text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Activity</button>
+              <button onClick={logActivity} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Activity</button>
             </div>
           </div>
         </div>
@@ -320,27 +320,27 @@ export default function PlantationSiteDetailPage() {
                 <textarea value={monitorForm.recommendations} onChange={e=>setMonitorForm((p:any)=>({...p,recommendations:e.target.value}))} className={inp} rows={2}/></div>
             </div>
             {monitorForm.survivalCount && site.treesPlanted && (
-              <div className="mt-3 bg-sage-50 rounded-xl p-3 text-sm">
+              <div className="mt-3 bg-[var(--admin-primary)]/10 rounded-xl p-3 text-sm">
                 <strong>Survival: {Math.round(parseInt(monitorForm.survivalCount)/site.treesPlanted*100)}%</strong>
                 · Mortality: {Math.round((1-parseInt(monitorForm.survivalCount)/site.treesPlanted)*100)}%
               </div>
             )}
             <div className="flex gap-3 mt-5">
               <button onClick={()=>setShowMonitor(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
-              <button onClick={logMonitoring} className="flex-1 bg-sage-700 text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Visit</button>
+              <button onClick={logMonitoring} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Visit</button>
             </div>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div className="bg-forest-950 text-white px-6 py-4">
+      <div className="bg-[var(--admin-primary)] text-white px-6 py-4">
         <div className="flex items-center justify-between max-w-screen-xl mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/admin/plantation-sites" className="text-forest-400 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
+            <Link href="/admin/plantation-sites" className="text-white/50 hover:text-white"><ArrowLeft className="w-5 h-5"/></Link>
             <div>
               <div className="font-bold text-lg">{site.siteName}</div>
-              <div className="text-forest-400 text-xs font-mono">{site.siteCode} · {[site.village,site.district,site.state].filter(Boolean).join(', ')}</div>
+              <div className="text-white/50 text-xs font-mono">{site.siteCode} · {[site.village,site.district,site.state].filter(Boolean).join(', ')}</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -363,13 +363,13 @@ export default function PlantationSiteDetailPage() {
       </div>
 
       {/* Overall progress bar */}
-      <div className="bg-forest-900 px-6 pb-4 max-w-screen-xl mx-auto">
-        <div className="flex justify-between text-xs text-forest-400 mb-1">
+      <div className="bg-[var(--admin-primary)] px-6 pb-4 max-w-screen-xl mx-auto">
+        <div className="flex justify-between text-xs text-white/50 mb-1">
           <span>{(site.treesPlanted||0).toLocaleString('en-IN')} trees planted</span>
           <span>{pct}% of {(site.plannedTrees||0).toLocaleString('en-IN')} planned</span>
         </div>
-        <div className="h-2 bg-forest-800 rounded-full overflow-hidden">
-          <div className="h-full bg-sage-500 rounded-full transition-all" style={{width:`${pct}%`}}/>
+        <div className="h-2 bg-white/15 rounded-full overflow-hidden">
+          <div className="h-full bg-white rounded-full transition-all" style={{width:`${pct}%`}}/>
         </div>
       </div>
 
@@ -387,7 +387,7 @@ export default function PlantationSiteDetailPage() {
           ].map(t=>(
             <button key={t.id} onClick={()=>setActiveTab(t.id as any)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab===t.id ? 'bg-sage-700 text-white' : 'text-gray-500 hover:bg-gray-50'
+                activeTab===t.id ? 'bg-[var(--admin-primary)] text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}>
               <t.icon className="w-3.5 h-3.5"/> {t.label}
             </button>
@@ -430,7 +430,7 @@ export default function PlantationSiteDetailPage() {
                         <span>{s.planned.toLocaleString('en-IN')} ({s.pct}%)</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-sage-500 rounded-full" style={{width:`${s.pct}%`}}/>
+                        <div className="h-full bg-[var(--admin-primary)] rounded-full" style={{width:`${s.pct}%`}}/>
                       </div>
                     </div>
                   ))}
@@ -484,7 +484,7 @@ export default function PlantationSiteDetailPage() {
                           ))}
                         </td>
                         <td className="px-4 py-2">
-                          <span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full">{f.stage?.replace(/_/g,' ')}</span>
+                          <span className="text-xs bg-[var(--admin-primary)]/15 text-[var(--admin-primary)] px-2 py-0.5 rounded-full">{f.stage?.replace(/_/g,' ')}</span>
                         </td>
                       </tr>
                     ))}
@@ -500,7 +500,7 @@ export default function PlantationSiteDetailPage() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-gray-900">Assigned Farmer Lands</h3>
-              <button onClick={()=>setShowAssign(true)} className="flex items-center gap-1.5 bg-sage-700 text-white text-xs font-bold px-3 py-2 rounded-xl">
+              <button onClick={()=>setShowAssign(true)} className="flex items-center gap-1.5 bg-[var(--admin-primary)] text-white text-xs font-bold px-3 py-2 rounded-xl">
                 <Plus className="w-3.5 h-3.5"/> Assign Farmer Land
               </button>
             </div>
@@ -508,7 +508,7 @@ export default function PlantationSiteDetailPage() {
               <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-sm">
                 <Users className="w-10 h-10 text-gray-300 mx-auto mb-3"/>
                 <p className="text-gray-500 text-sm mb-2">No farmers assigned yet</p>
-                <button onClick={()=>setShowAssign(true)} className="text-sage-600 text-sm font-semibold hover:underline">Assign your first farmer →</button>
+                <button onClick={()=>setShowAssign(true)} className="text-[var(--admin-primary)] text-sm font-semibold hover:underline">Assign your first farmer →</button>
               </div>
             ) : farmers.map((a:any)=>(
               <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -519,7 +519,7 @@ export default function PlantationSiteDetailPage() {
                     {a.land && <div className="text-gray-400 text-xs mt-0.5">Survey: {a.land.surveyGutNumber||'—'} · {a.land.areaAcres} acres · {a.land.village}</div>}
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-sage-700 text-sm">{a.treesAssigned} trees</div>
+                    <div className="font-bold text-[var(--admin-primary)] text-sm">{a.treesAssigned} trees</div>
                     <select value={a.stage} onChange={e=>updateStage(a.id, e.target.value)}
                       className="mt-1 text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none">
                       {LAND_STAGES.map(s=><option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
@@ -607,7 +607,7 @@ export default function PlantationSiteDetailPage() {
           <div className="space-y-4">
             <div className="flex justify-between">
               <h3 className="font-semibold text-gray-900">Plantation Activities</h3>
-              <button onClick={()=>setShowActivity(true)} className="flex items-center gap-1.5 bg-sage-700 text-white text-xs font-bold px-3 py-2 rounded-xl">
+              <button onClick={()=>setShowActivity(true)} className="flex items-center gap-1.5 bg-[var(--admin-primary)] text-white text-xs font-bold px-3 py-2 rounded-xl">
                 <Plus className="w-3.5 h-3.5"/> Log Activity
               </button>
             </div>
@@ -620,7 +620,7 @@ export default function PlantationSiteDetailPage() {
                   {(site.activities||[]).map((a:any)=>(
                     <tr key={a.id} className="border-t hover:bg-gray-50">
                       <td className="px-4 py-2 text-gray-500 text-xs">{new Date(a.date).toLocaleDateString('en-IN')}</td>
-                      <td className="px-4 py-2"><span className="text-xs bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full">{a.activityType?.replace(/_/g,' ')}</span></td>
+                      <td className="px-4 py-2"><span className="text-xs bg-[var(--admin-primary)]/15 text-[var(--admin-primary)] px-2 py-0.5 rounded-full">{a.activityType?.replace(/_/g,' ')}</span></td>
                       <td className="px-4 py-2 text-gray-700">{a.description||'—'}</td>
                       <td className="px-4 py-2 text-gray-500">{a.team||'—'}</td>
                       <td className="px-4 py-2 text-gray-500">{a.workers||'—'}</td>
@@ -648,7 +648,7 @@ export default function PlantationSiteDetailPage() {
           <div className="space-y-4">
             <div className="flex justify-between">
               <h3 className="font-semibold text-gray-900">Monitoring Visits</h3>
-              <button onClick={()=>setShowMonitor(true)} className="flex items-center gap-1.5 bg-sage-700 text-white text-xs font-bold px-3 py-2 rounded-xl">
+              <button onClick={()=>setShowMonitor(true)} className="flex items-center gap-1.5 bg-[var(--admin-primary)] text-white text-xs font-bold px-3 py-2 rounded-xl">
                 <Plus className="w-3.5 h-3.5"/> Log Visit
               </button>
             </div>
@@ -684,7 +684,7 @@ export default function PlantationSiteDetailPage() {
             {(site.timelineEvents||[]).map((ev:any, i:number)=>(
               <div key={ev.id} className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-sage-600 text-white text-xs flex items-center justify-center font-bold flex-shrink-0">{i+1}</div>
+                  <div className="w-8 h-8 rounded-full bg-[var(--admin-primary)] text-white text-xs flex items-center justify-center font-bold flex-shrink-0">{i+1}</div>
                   {i < (site.timelineEvents||[]).length - 1 && <div className="w-0.5 flex-1 bg-gray-200 mt-1"/>}
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1 mb-2">
@@ -728,7 +728,7 @@ export default function PlantationSiteDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 text-xs">{docs.length} files</span>
-                      <label className="flex items-center gap-1 text-xs bg-sage-700 text-white px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-sage-800">
+                      <label className="flex items-center gap-1 text-xs bg-[var(--admin-primary)] text-white px-2.5 py-1.5 rounded-lg cursor-pointer hover:opacity-90">
                         + Upload
                         <input type="file" accept="image/*,application/pdf,.kml,.kmz,.geojson,.xlsx,.csv" className="hidden"
                           onChange={async (e) => {
@@ -766,7 +766,7 @@ export default function PlantationSiteDetailPage() {
                           </div>
                           <div className="flex gap-2">
                             <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
-                              className="text-sage-600 hover:underline">View</a>
+                              className="text-[var(--admin-primary)] hover:underline">View</a>
                             <button
                               onClick={async () => {
                                 if (!confirm('Delete this document?')) return;

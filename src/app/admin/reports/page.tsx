@@ -36,7 +36,7 @@ export default function AdminReportsPage() {
                 <p className="text-gray-400 text-xs mt-0.5">{r.desc}</p>
               </div>
               <a href={`/api/admin/export-csv?type=${r.type}`} target="_blank"
-                className="flex items-center gap-1.5 text-xs bg-sage-700 text-white px-3 py-2 rounded-xl hover:bg-sage-800">
+                className="flex items-center gap-1.5 text-xs bg-[var(--admin-primary)] text-white px-3 py-2 rounded-xl hover:opacity-90">
                 <Download className="w-3.5 h-3.5"/> Export CSV
               </a>
             </div>

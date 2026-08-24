@@ -40,7 +40,8 @@ export default function Footer() {
                 ['/campaigns',  'Sponsor Trees'],
                 ['/farmer/register', 'Register Land'],
                 ['/impact',     'Impact Dashboard'],
-                ['/about',      'About Us'],
+                // "About Us" is BNZ Green–specific content; hidden for other tenants
+                ...(org.slug === 'bnz-green' ? [['/about', 'About Us']] : []),
                 ['/csr',        'Corporate Support'],
               ].map(([href, label]) => (
                 <li key={href}><Link href={href} className="hover:text-white transition-colors">{label}</Link></li>
