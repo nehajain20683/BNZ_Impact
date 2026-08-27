@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { notifyFarmer } from '@/lib/notifications';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const assignments = await prisma.landAssignment.findMany({
@@ -11,6 +12,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       farmer: { select: { id: true, fullName: true, mobile: true, farmerIdGenerated: true, village: true, district: true } },
       land:   { select: { id: true, surveyGutNumber: true, areaAcres: true, areaOfferedAcres: true, village: true, district: true, ownershipType: true } },
       stageHistory: { orderBy: { date: 'desc' } },
+      _count: { select: { trees: true } },
     },
     orderBy: { assignedAt: 'desc' },
   });
@@ -57,6 +59,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data: { siteId: params.id, eventType: 'FARMER_ASSIGNED', title: `Farmer land assigned`,
               description: `${body.treesAssigned} trees assigned`, createdById: actor.id }
     });
+
+    await notifyFarmer(body.farmerId, 'PLANTATION_ASSIGNED', 'A new plantation has been assigned to you',
+      `${body.treesAssigned} trees`, `/farmer/plantation/${assignment.id}`);
 
     return NextResponse.json({ success: true, assignment });
   } catch (e: any) {

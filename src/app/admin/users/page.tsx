@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Users, Plus, Search, X, Shield, User,
   Edit2, Trash2, CheckCircle, Mail, Phone,
@@ -310,6 +311,10 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
+                      <Link href={`/admin/users/${user.id}`}
+                        className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 bg-gray-50 hover:bg-gray-100 px-2 py-1 rounded-lg">
+                        <Eye className="w-3 h-3"/> View
+                      </Link>
                       <button onClick={() => setEditUser(user)}
                         className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg">
                         <Edit2 className="w-3 h-3"/> Role

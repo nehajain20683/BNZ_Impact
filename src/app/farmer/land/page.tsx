@@ -1,9 +1,9 @@
 'use client';
-// /farmer/land — Add land parcel with photo + KML upload
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+// /farmer/land — Add or edit a land parcel with photo + KML upload
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
-import { MapPin, Upload, X, Image, FileText, ChevronLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { MapPin, Upload, X, Image, FileText, ChevronLeft, CheckCircle, Loader2, LogOut, Lock } from 'lucide-react';
 
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-white";
 const STATES = ['Maharashtra','Gujarat','Rajasthan','Madhya Pradesh','Karnataka','Tamil Nadu','Uttar Pradesh','Goa','Delhi','Punjab'];
@@ -95,8 +95,18 @@ function KMLUpload({ onChange, file, onRemove }: any) {
 }
 
 export default function FarmerLandPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50"/>}>
+      <FarmerLandForm/>
+    </Suspense>
+  );
+}
+
+function FarmerLandForm() {
   const org    = useOrgConfig();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('id');
   const primaryColor = org.primaryColor || '#2d5a1b';
 
   const [form, setForm] = useState({
@@ -108,10 +118,46 @@ export default function FarmerLandPage() {
   const [landPhoto, setLandPhoto] = useState<string|null>(null);
   const [kmlFile, setKmlFile]     = useState<any>(null);
   const [loading, setLoading]     = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(!!editId);
+  const [locked, setLocked]       = useState(false);
   const [success, setSuccess]     = useState(false);
   const [error, setError]         = useState('');
 
   const farmerId = typeof window !== 'undefined' ? localStorage.getItem('farmerId') : '';
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('farmerId')) {
+      router.push('/farmer/login'); return;
+    }
+    if (!editId) return;
+
+    fetch(`/api/farmer/land?farmerId=${farmerId}`)
+      .then(r => r.json())
+      .then(data => {
+        const land = (data.lands || []).find((l: any) => l.id === editId);
+        if (!land) { setError('Land parcel not found.'); setLoadingExisting(false); return; }
+        setLocked(!!land.verified);
+        setForm({
+          surveyGutNumber: land.surveyGutNumber || '', khataNumber: land.khataNumber || '',
+          areaAcres: land.areaAcres != null ? String(land.areaAcres) : '',
+          areaOfferedAcres: land.areaOfferedAcres != null ? String(land.areaOfferedAcres) : '',
+          landType: land.landType || '', village: land.village || '', taluka: land.taluka || '',
+          district: land.district || '', state: land.state || 'Maharashtra', pincode: land.pincode || '',
+          gpsLatitude: land.gpsLatitude != null ? String(land.gpsLatitude) : '',
+          gpsLongitude: land.gpsLongitude != null ? String(land.gpsLongitude) : '',
+          waterAvailability: land.waterAvailability || '', securityStatus: land.securityStatus || '',
+        });
+        if (land.photos?.[0]) setLandPhoto(land.photos[0]);
+        setLoadingExisting(false);
+      })
+      .catch(() => setLoadingExisting(false));
+  }, [editId]);
+
+  function logout() {
+    localStorage.removeItem('farmerId');
+    localStorage.removeItem('farmerMobile');
+    router.push('/farmer/login');
+  }
 
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
 
@@ -138,20 +184,22 @@ export default function FarmerLandPage() {
 
   async function handleSubmit() {
     if (!farmerId) { setError('Session expired. Please login again.'); return; }
+    if (locked) return;
     setLoading(true); setError('');
+    const payload = {
+      farmerId,
+      ...form,
+      gpsLatitude:      form.gpsLatitude      ? parseFloat(form.gpsLatitude)      : undefined,
+      gpsLongitude:     form.gpsLongitude     ? parseFloat(form.gpsLongitude)     : undefined,
+      areaAcres:        form.areaAcres        ? parseFloat(form.areaAcres)        : undefined,
+      areaOfferedAcres: form.areaOfferedAcres ? parseFloat(form.areaOfferedAcres) : undefined,
+      landPhotoBase64:  landPhoto,
+      kmlPhotoBase64:   kmlFile?.preview,
+      kmlFileName:      kmlFile?.name,
+    };
     const res = await fetch('/api/farmer/land', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        farmerId,
-        ...form,
-        gpsLatitude:      form.gpsLatitude      ? parseFloat(form.gpsLatitude)      : undefined,
-        gpsLongitude:     form.gpsLongitude     ? parseFloat(form.gpsLongitude)     : undefined,
-        areaAcres:        form.areaAcres        ? parseFloat(form.areaAcres)        : undefined,
-        areaOfferedAcres: form.areaOfferedAcres ? parseFloat(form.areaOfferedAcres) : undefined,
-        landPhotoBase64:  landPhoto,
-        kmlPhotoBase64:   kmlFile?.preview,
-        kmlFileName:      kmlFile?.name,
-      }),
+      method: editId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editId ? { landId: editId, ...payload } : payload),
     });
     const data = await res.json();
     setLoading(false);
@@ -163,11 +211,19 @@ export default function FarmerLandPage() {
     }
   }
 
+  if (loadingExisting) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400"/>
+      </div>
+    );
+  }
+
   if (success) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: primaryColor }}/>
-        <h2 className="text-xl font-bold text-gray-900">Land Added!</h2>
+        <h2 className="text-xl font-bold text-gray-900">{editId ? 'Land Updated!' : 'Land Added!'}</h2>
         <p className="text-gray-500 text-sm mt-1">Redirecting to dashboard…</p>
       </div>
     </div>
@@ -181,10 +237,17 @@ export default function FarmerLandPage() {
           <button onClick={() => router.push('/farmer/dashboard')} className="text-white/70 hover:text-white">
             <ChevronLeft className="w-5 h-5"/>
           </button>
+          {org.logoUrl
+            ? <img src={org.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+            : null}
           <div>
             <div className="font-bold text-sm">{org.loaded ? org.name : ''}</div>
-            <div className="text-white/70 text-xs">Add Land Parcel / भूमि पार्सल जोड़ें</div>
+            <div className="text-white/70 text-xs">{editId ? (locked ? 'View Land Parcel' : 'Edit Land Parcel') : 'Add Land Parcel'} / भूमि पार्सल जोड़ें</div>
           </div>
+          <button onClick={logout} aria-label="Sign Out"
+            className="ml-auto text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
+            <LogOut className="w-4 h-4"/>
+          </button>
         </div>
       </div>
 
@@ -192,8 +255,15 @@ export default function FarmerLandPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-xl">{error}</div>
         )}
+        {locked && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3 rounded-xl flex items-center gap-2">
+            <Lock className="w-4 h-4 flex-shrink-0"/>
+            This land parcel has been approved and can no longer be edited. Contact your field officer for changes.
+          </div>
+        )}
 
         {/* Land details */}
+        <fieldset disabled={locked} className="space-y-4 disabled:opacity-70">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-gray-900">Land Details / भूमि विवरण</h2>
           <div className="grid grid-cols-2 gap-3">
@@ -225,13 +295,21 @@ export default function FarmerLandPage() {
           <h2 className="font-semibold text-gray-900">Location / स्थान</h2>
           <button onClick={captureGPS}
             className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 flex items-center justify-center gap-2 text-sm text-gray-500 hover:bg-gray-50">
-            <MapPin className="w-4 h-4"/> Capture GPS / GPS कैप्चर करें
+            <MapPin className="w-4 h-4"/> Detect GPS Automatically / GPS का पता लगाएं
           </button>
-          {form.gpsLatitude && (
-            <div className="bg-green-50 rounded-xl p-2 text-xs font-mono text-green-700 text-center">
-              📍 {form.gpsLatitude}, {form.gpsLongitude}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Latitude</label>
+              <input type="number" value={form.gpsLatitude} onChange={e => setForm(p => ({ ...p, gpsLatitude: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage-300"/>
             </div>
-          )}
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Longitude</label>
+              <input type="number" value={form.gpsLongitude} onChange={e => setForm(p => ({ ...p, gpsLongitude: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sage-300"/>
+            </div>
+          </div>
+          <p className="text-gray-400 text-xs -mt-2">Detected automatically when available — you can also type or correct it yourself.</p>
           <div className="grid grid-cols-2 gap-3">
             {[
               { k:'village', en:'Village', hi:'गांव' },
@@ -269,14 +347,17 @@ export default function FarmerLandPage() {
             onRemove={() => setKmlFile(null)}
           />
         </div>
+        </fieldset>
 
         {/* Submit */}
+        {!locked && (
         <button onClick={handleSubmit} disabled={loading}
           className="w-full text-white font-bold py-4 rounded-2xl text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg"
           style={{ backgroundColor: primaryColor }}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle className="w-4 h-4"/>}
-          Save Land Parcel / भूमि पार्सल सहेजें
+          {editId ? 'Update Land Parcel' : 'Save Land Parcel'} / भूमि पार्सल सहेजें
         </button>
+        )}
       </div>
     </div>
   );

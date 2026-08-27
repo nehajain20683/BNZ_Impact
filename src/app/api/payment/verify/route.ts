@@ -4,13 +4,22 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyPaymentSignature } from '@/lib/razorpay';
 import { sendDonationConfirmationEmail } from '@/lib/email';
+import { getOrgConfig } from '@/lib/tenant';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, donationId } = body;
 
-    const isValid = verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    // The order was created using this donation's own org's credentials (see
+    // create-order/route.ts), so verification must use that same secret.
+    const existingDonation = await prisma.donation.findUnique({ where: { id: donationId } });
+    const org = existingDonation?.orgId ? await getOrgConfig(existingDonation.orgId) : null;
+
+    const isValid = verifyPaymentSignature(
+      razorpay_order_id, razorpay_payment_id, razorpay_signature,
+      org?.razorpayKeySecret
+    );
     if (!isValid) {
       return NextResponse.json({ success: false, error: 'Invalid signature' }, { status: 400 });
     }
@@ -52,6 +61,7 @@ export async function POST(req: Request) {
       donorPan:         donation.donorPan || undefined,
       paymentGatewayId: donation.paymentGatewayId || undefined,
       donationDate:     donation.createdAt,
+      orgId:            (donation as any).orgId || undefined,
     }).catch(console.error);
 
     return NextResponse.json({ success: true, donationId: donation.id });

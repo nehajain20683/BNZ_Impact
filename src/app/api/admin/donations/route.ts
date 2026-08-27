@@ -91,6 +91,20 @@ export async function POST(req: Request) {
       } as any,
     });
 
+    // Manual entries are marked COMPLETED immediately (unlike the online
+    // flow, which only completes on payment/verify) — so tree records must
+    // be created here too. This was previously missing entirely, meaning
+    // every manually-entered donation never got real Tree rows: it never
+    // showed up in "Link Sponsored Trees", never counted toward a donor's
+    // tree total, and could never be traced to a farmer's land.
+    await prisma.tree.createMany({
+      data: Array.from({ length: donation.numberOfTrees }, () => ({
+        donationId:  donation.id,
+        status:      'PENDING' as const,
+        expectedCO2: 22,
+      })),
+    });
+
     return NextResponse.json({ success: true, donation, refId, receiptNumber });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

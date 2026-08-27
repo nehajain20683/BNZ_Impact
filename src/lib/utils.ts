@@ -104,15 +104,23 @@ export const CAMPAIGNS = [
   },
 ];
 
-// Package options — ₹500 per tree
+// Package options — prices are computed per-org via packagePrice() below,
+// using the org's configured price-per-tree (Super Admin → Organization →
+// Price Per Tree). INDIVIDUAL_TREE_PRICE is only the ultimate fallback when
+// no org/price is available.
 export const CAMPAIGN_PACKAGES = [
-  { id: 'pkg-108', trees: 108, price: 54000, badge: 'विरासत निर्माता', badgeEn: 'Diamond Legacy', emoji: '💎', popular: false, description: 'The sacred 108 — create an entire forest in her name.' },
-  { id: 'pkg-54',  trees: 54,  price: 27000, badge: 'समर्पित',         badgeEn: 'Platinum Legacy', emoji: '🏆', popular: true,  description: 'A thriving grove that will outlast generations.' },
-  { id: 'pkg-27',  trees: 27,  price: 13500, badge: 'संकल्पी',          badgeEn: 'Gold Legacy',    emoji: '🥇', popular: false, description: 'The auspicious number — a micro-forest of meaning.' },
-  { id: 'pkg-11',  trees: 11,  price: 5500,  badge: 'प्रेरक',           badgeEn: 'Silver Legacy',  emoji: '🥈', popular: false, description: 'Eleven trees — one for every blessing she has given.' },
+  { id: 'pkg-108', trees: 108, badge: 'विरासत निर्माता', badgeEn: 'Diamond Legacy', emoji: '💎', popular: false, description: 'The sacred 108 — create an entire forest in her name.' },
+  { id: 'pkg-54',  trees: 54,  badge: 'समर्पित',         badgeEn: 'Platinum Legacy', emoji: '🏆', popular: true,  description: 'A thriving grove that will outlast generations.' },
+  { id: 'pkg-27',  trees: 27,  badge: 'संकल्पी',          badgeEn: 'Gold Legacy',    emoji: '🥇', popular: false, description: 'The auspicious number — a micro-forest of meaning.' },
+  { id: 'pkg-11',  trees: 11,  badge: 'प्रेरक',           badgeEn: 'Silver Legacy',  emoji: '🥈', popular: false, description: 'Eleven trees — one for every blessing she has given.' },
 ];
 
 export const INDIVIDUAL_TREE_PRICE = 500;
+
+// Compute a package's price using the active org's price-per-tree.
+export function packagePrice(trees: number, treePrice?: number | null): number {
+  return trees * (treePrice || INDIVIDUAL_TREE_PRICE);
+}
 
 export const DEDICATION_TYPES = [
   { value: 'DADI',       label: 'Dadi (Grandmother)' },

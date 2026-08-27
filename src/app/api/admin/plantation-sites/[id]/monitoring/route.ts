@@ -35,6 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       gpsLat:          body.gpsLat ? parseFloat(body.gpsLat) : undefined,
       gpsLng:          body.gpsLng ? parseFloat(body.gpsLng) : undefined,
       recommendations: body.recommendations || undefined,
+      driveLink:       body.driveLink || undefined,
       survivalPct:     survival ? survival : undefined,
       mortalityPct:    mortality ? mortality : undefined,
     },

@@ -62,59 +62,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       activity = await prisma.plantationActivity.create({ data: createData });
     }
 
-    // Update site treesPlanted total
+    // This activity log is a narrative/event record only — "this happened,
+    // this was shared" — and deliberately does NOT touch PlantationSite or
+    // LandAssignment's actual planted/surviving totals. Those are entered
+    // explicitly and correctably via "Update Plantation Data" instead, so a
+    // mis-logged activity can never silently corrupt the real numbers.
     if (body.activityType === 'PLANTATION' && treesPlanted) {
-      await prisma.plantationSite.update({
-        where: { id: params.id },
-        data:  { treesPlanted: { increment: treesPlanted } },
-      }).catch(() => {});
-
-      // Update farmer assignment
-      if (body.assignmentId) {
-        try {
-          const existing = await prisma.landAssignment.findUnique({ where: { id: body.assignmentId } });
-          const existingSpecies: any[] = (existing?.speciesPlanted as any[]) || [];
-          const merged = [...existingSpecies];
-          for (const ns of validSpecies) {
-            const found = merged.find(s => s.species === ns.species);
-            if (found) found.qty = (found.qty || 0) + parseInt(ns.qty);
-            else merged.push({ species: ns.species, qty: parseInt(ns.qty) });
-          }
-          const existingLinks: string[] = (existing?.driveLinks as string[]) || [];
-          const newLinks = body.driveLink ? [...new Set([...existingLinks, body.driveLink])] : existingLinks;
-
-          await prisma.landAssignment.update({
-            where: { id: body.assignmentId },
-            data: {
-              treesPlanted:   { increment: treesPlanted },
-              speciesPlanted: merged.length ? merged : undefined,
-              driveLinks:     newLinks,
-            },
-          });
-        } catch {
-          // Fallback without new columns
-          await prisma.landAssignment.update({
-            where: { id: body.assignmentId },
-            data:  { treesPlanted: { increment: treesPlanted } },
-          }).catch(() => {});
-        }
-      }
-
       await prisma.timelineEvent.create({
         data: {
           siteId:      params.id,
           eventType:   'PLANTATION_ACTIVITY',
-          title:       `${treesPlanted} trees planted`,
+          title:       `${treesPlanted} trees planted (reported)`,
           description: validSpecies.map(s => `${s.species}: ${s.qty}`).join(', ') || body.description,
           createdById: (session.user as any).id,
         },
-      }).catch(() => {});
-    }
-
-    if (body.activityType === 'SURVIVAL_SURVEY' && body.treesSurviving && body.assignmentId) {
-      await prisma.landAssignment.update({
-        where: { id: body.assignmentId },
-        data:  { treesSurviving: parseInt(body.treesSurviving) },
       }).catch(() => {});
     }
 

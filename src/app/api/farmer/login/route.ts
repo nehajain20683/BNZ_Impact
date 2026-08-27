@@ -26,10 +26,15 @@ export async function POST(req: Request) {
 
     // ── Password Login ──────────────────────────────────────
     if (action === 'password') {
-      if (!farmer || !farmer.password)
-        return NextResponse.json({ error: 'No account found. Please register first.' }, { status: 404 });
+      if (!farmer)
+        return NextResponse.json({ error: 'No account found. Please register first.', code: 'NO_ACCOUNT' }, { status: 404 });
+      if (!farmer.password)
+        return NextResponse.json({
+          error: 'No password has been set for this account. Continue with OTP or create a password.',
+          code: 'NO_PASSWORD',
+        }, { status: 400 });
       if (!farmer.fullName || farmer.fullName === 'Pending')
-        return NextResponse.json({ error: 'Please complete your registration first.' }, { status: 400 });
+        return NextResponse.json({ error: 'Please complete your registration first.', code: 'INCOMPLETE' }, { status: 400 });
 
       const match = await bcrypt.compare(password, farmer.password);
       if (!match)

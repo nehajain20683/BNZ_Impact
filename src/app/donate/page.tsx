@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, DEDICATION_TYPES, formatCurrency, NATURE_IMAGES } from '@/lib/utils';
+import { INDIVIDUAL_TREE_PRICE, CAMPAIGN_PACKAGES as DEFAULT_PACKAGES, packagePrice, formatCurrency, NATURE_IMAGES } from '@/lib/utils';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { Shield, FileText, TreePine, Minus, Plus } from 'lucide-react';
 
@@ -15,60 +15,81 @@ function DonateForm() {
   const router = useRouter();
 
   const initType     = (params.get('type') || 'campaign') as 'campaign' | 'individual';
-  const initCampaign = params.get('campaign') || 'maa';
-  const initTrees = (() => {
-    const t = params.get('trees');
-    if (t) return parseInt(t);
-    // Default recommended package per campaign (Dadi=108💎, Maa=54🏆, Beti=27🥇, Poti=11🥈)
-    const defaults: Record<string,number> = { dadi:108, maa:54, beti:27, poti:11, individual:11 };
-    return defaults[initCampaign] ?? 54;
-  })();
-  const initAmount   = parseFloat(params.get('amount') || '24300');
+  const initCampaign = params.get('campaign') || '';
+  const initTreesParam = params.get('trees');
+  const initAmount   = parseFloat(params.get('amount') || '0');
 
   const [donationType, setDonationType]     = useState<'campaign'|'individual'>(initType);
   const [selectedCampaign, setSelectedCampaign] = useState(initCampaign);
-  const [selectedTrees, setSelectedTrees]   = useState(initTrees);
+  const [selectedTrees, setSelectedTrees]   = useState(initTreesParam ? parseInt(initTreesParam) : 0);
   const [amount, setAmount]                 = useState(initAmount);
   const [customTrees, setCustomTrees]       = useState(1);
   const [form, setForm] = useState({ name:'', email:'', mobile:'', address:'', pan:'', dedicationName:'', chapter:'', certificateName:'' });
   const [dbCampaigns, setDbCampaigns]       = useState<any[]>([]);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
+  const [individualCampaign, setIndividualCampaign] = useState<any>(null);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState('');
 
   useEffect(() => {
     fetch('/api/campaigns')
       .then(r => r.ok ? r.json() : { campaigns: [] })
-      .then(d => setDbCampaigns(d.campaigns || []))
-      .catch(() => setDbCampaigns([]));
+      .then(d => {
+        const list = d.campaigns || [];
+        setDbCampaigns(list);
+        setCampaignsLoaded(true);
+        if (list.length) {
+          // Pick a sensible default campaign/package if none came from the URL
+          const chosen = list.find((c: any) => c.slug === initCampaign) || list[0];
+          if (!initCampaign) setSelectedCampaign(chosen.slug);
+          if (!initTreesParam) {
+            const pkgs = Array.isArray(chosen.packages) && chosen.packages.length ? chosen.packages : DEFAULT_PACKAGES;
+            const popular = pkgs.find((p: any) => p.popular) || pkgs[0];
+            if (popular) setSelectedTrees(popular.trees);
+          }
+        }
+      })
+      .catch(() => { setDbCampaigns([]); setCampaignsLoaded(true); });
+
+    // The permanent "no specific campaign" bucket — fetched once up front so
+    // it's ready the instant a donor picks "Individual", rather than every
+    // individual donation silently landing on whatever real campaign
+    // happened to be first in the list.
+    fetch('/api/public/individual-campaign')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.campaign) setIndividualCampaign(d.campaign); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (donationType === 'campaign') {
-      const pkg = CAMPAIGN_PACKAGES.find(p=>p.trees===selectedTrees);
-      if (pkg) setAmount(pkg.price);
+      const pkgs = Array.isArray(campaign.packages) && campaign.packages.length ? campaign.packages : DEFAULT_PACKAGES;
+      const pkg = pkgs.find((p: any) => p.trees === selectedTrees);
+      if (pkg) setAmount(packagePrice(pkg.trees, campaign.treePrice || org.treePrice));
     } else {
-      setAmount(customTrees * INDIVIDUAL_TREE_PRICE);
+      setAmount(customTrees * (org.treePrice || INDIVIDUAL_TREE_PRICE));
     }
-  }, [donationType, selectedTrees, customTrees]);
+  }, [donationType, selectedTrees, customTrees, org.treePrice]);
 
-  const campaign   = CAMPAIGNS.find(c=>c.slug===selectedCampaign) || CAMPAIGNS[0];
-  const totalTrees = donationType==='campaign' ? selectedTrees : customTrees;
-  // Match DB campaign by slug; fall back to a synthetic object so payment still works
-  // even if /api/campaigns hasn't loaded yet
-  const dbCampaign = dbCampaigns.find(c =>
-    donationType === 'individual'
-      ? (c.slug === 'individual' || c.name?.toLowerCase().includes('individual'))
-      : c.slug === selectedCampaign
-  ) || dbCampaigns[0] || {
-    // Fallback: use slug directly — create-order API will find it in DB by slug
-    slug: donationType === 'individual' ? 'individual' : selectedCampaign,
-    name: donationType === 'individual' ? 'Individual Tree Purchase' : campaign.name,
+  const campaign = dbCampaigns.find(c=>c.slug===selectedCampaign) || dbCampaigns[0] || {
+    slug: selectedCampaign, name: campaignsLoaded ? 'Tree Sponsorship' : 'Loading…',
+    shortName: '', subtitle: '', imageUrl: null, accentColor: '#2d5a1b', packages: [],
   };
+  const campaignPackages = Array.isArray(campaign.packages) && campaign.packages.length ? campaign.packages : DEFAULT_PACKAGES;
+  const totalTrees = donationType==='campaign' ? selectedTrees : customTrees;
+  // Match DB campaign by slug for a real campaign; for "individual" donations,
+  // always use the dedicated per-org bucket — never a random real campaign.
+  const dbCampaign = donationType === 'individual'
+    ? (individualCampaign || { slug: 'individual', name: 'Individual Tree Donation' })
+    : (dbCampaigns.find(c => c.slug === selectedCampaign) || dbCampaigns[0] || {
+        slug: selectedCampaign, name: campaign.name,
+      });
 
   async function handlePay() {
     setError('');
     if (!form.name||!form.email||!form.mobile) { setError('Please fill in Name, Email, and Mobile.'); return; }
     if (!form.chapter) { setError('Please enter your Chapter / Organisation.'); return; }
+    if (donationType === 'individual' && !individualCampaign) { setError('Still setting things up — please wait a moment and try again.'); return; }
     if (!dbCampaign?.slug) { setError('Campaign not found. Please try again.'); return; }
     setLoading(true);
     try {
@@ -96,7 +117,7 @@ function DonateForm() {
         });
       }
       new window.Razorpay({
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: order.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: Math.round(amount*100), currency:'INR',
         name: org.name || 'BNZ Impact',
         description: `${totalTrees} Trees · ${donationType==='individual'?'Individual':campaign.shortName} · ${org.name || 'BNZ Impact'}`,
@@ -142,7 +163,7 @@ function DonateForm() {
               <h2 className="font-display text-lg text-sage-900 mb-4">What would you like to do?</h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { value:'campaign',   label:'Family Campaign',       sub:'Dadi · Maa · Beti · Poti' },
+                  { value:'campaign',   label:'Family Campaign',       sub: dbCampaigns.length ? dbCampaigns.map(c=>c.shortName || c.name).join(' · ') : 'Choose a campaign' },
                   { value:'individual', label:'Individual Tree Sponsorship', sub:'Buy 1 or any quantity' },
                 ].map(opt=>(
                   <button key={opt.value} onClick={()=>setDonationType(opt.value as any)}
@@ -159,14 +180,18 @@ function DonateForm() {
               <div className={cardCls}>
                 <h2 className="font-display text-lg text-sage-900 mb-4">Select Relationship</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  {CAMPAIGNS.map(c=>(
-                    <button key={c.slug} onClick={()=>setSelectedCampaign(c.slug)}
+                  {dbCampaigns.map(c=>(
+                    <button key={c.slug} onClick={()=>{setSelectedCampaign(c.slug); setSelectedTrees(0);}}
                       className={`relative rounded-xl overflow-hidden border-2 transition-all ${selectedCampaign===c.slug?'border-sage-600 ring-2 ring-sage-300':'border-transparent hover:border-sage-200'}`}>
                       <div className="relative h-20">
-                        <Image src={c.image} alt={c.shortName} fill className="object-cover"/>
+                        {c.imageUrl ? (
+                          <Image src={c.imageUrl} alt={c.shortName || c.name} fill className="object-cover"/>
+                        ) : (
+                          <div className="w-full h-full" style={{ backgroundColor: c.accentColor || '#2d5a1b' }}/>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"/>
                         <div className="absolute bottom-1.5 left-0 right-0 text-center">
-                          <div className="text-white font-display font-bold text-sm">{c.shortName}</div>
+                          <div className="text-white font-display font-bold text-sm">{c.shortName || c.name}</div>
                         </div>
                       </div>
                     </button>
@@ -175,7 +200,11 @@ function DonateForm() {
                 {selectedCampaign && (
                   <div className="bg-sage-50 border border-sage-100 rounded-xl p-3 mb-5 flex items-center gap-3">
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image src={campaign.image} alt={campaign.name} fill className="object-cover"/>
+                      {campaign.imageUrl ? (
+                        <Image src={campaign.imageUrl} alt={campaign.name} fill className="object-cover"/>
+                      ) : (
+                        <div className="w-full h-full" style={{ backgroundColor: campaign.accentColor || '#2d5a1b' }}/>
+                      )}
                     </div>
                     <div>
                       <div className="font-semibold text-sage-900 text-sm">{campaign.name}</div>
@@ -185,13 +214,13 @@ function DonateForm() {
                 )}
                 <h2 className="font-display text-lg text-sage-900 mb-3">Select Package</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {CAMPAIGN_PACKAGES.map(pkg=>(
-                    <button key={pkg.id} onClick={()=>setSelectedTrees(pkg.trees)}
+                  {campaignPackages.map((pkg: any)=>(
+                    <button key={pkg.id || pkg.trees} onClick={()=>setSelectedTrees(pkg.trees)}
                       className={`p-3 rounded-xl border-2 text-center transition-all relative ${selectedTrees===pkg.trees?'border-sage-600 bg-sage-50':'border-sage-100 hover:border-sage-300'}`}>
                       {pkg.popular && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-sage-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">Popular</div>}
                       <div className="font-bold text-sage-900 text-lg">{pkg.trees}</div>
                       <div className="text-sage-400 text-xs">trees</div>
-                      <div className="font-semibold text-sage-700 text-sm mt-1">{formatCurrency(pkg.price)}</div>
+                      <div className="font-semibold text-sage-700 text-sm mt-1">{formatCurrency(packagePrice(pkg.trees, campaign.treePrice || org.treePrice))}</div>
                     </button>
                   ))}
                 </div>
@@ -210,13 +239,13 @@ function DonateForm() {
                     <input type="number" min="1" value={customTrees}
                       onChange={e=>setCustomTrees(Math.max(1,parseInt(e.target.value)||1))}
                       className="w-20 text-center text-3xl font-bold text-sage-900 border-b-2 border-sage-300 focus:outline-none focus:border-sage-600 bg-transparent"/>
-                    <div className="text-sage-400 text-xs mt-1">trees × ₹500</div>
+                    <div className="text-sage-400 text-xs mt-1">trees × {formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}</div>
                   </div>
                   <button onClick={()=>setCustomTrees(customTrees+1)} className="w-10 h-10 rounded-full border-2 border-sage-200 flex items-center justify-center hover:border-sage-500 transition-colors">
                     <Plus className="w-4 h-4 text-sage-600"/>
                   </button>
                   <div className="ml-2 bg-sage-50 border border-sage-200 rounded-xl px-5 py-3 text-center">
-                    <div className="font-bold text-sage-900 text-lg">{formatCurrency(customTrees * INDIVIDUAL_TREE_PRICE)}</div>
+                    <div className="font-bold text-sage-900 text-lg">{formatCurrency(customTrees * (org.treePrice || INDIVIDUAL_TREE_PRICE))}</div>
                     <div className="text-sage-400 text-xs">total</div>
                   </div>
                 </div>
@@ -258,10 +287,10 @@ function DonateForm() {
             {/* Dedication */}
             <div className={cardCls}>
               <h2 className="font-display text-lg text-sage-900 mb-4">
-                {donationType==='campaign' ? `Planted in ${campaign.shortName}'s Name` : 'Dedication (Optional)'}
+                {donationType==='campaign' ? `Planted in ${campaign.shortName || campaign.name}'s Name` : 'Dedication (Optional)'}
               </h2>
               <label className="block text-sm text-sage-700 font-medium mb-1">
-                {donationType==='campaign' ? `Enter ${campaign.shortName}'s name` : 'Dedicated to (name)'}
+                {donationType==='campaign' ? `Enter ${campaign.dedicationLabel || campaign.shortName || 'their'}'s name` : 'Dedicated to (name)'}
               </label>
               <input type="text"
                 placeholder={donationType==='campaign' ? 'e.g. Savitri Devi' : 'e.g. Smt. Kamla Devi'}
@@ -276,7 +305,13 @@ function DonateForm() {
           <div>
             <div className="bg-sage-800 text-white rounded-2xl p-6 sticky top-24 shadow-xl">
               <div className="relative h-28 rounded-xl overflow-hidden mb-5">
-                <Image src={donationType==='campaign'?campaign.image:NATURE_IMAGES.plantation} alt="Campaign" fill className="object-cover"/>
+                {(donationType==='campaign' ? campaign.imageUrl : null) ? (
+                  <Image src={campaign.imageUrl} alt="Campaign" fill className="object-cover"/>
+                ) : donationType==='campaign' ? (
+                  <div className="w-full h-full" style={{ backgroundColor: campaign.accentColor || '#2d5a1b' }}/>
+                ) : (
+                  <Image src={NATURE_IMAGES.plantation} alt="Individual sponsorship" fill className="object-cover"/>
+                )}
                 <div className="absolute inset-0 bg-sage-900/50"/>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-3">
                   <div className="text-white font-display text-base font-bold leading-tight">
@@ -289,7 +324,7 @@ function DonateForm() {
               <div className="space-y-2.5 mb-6 text-sm">
                 <div className="flex justify-between"><span className="text-sage-400">Trees</span><span className="font-semibold">{totalTrees} 🌳</span></div>
                 <div className="flex justify-between"><span className="text-sage-400">CO₂/year</span><span className="text-sage-400">{totalTrees*22}kg</span></div>
-                <div className="flex justify-between"><span className="text-sage-400">Price/tree</span><span>₹500</span></div>
+                <div className="flex justify-between"><span className="text-sage-400">Price/tree</span><span>{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}</span></div>
                 {form.dedicationName && (
                   <div className="flex justify-between"><span className="text-sage-400">For</span><span className="text-sage-200 text-right max-w-[130px] truncate font-medium">{form.dedicationName}</span></div>
                 )}

@@ -6,9 +6,12 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // directUrl is only needed if DATABASE_URL uses pgbouncer=true
-  // For Supabase Transaction Pooler (port 6543), directUrl is NOT needed
-  // directUrl = env("DIRECT_URL")
+  // Migrations (db push / migrate) need a DIRECT connection — Supabase's
+  // Transaction Pooler (port 6543, used for DATABASE_URL at runtime) does
+  // not reliably support the operations Prisma's migration engine needs,
+  // and commonly just hangs. directUrl should point at the non-pooled
+  // connection (port 5432) from Supabase → Settings → Database → Connection string.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -99,6 +102,27 @@ model Campaign {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Display/branding — previously hardcoded per-campaign in src/lib/utils.ts,
+  // now editable per tenant via Admin → Campaigns.
+  subtitle       String?  // e.g. "In Honour of Your Grandmother"
+  shortName      String?  // e.g. "Dadi" — used in compact UI and dedication labels
+  dedicationLabel String? // e.g. "Grandmother" — used to build "Dedicated to my {label}"
+  accentColor    String?  @default("#2d5a1b")
+  accentBg       String?  @default("#f6faf3")
+  accentBorder   String?  @default("#c9dcc0")
+  displayOrder   Int      @default(0)
+
+  // Sponsorship package tiers for this campaign — previously one hardcoded
+  // global set (CAMPAIGN_PACKAGES) shared by every campaign/tenant.
+  // Each item: { id, trees, badge, badgeEn, emoji, popular, description }
+  packages Json?
+
+  // The permanent "no specific campaign" bucket every org gets automatically
+  // — donors picking "Individual" at /donate always land here, never on a
+  // real admin-created campaign. Excluded from every public campaign list/
+  // selector (homepage, /campaigns, the donate page's campaign picker).
+  isIndividual Boolean @default(false)
+
   donations Donation[]
 
   @@map("campaigns")
@@ -170,6 +194,9 @@ model Tree {
 
   donation       Donation        @relation(fields: [donationId], references: [id])
   plantationSite PlantationSite? @relation(fields: [siteId], references: [id])
+  monitoringSamples MonitoringTreeSample[]
+  assignmentId   String?
+  assignment     LandAssignment? @relation(fields: [assignmentId], references: [id])
 
   @@map("trees")
 }
@@ -191,6 +218,47 @@ model MasterProject {
   sites PlantationSite[]
 
   @@map("master_projects")
+}
+
+// ─── IMPACT METRICS (generic, admin-defined) ─────────────────────────────────
+// Lets Admin define impact metrics beyond CO2 (e.g. groundwater recharged,
+// jobs created, biodiversity index) without a schema change per metric.
+// A metric with zero recorded values simply never appears on the donor side.
+model ImpactMetricDefinition {
+  id              String   @id @default(cuid())
+  orgId           String?
+  organization    Organization? @relation(fields: [orgId], references: [id])
+  name            String   // e.g. "Groundwater Recharged"
+  unit            String   // e.g. "litres/year"
+  icon            String?  @default("🌿") // emoji or short label
+  color           String?  @default("#2d5a1b")
+  description     String?
+  // PER_TREE: value is a flat per-tree rate, multiply by tree count (like CO2).
+  // SITE_PROPORTIONAL: value is recorded at the site level; a donor's share
+  // is computed proportionally (their trees / site's total trees).
+  calculationType String   @default("SITE_PROPORTIONAL")
+  active          Boolean  @default(true)
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  values ImpactMetricValue[]
+
+  @@map("impact_metric_definitions")
+}
+
+model ImpactMetricValue {
+  id          String   @id @default(cuid())
+  metricId    String
+  metric      ImpactMetricDefinition @relation(fields: [metricId], references: [id])
+  siteId      String
+  site        PlantationSite @relation(fields: [siteId], references: [id])
+  value       Float
+  period      String?  // e.g. "2026" or "Q1 2026" — optional, for time-series metrics
+  recordedAt  DateTime @default(now())
+  notes       String?
+
+  @@map("impact_metric_values")
 }
 
 // ─── PLANTATION SITE (enhanced) ──────────────────────────────────────────────
@@ -256,6 +324,7 @@ model PlantationSite {
   timelineEvents    TimelineEvent[]
   speciesPlans      SpeciesPlan[]
   notifications     SiteNotification[]
+  impactMetricValues ImpactMetricValue[]
 
   @@map("plantation_sites")
 }
@@ -307,6 +376,8 @@ model LandAssignment {
 
   stageHistory    LandStageHistory[]
   monitoring      MonitoringVisit[]
+  communityUpdates CommunityUpdate[]
+  trees           Tree[]
 
   @@unique([siteId, landId])
   @@map("land_assignments")
@@ -324,6 +395,38 @@ model LandStageHistory {
   remarks      String?
 
   @@map("land_stage_history")
+}
+
+// ─── COMMUNITY UPDATE ─────────────────────────────────────────────────────────
+// Farmer-submitted photo/notes updates about their plantation — separate from
+// official Field Officer monitoring (MonitoringVisit). Not donor-visible until
+// an admin approves it. Mirrors the FarmerDocument approve/reject pattern.
+model CommunityUpdate {
+  id           String   @id @default(cuid())
+  farmerId     String
+  farmer       Farmer   @relation(fields: [farmerId], references: [id])
+  assignmentId String?
+  assignment   LandAssignment? @relation(fields: [assignmentId], references: [id])
+  landId       String?
+  land         Land?    @relation(fields: [landId], references: [id])
+
+  category     String   // WATERING | WEEDING | FERTILIZER | PEST | DAMAGE | GENERAL
+  photoUrl     String
+  notes        String?
+
+  // Auto-captured at submission time
+  gpsLatitude  Float?
+  gpsLongitude Float?
+  deviceInfo   String?
+  submittedAt  DateTime @default(now())
+
+  // Review pipeline (Phase 6/7 will extend this)
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED | NEEDS_REVIEW
+  reviewNotes    String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+
+  @@map("community_updates")
 }
 
 // ─── PLANTATION ACTIVITY ──────────────────────────────────────────────────────
@@ -366,11 +469,42 @@ model MonitoringVisit {
   gpsLat         Float?
   gpsLng         Float?
   recommendations String?
+  driveLink      String?  // Google Drive/Photos folder link for this visit's photos/videos
   survivalPct    Float?
   mortalityPct   Float?
+  // Publishing gate — Phase 7/8. A visit only becomes donor-visible once an
+  // admin explicitly publishes it; raw field data never reaches donors directly.
+  status         String   @default("SUBMITTED") // SUBMITTED | VERIFIED | PUBLISHED | SENT_BACK
+  donorVisible   Boolean  @default(false)
+  publishedAt    DateTime?
+  publishedById  String?
   createdAt      DateTime @default(now())
 
+  treeSamples    MonitoringTreeSample[]
+
   @@map("monitoring_visits")
+}
+
+// Per-tree sampling records for a monitoring visit — a visit does not need
+// to record every tree, only a representative sample.
+model MonitoringTreeSample {
+  id         String   @id @default(cuid())
+  visitId    String
+  visit      MonitoringVisit @relation(fields: [visitId], references: [id])
+  treeId     String?  // optional link to a real Tree row, if one exists
+  tree       Tree?    @relation(fields: [treeId], references: [id])
+  species    String?
+  height     Float?   // cm
+  diameter   Float?   // cm
+  health     String?  // HEALTHY | STRESSED | DISEASED | DEAD
+  survived   Boolean  @default(true)
+  photo      String?
+  gpsLat     Float?
+  gpsLng     Float?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@map("monitoring_tree_samples")
 }
 
 // ─── CARBON MONITORING ────────────────────────────────────────────────────────
@@ -401,8 +535,11 @@ model CarbonMonitoring {
 // ─── TIMELINE EVENT ───────────────────────────────────────────────────────────
 model TimelineEvent {
   id          String   @id @default(cuid())
-  siteId      String
-  site        PlantationSite @relation(fields: [siteId], references: [id])
+  // Optional — a small number of historical events can outlive the site
+  // they were logged against (e.g. the site was later deleted). Keeping the
+  // event with siteId cleared preserves that history instead of losing it.
+  siteId      String?
+  site        PlantationSite? @relation(fields: [siteId], references: [id])
   eventType   String
   title       String
   description String?
@@ -443,6 +580,27 @@ model SiteNotification {
 
   @@map("site_notifications")
 }
+
+// ─── NOTIFICATIONS (per-recipient) ───────────────────────────────────────────
+// SiteNotification above is a site-wide broadcast, not tied to a specific
+// person — doesn't fit "this farmer needs to see this." This is the
+// recipient-specific counterpart used by Phase 10.
+model Notification {
+  id            String   @id @default(cuid())
+  // FARMER + Farmer.id | FIELD_OFFICER + FieldOfficer.id | ADMIN_ORG + Organization.id (all admins of that org)
+  recipientType String
+  recipientId   String
+  type          String   // PLANTATION_ASSIGNED | MONITORING_SCHEDULED | UPDATE_APPROVED | UPDATE_REJECTED | ACTIVITY_REMINDER | MONITORING_DUE | PENDING_REVIEW
+  title         String
+  message       String?
+  link          String?
+  read          Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([recipientType, recipientId, read])
+  @@map("notifications")
+}
+
 
 model Receipt {
   id            String   @id @default(cuid())
@@ -495,13 +653,32 @@ model Organization {
   terms_text          String?  @db.Text
   refund_policy_text  String?  @db.Text
 
+  // Per-tenant Razorpay credentials — set via Super Admin only, never exposed
+  // to Tenant Admins. When null, payment flows fall back to the platform's
+  // own RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET env vars (see src/lib/razorpay.ts).
+  // NOTE: stored as plain text for now, matching the rest of this table —
+  // for real production use this should move to an encrypted column or a
+  // secrets manager before onboarding tenants with real payment credentials.
+  razorpay_key_id     String?
+  razorpay_key_secret String?
+  payment_display_name    String?
+  payment_success_message String?
+  razorpay_webhook_secret String?
+
+  // Shown on the certificate/receipt for "Individual" donations — the ones
+  // deliberately not tied to any specific campaign. When null, a generic
+  // fallback message is used instead.
+  individual_donation_message String? @db.Text
+
 
   users            User[]
   campaigns        Campaign[]
   donations        Donation[]
   farmers          Farmer[]
+  lands            Land[]
   plantationSites  PlantationSite[]
   masterProjects   MasterProject[]
+  impactMetricDefinitions ImpactMetricDefinition[]
 
   @@map("organizations")
 }
@@ -607,6 +784,7 @@ model Farmer {
   auditLogs        AuditLog[]
   carbonCredits    CarbonCredit[]
   agreements       FarmerAgreement[]
+  communityUpdates CommunityUpdate[]
   // Ownership tracking
   createdById      String?
   updatedById      String?
@@ -645,6 +823,11 @@ model Land {
   id               String        @id @default(cuid())
   farmerId         String
   farmer           Farmer        @relation(fields: [farmerId], references: [id])
+  // Tenant scoping — this column already exists in the live database (added
+  // outside of this schema history); adding it here so `db push` reflects
+  // reality instead of trying to drop it.
+  orgId            String?
+  organization     Organization? @relation(fields: [orgId], references: [id])
   // Survey details
   surveyGutNumber  String?              // combined Survey/Gut number
   surveyNumber     String?              // kept for backward compat
@@ -659,6 +842,13 @@ model Land {
   gpsLatitude      Float?
   gpsLongitude     Float?
   polygonGeoJson   Json?         // GeoJSON polygon boundary
+  kmlFileName      String?       // original filename of the uploaded KML/KMZ boundary file
+  // Land + KML preview photos — the actual root cause of the repeated
+  // "Invalid prisma.land.update()" errors. Both the create and edit routes
+  // have always written to this field, but it was never declared here, so
+  // the generated Prisma Client didn't know it existed. Same situation as
+  // the orgId column below: matching reality, not introducing something new.
+  photos           String[]
   village          String?
   taluka           String?
   district         String?
@@ -674,6 +864,10 @@ model Land {
   verified         Boolean       @default(false)
   verifiedAt       DateTime?
   verifiedById     String?
+  // Full per-land approval pipeline — `verified`/`verifiedAt`/`verifiedById`
+  // above are kept in sync for backward compatibility (true once status
+  // reaches APPROVED or beyond), but `status` is now the source of truth.
+  status           LandStatus    @default(DOCUMENTS_PENDING)
   // Plantation
   plantationPreference  PlantationType?
   speciesPreference     String[]
@@ -684,6 +878,7 @@ model Land {
   plantations      Plantation[]
   landAssignments  LandAssignment[]
   inspections      SiteInspection[]
+  communityUpdates CommunityUpdate[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -842,15 +1037,25 @@ enum Gender {
   OTHER
 }
 
+// Simplified — a Farmer as a *person* only ever has these 4 stages. Every
+// stage previously here that actually describes a specific piece of LAND
+// (inspection, approval, activation) has moved to LandStatus below, since a
+// farmer can own many lands, each independently at a different stage.
 enum FarmerStatus {
   REGISTERED
+  DOCUMENTS_PENDING   // only Aadhaar is required at the farmer-entity level
+  VERIFIED_LAND_OWNER // personal + bank complete, Aadhaar verified — profile locks
+  SUSPENDED
+}
+
+// Per-land approval pipeline — independent for every parcel a farmer owns.
+enum LandStatus {
   DOCUMENTS_PENDING
   DOCUMENTS_VERIFIED
   INSPECTION_PENDING
   INSPECTION_COMPLETED
   APPROVED
   ACTIVE
-  SUSPENDED
 }
 
 enum LandType {

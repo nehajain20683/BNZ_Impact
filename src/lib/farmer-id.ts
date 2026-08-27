@@ -12,11 +12,11 @@ const STATE_CODES: Record<string, string> = {
   'Uttar Pradesh': 'UP', 'Goa': 'GA', 'Punjab': 'PB',
 };
 
-function stateCode(state?: string | null): string {
+export function stateCode(state?: string | null): string {
   return STATE_CODES[state || ''] || 'IN';
 }
 
-function districtCode(district?: string | null): string {
+export function districtCode(district?: string | null): string {
   if (!district) return 'XX';
   return district.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3);
 }

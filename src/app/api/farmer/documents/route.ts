@@ -23,6 +23,16 @@ export async function POST(req: Request) {
     if (!farmerId || !docType || !fileUrl)
       return NextResponse.json({ error: 'farmerId, docType and fileUrl are required' }, { status: 400 });
 
+    // If this is a land-specific document, make sure the land actually
+    // belongs to this farmer and isn't already approved/locked.
+    if (landId) {
+      const land = await prisma.land.findUnique({ where: { id: landId } });
+      if (!land || land.farmerId !== farmerId)
+        return NextResponse.json({ error: 'Land parcel not found' }, { status: 404 });
+      if (land.verified)
+        return NextResponse.json({ error: 'This land has been approved and its documents are locked. Contact your administrator for changes.' }, { status: 400 });
+    }
+
     const doc = await prisma.farmerDocument.create({
       data: {
         farmerId,
@@ -59,6 +69,12 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const { documentId, farmerId } = await req.json();
+    const doc = await prisma.farmerDocument.findUnique({ where: { id: documentId } });
+    if (doc?.landId) {
+      const land = await prisma.land.findUnique({ where: { id: doc.landId } });
+      if (land?.verified)
+        return NextResponse.json({ error: 'This land has been approved and its documents are locked.' }, { status: 400 });
+    }
     await prisma.farmerDocument.deleteMany({
       where: { id: documentId, farmerId }, // farmerId check for security
     });

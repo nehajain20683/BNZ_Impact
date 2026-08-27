@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, DollarSign, Users, TreePine,
   BarChart2, FileText, Settings, Activity,
-  Zap, ChevronRight, Shield
+  Zap, ChevronRight, Shield, Megaphone, Leaf, Image as ImageIcon
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -20,9 +20,12 @@ const NAV = [
   {
     label: 'Operations',
     items: [
+      { href: '/admin/campaigns',         label: 'Campaigns',         icon: Megaphone },
       { href: '/admin/donations',         label: 'Donations',         icon: DollarSign },
       { href: '/admin/farmers',           label: 'Land Owners',       icon: Users },
       { href: '/admin/plantation-sites',  label: 'Plantation Sites',  icon: TreePine },
+      { href: '/admin/community-updates', label: 'Community Updates', icon: ImageIcon },
+      { href: '/admin/impact-metrics',    label: 'Impact Metrics',    icon: Leaf },
     ],
   },
   {

@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       donorPan:        donation.donorPan || undefined,
       paymentGatewayId:donation.paymentGatewayId || undefined,
       donationDate:    donation.createdAt,
+      orgId:           (donation as any).orgId || undefined,
     });
 
     if (!sent) return NextResponse.json({ error: 'Email send failed — check RESEND_API_KEY' }, { status: 500 });

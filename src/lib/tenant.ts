@@ -30,6 +30,12 @@ export type OrgConfig = {
   privacyPolicyText:  string | null;
   termsText:          string | null;
   refundPolicyText:   string | null;
+  razorpayKeyId:          string | null;
+  razorpayKeySecret:      string | null; // server-side only — never send to client
+  paymentDisplayName:     string | null;
+  paymentSuccessMessage:  string | null;
+  razorpayWebhookSecret:  string | null; // server-side only — never send to client
+  individualDonationMessage: string | null; // shown on the certificate for "Individual" (non-campaign) donations
 };
 
 const cache = new Map<string, { config: OrgConfig; fetchedAt: number }>();
@@ -66,6 +72,12 @@ export async function getOrgConfig(orgId: string): Promise<OrgConfig | null> {
       privacyPolicyText: org.privacy_policy_text || null,
       termsText:         org.terms_text          || null,
       refundPolicyText:  org.refund_policy_text  || null,
+      razorpayKeyId:         org.razorpay_key_id         || null,
+      razorpayKeySecret:     org.razorpay_key_secret     || null,
+      paymentDisplayName:    org.payment_display_name    || null,
+      paymentSuccessMessage: org.payment_success_message || null,
+      razorpayWebhookSecret: org.razorpay_webhook_secret || null,
+      individualDonationMessage: org.individual_donation_message || null,
     };
 
     cache.set(orgId, { config, fetchedAt: Date.now() });
@@ -127,6 +139,9 @@ export async function resolveTenantFromRequest(req: Request): Promise<OrgConfig>
     org80gNumber: null, campaignConfig: null, paymentBanks: [],
     customDomain: null, plan: 'ENTERPRISE', active: true,
     privacyPolicyText: null, termsText: null, refundPolicyText: null,
+    razorpayKeyId: null, razorpayKeySecret: null,
+    paymentDisplayName: null, paymentSuccessMessage: null, razorpayWebhookSecret: null,
+    individualDonationMessage: null,
   };
 }
 

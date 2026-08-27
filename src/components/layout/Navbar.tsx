@@ -21,7 +21,7 @@ export default function Navbar() {
     // hidden for every other tenant (page itself also blocks direct access).
     ...(org.slug === 'bnz-green' ? [{ href:'/about', label:'About Us' }] : []),
     { href:'/campaigns',label:'Sponsor Trees' },
-    { href:'/dashboard',label:'Impact Dashboard' },
+    { href:'/impact',    label:'Impact Dashboard' },
     { href:'/csr',      label:'Corporate Support' },
     { href:'/contact',  label:'Contact' },
   ];

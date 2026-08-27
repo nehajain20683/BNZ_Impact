@@ -35,6 +35,7 @@ export function generateReceiptPDF(data: {
   amount: number;
   numberOfTrees: number;
   campaignName: string;
+  isIndividual?: boolean;
   paymentGatewayId?: string;
   date: Date;
   org?: PdfOrgBranding;
@@ -102,7 +103,7 @@ export function generateReceiptPDF(data: {
     </div>
     <div class="section">
       <div class="section-title">Donation Details</div>
-      <div class="row"><span class="label">Campaign</span><span class="value">${data.campaignName}</span></div>
+      <div class="row"><span class="label">${data.isIndividual ? 'Donation Type' : 'Campaign'}</span><span class="value">${data.isIndividual ? 'Individual Tree Donation' : data.campaignName}</span></div>
       <div class="row"><span class="label">Trees Sponsored</span><span class="value">${data.numberOfTrees} Trees ${tier.emoji}</span></div>
       <div class="row"><span class="label">Tier</span><span class="value">${tier.emoji} ${tier.badge} · ${tier.badgeEn}</span></div>
       <div class="row"><span class="label">CO₂ Removed/yr</span><span class="value">↓ ${(data.numberOfTrees * 22).toLocaleString('en-IN')} kg</span></div>
@@ -133,6 +134,8 @@ export function generateCertificatePDF(data: {
   certificateName?: string;
   numberOfTrees: number;
   campaignName: string;
+  isIndividual?: boolean;
+  individualMessage?: string;
   dedicationName?: string;
   date: Date;
   receiptNumber: string;
@@ -144,6 +147,9 @@ export function generateCertificatePDF(data: {
   const co2     = data.numberOfTrees * 22;
   const tier    = getTierBadge(data.numberOfTrees);
   const chapter = data.chapter || org.name;
+  const sponsorshipLine = data.isIndividual
+    ? (data.individualMessage || `the ${org.name} Tree Plantation Programme`)
+    : data.campaignName;
 
   return `<!DOCTYPE html>
 <html>
@@ -392,7 +398,7 @@ export function generateCertificatePDF(data: {
     <div class="body-text">
       for generously sponsoring
       <span class="text-highlight">${data.numberOfTrees} ${data.numberOfTrees === 1 ? 'Tree' : 'Trees'}</span>
-      under the <span class="text-highlight">${data.campaignName}</span>
+      under the <span class="text-highlight">${sponsorshipLine}</span>
       ${data.dedicationName ? `<br/>in loving honour of <span class="text-dedication">${data.dedicationName}</span>` : ''}
     </div>
 

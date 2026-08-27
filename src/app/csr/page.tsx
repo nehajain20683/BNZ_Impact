@@ -2,6 +2,8 @@
 // src/app/csr/page.tsx
 import { useState } from 'react';
 import { Building2, FileBarChart, Award, Leaf } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { INDIVIDUAL_TREE_PRICE, formatCurrency } from '@/lib/utils';
 
 const CSR_BENEFITS = [
   { icon: FileBarChart, title: 'ESG Reporting', desc: 'Receive geo-tagged data and impact reports compatible with GRI, BRSR, and SEBI ESG standards.' },
@@ -11,6 +13,7 @@ const CSR_BENEFITS = [
 ];
 
 export default function CSRPage() {
+  const org = useOrgConfig();
   const [form, setForm] = useState({ company: '', contact: '', email: '', phone: '', requirement: '', budget: '' });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -124,7 +127,7 @@ export default function CSRPage() {
                 </ul>
               </div>
               <div className="bg-sage-100 rounded-2xl p-6 text-center">
-                <div className="font-display text-3xl text-sage-900 font-bold mb-1">₹500</div>
+                <div className="font-display text-3xl text-sage-900 font-bold mb-1">{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}</div>
                 <div className="text-sage-600 text-sm">per tree (bulk pricing available)</div>
                 <div className="text-sage-500 text-xs mt-2">Minimum 50 trees for CSR packages</div>
               </div>

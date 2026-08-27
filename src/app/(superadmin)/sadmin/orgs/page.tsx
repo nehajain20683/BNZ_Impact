@@ -109,7 +109,7 @@ function OrgsPage() {
   useEffect(() => { load(); }, []);
 
   async function toggle(org: any) {
-    if (org.id === 'org_jito_mumbai' && org.active) { showToast('Cannot deactivate primary org'); return; }
+    if (org.slug === 'bnz-green' && org.active) { showToast('Cannot deactivate primary org'); return; }
     await fetch(`/api/superadmin/orgs/${org.id}`, {
       method: 'PATCH', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ active: !org.active }),

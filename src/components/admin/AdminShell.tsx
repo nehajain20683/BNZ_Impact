@@ -36,6 +36,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [userMenu, setUserMenu]     = useState(false);
   const [orgConfig, setOrgConfig]   = useState<OrgConfig>(DEFAULT_ORG);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifMenu, setNotifMenu]   = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount]     = useState(0);
 
   const user      = session?.user as any;
   const role      = user?.role;
@@ -64,6 +67,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       })
       .catch(() => {});
   }, [status, role]);
+
+  async function loadNotifications() {
+    const res = await fetch('/api/admin/notifications');
+    if (!res.ok) return;
+    const data = await res.json();
+    setNotifications(data.notifications || []);
+    setUnreadCount(data.unreadCount || 0);
+  }
+
+  useEffect(() => {
+    if (!isAllowed) return;
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 60000); // poll every minute
+    return () => clearInterval(interval);
+  }, [isAllowed]);
+
+  async function markAllNotificationsRead() {
+    await fetch('/api/admin/notifications', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markAllRead: true }),
+    });
+    loadNotifications();
+  }
 
   if (status === 'loading') {
     return (
@@ -201,9 +227,41 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </a>
 
             {/* Notifications */}
-            <button className="relative text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100">
-              <Bell className="w-4 h-4"/>
-            </button>
+            <div className="relative">
+              <button onClick={() => setNotifMenu(m => !m)}
+                className="relative text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100">
+                <Bell className="w-4 h-4"/>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {notifMenu && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-96 overflow-y-auto">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="font-semibold text-gray-900 text-sm">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllNotificationsRead} className="text-xs font-semibold text-gray-400 hover:text-gray-600">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-8">No notifications yet.</p>
+                  ) : (
+                    notifications.map((n: any) => (
+                      <a key={n.id} href={n.link || '#'} onClick={() => setNotifMenu(false)}
+                        className={`block px-4 py-3 border-b border-gray-50 hover:bg-gray-50 ${!n.read ? 'bg-blue-50/40' : ''}`}>
+                        <div className="font-medium text-gray-900 text-xs">{n.title}</div>
+                        {n.message && <div className="text-gray-500 text-xs mt-0.5">{n.message}</div>}
+                        <div className="text-gray-400 text-[10px] mt-1">{new Date(n.createdAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
+                      </a>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* User menu */}
             <div className="relative">

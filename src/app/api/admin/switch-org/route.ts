@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getDefaultOrgConfig } from '@/lib/tenant';
 
 export async function POST(req: Request) {
   try {
@@ -46,7 +47,7 @@ export async function GET() {
 
     // Import cookies dynamically to avoid issues
     const { cookies } = await import('next/headers');
-    const activeOrgId = cookies().get('activeOrgId')?.value || user.orgId || 'org_jito_mumbai';
+    const activeOrgId = cookies().get('activeOrgId')?.value || user.orgId || (await getDefaultOrgConfig()).id;
 
     const org = await (prisma as any).organization.findUnique({
       where: { id: activeOrgId },

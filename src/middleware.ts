@@ -60,8 +60,10 @@ export default withAuth(
         if (pathname.startsWith('/sadmin'))    return !!token;
         if (pathname.startsWith('/admin'))     return !!token;
         if (pathname.startsWith('/dashboard')) return !!token;
-        if (pathname.startsWith('/farmer/dashboard')) return !!token;
-        if (pathname.startsWith('/farmer/documents')) return !!token;
+        // Farmer auth is an intentionally separate, custom system (not
+        // NextAuth) — a real farmer never has a NextAuth token, so gating
+        // these on !!token would lock every farmer out. Each farmer page
+        // already does its own localStorage-based auth check client-side.
         return true;
       },
     },
@@ -74,7 +76,5 @@ export const config = {
     '/superadmin/:path*',
     '/admin/:path*',
     '/dashboard/:path*',
-    '/farmer/dashboard/:path*',
-    '/farmer/documents/:path*',
   ],
 };

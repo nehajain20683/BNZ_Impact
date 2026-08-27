@@ -1,7 +1,7 @@
 'use client';
 // Farmer Registration — 8 step, auto-save, tenant-branded, no mandatory fields except mobile
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import {
   Shield, User, Landmark, MapPin, Users, TreePine,
@@ -38,23 +38,30 @@ function BiLabel({ en, hi, required }: { en: string; hi: string; required?: bool
   );
 }
 
-export default function FarmerRegisterPage() {
+function FarmerRegisterForm() {
   const org    = useOrgConfig();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [step, setStep]         = useState<Step>(1);
   const [farmerId, setFarmerId] = useState('');
+  const [currentLandId, setCurrentLandId] = useState(''); // set once Step 4 creates the land — Step 5 (ownership) attaches to this specific parcel
   const [loading, setLoading]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState('');
   const [errors, setErrors]     = useState<Record<string,string>>({});
+  const [resuming, setResuming] = useState(true); // true while we check for an existing session
+  const [isEditMode, setIsEditMode] = useState(false); // true once we've detected an existing farmer — locks name/mobile
 
   // Step 1
   const [mobile, setMobile]     = useState('');
   const [otp, setOtp]           = useState('');
   const [otpSent, setOtpSent]   = useState(false);
   const [showPw, setShowPw]     = useState(false);
-  const [createPassword, setCreatePassword] = useState('');
+  const [authMode, setAuthMode] = useState<'otp'|'password'>('otp');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
+  const [accountExists, setAccountExists] = useState(false);
 
   // Step 2 — Personal
   const [personal, setPersonal] = useState({
@@ -94,6 +101,71 @@ export default function FarmerRegisterPage() {
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
 
+  // ── Resume/edit mode: if the farmer is already logged in (e.g. clicked
+  // "Edit Profile" from the dashboard), load their existing data instead of
+  // starting a brand-new registration. This is the root-cause fix for
+  // Edit Profile incorrectly behaving like a fresh registration. ──────────
+  useEffect(() => {
+    const existingId = typeof window !== 'undefined' ? localStorage.getItem('farmerId') : null;
+    if (!existingId) { setResuming(false); return; }
+
+    fetch(`/api/farmer/profile?farmerId=${existingId}`)
+      .then(r => r.json())
+      .then(data => {
+        const f = data.farmer;
+        if (!f) { setResuming(false); return; }
+
+        setFarmerId(existingId);
+        setMobile((f.mobile || '').replace('+91', ''));
+        setPersonal({
+          fullName: f.fullName === 'Pending' ? '' : (f.fullName || ''),
+          fatherName: f.fatherName || '', dob: f.dateOfBirth ? f.dateOfBirth.slice(0,10) : '',
+          gender: f.gender || '', aadhaarNumber: f.aadhaarNumber || '', panNumber: f.panNumber || '',
+          occupation: f.occupation || '', alternateMobile: f.alternateMobile || '', email: f.email || '',
+        });
+        setBank({
+          bankAccountName: f.bankAccountName || '', bankName: f.bankName || '',
+          accountNumber: f.accountNumber || '', ifscCode: f.ifscCode || '',
+        });
+        setOwnership({ ownershipType: 'sole', jointOwnerCount: '' });
+        // Pre-load the farmer's first land so Step 5 (ownership) edits the
+        // right record instead of having nowhere valid to save to.
+        fetch(`/api/farmer/land?farmerId=${existingId}`)
+          .then(r => r.json())
+          .then(landData => {
+            const firstLand = landData.lands?.[0];
+            if (firstLand) {
+              setCurrentLandId(firstLand.id);
+              setOwnership({
+                ownershipType: firstLand.ownershipType || 'sole',
+                jointOwnerCount: firstLand.jointOwnerCount ? String(firstLand.jointOwnerCount) : '',
+              });
+            }
+          })
+          .catch(() => {});
+        setSpecies(Array.isArray(f.speciesPreference) ? f.speciesPreference : []);
+        setNominee({
+          nomineeName: f.nomineeName || '', nomineeRelation: f.nomineeRelation || '',
+          nomineeDob: f.nomineeDob ? f.nomineeDob.slice(0,10) : '', nomineeMobile: f.nomineeMobile || '',
+          nomineeAddress: f.nomineeAddress || '', nomineeAadhaar: f.nomineeAadhaar || '',
+        });
+        setConsent(true); // already consented at original registration
+
+        // Only "genuinely new" farmers (fullName still 'Pending') should be
+        // able to set their own name — an existing farmer editing their
+        // profile must go through Admin to change name/mobile.
+        setIsEditMode(f.fullName !== 'Pending' && !!f.fullName);
+
+        // Land into personal-details tab by default, or a specific section
+        // if the dashboard linked here with ?step=N — tabs remain freely
+        // navigable either way.
+        const requestedStep = parseInt(searchParams.get('step') || '');
+        setStep((requestedStep >= 1 && requestedStep <= 8 ? requestedStep : 2) as Step);
+        setResuming(false);
+      })
+      .catch(() => setResuming(false));
+  }, []);
+
   // ── Auto-save on field change ─────────────────────────────────
   const autoSave = useCallback(async (data: any) => {
     if (!farmerId) return;
@@ -131,14 +203,15 @@ export default function FarmerRegisterPage() {
   // ── Step 1: OTP ───────────────────────────────────────────────
   async function sendOtp() {
     if (!mobile || mobile.length < 10) { setErrors({ mobile: 'Enter valid 10-digit mobile number' }); return; }
-    setLoading(true); setErrors({});
+    setLoading(true); setErrors({}); setAccountExists(false);
     const res  = await fetch('/api/farmer/otp', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile, action: 'send' }),
+      body: JSON.stringify({ mobile, action: 'send', purpose: 'register' }),
     });
     const data = await res.json();
     setLoading(false);
     if (data.success) { setOtpSent(true); showToast('OTP sent to +91 ' + mobile); }
+    else if (data.code === 'ACCOUNT_EXISTS') { setAccountExists(true); }
     else setErrors({ mobile: data.error || 'Failed to send OTP' });
   }
 
@@ -155,16 +228,34 @@ export default function FarmerRegisterPage() {
       setFarmerId(data.farmerId);
       localStorage.setItem('farmerId', data.farmerId);
       localStorage.setItem('farmerMobile', `+91${mobile}`);
-      // Save password if provided
-      if (createPassword) {
-        await fetch('/api/farmer/set-password', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ farmerId: data.farmerId, password: createPassword }),
-        }).catch(() => {});
-      }
       if (data.isProfileComplete) { router.push('/farmer/dashboard'); return; }
       setStep(2);
     } else setErrors({ otp: data.error || 'Incorrect OTP. Try again.' });
+  }
+
+  async function registerWithPassword() {
+    setErrors({}); setAccountExists(false);
+    if (!mobile || mobile.length < 10) { setErrors({ mobile: 'Enter valid 10-digit mobile number' }); return; }
+    if (!regPassword || regPassword.length < 6) { setErrors({ password: 'Password must be at least 6 characters' }); return; }
+    if (regPassword !== regPasswordConfirm) { setErrors({ password: 'Passwords do not match' }); return; }
+
+    setLoading(true);
+    const res  = await fetch('/api/farmer/otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile, password: regPassword, action: 'register_password' }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (data.success) {
+      setFarmerId(data.farmerId);
+      localStorage.setItem('farmerId', data.farmerId);
+      localStorage.setItem('farmerMobile', `+91${mobile}`);
+      setStep(2);
+    } else if (data.code === 'ACCOUNT_EXISTS') {
+      setAccountExists(true);
+    } else {
+      setErrors({ password: data.error || 'Failed to create account' });
+    }
   }
 
   // ── Validate current step before advancing ────────────────────
@@ -184,11 +275,30 @@ export default function FarmerRegisterPage() {
   async function saveAndNext() {
     if (!validateStep(step)) return;
     setLoading(true);
+
+    // Ownership is a property of the LAND, not the farmer — route it to
+    // the land record Step 4 just created instead of the farmer's own
+    // profile (which has no ownershipType/jointOwnerCount fields at all).
+    if (step === 5) {
+      if (currentLandId) {
+        await fetch('/api/farmer/land', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ landId: currentLandId, farmerId, ...ownership }),
+        }).catch(() => {});
+      }
+      await fetch('/api/farmer/profile', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ farmerId, registrationStep: step }),
+      }).catch(() => {});
+      setLoading(false);
+      setStep(s => Math.min(8, s + 1) as Step);
+      return;
+    }
+
     const payload: any = { farmerId, registrationStep: step };
 
     if (step === 2) Object.assign(payload, personal);
     if (step === 3) Object.assign(payload, bank);
-    if (step === 5) Object.assign(payload, ownership);
     if (step === 6) Object.assign(payload, { speciesPreference: species });
     if (step === 7) Object.assign(payload, {
       ...nominee,
@@ -208,7 +318,7 @@ export default function FarmerRegisterPage() {
   async function saveLandAndNext() {
     setLoading(true);
     if (land.areaAcres) {
-      await fetch('/api/farmer/land', {
+      const res = await fetch('/api/farmer/land', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           farmerId, ...land,
@@ -217,7 +327,10 @@ export default function FarmerRegisterPage() {
           areaAcres:    land.areaAcres    ? parseFloat(land.areaAcres)    : undefined,
           areaOfferedAcres: land.areaOfferedAcres ? parseFloat(land.areaOfferedAcres) : undefined,
         }),
-      }).catch(() => {});
+      }).then(r => r.json()).catch(() => null);
+      // Capture the created land's id — Step 5 (ownership) needs to attach
+      // to this specific parcel, not the farmer's profile.
+      if (res?.land?.id) setCurrentLandId(res.land.id);
     }
     await fetch('/api/farmer/profile', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -259,6 +372,14 @@ export default function FarmerRegisterPage() {
         showToast('GPS captured ✓');
       } catch {}
     });
+  }
+
+  if (resuming) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400"/>
+      </div>
+    );
   }
 
   return (
@@ -331,73 +452,134 @@ export default function FarmerRegisterPage() {
                 <h2 className="font-display text-xl text-gray-900">Verify Mobile / मोबाइल सत्यापन</h2>
                 <p className="text-gray-500 text-sm mt-1">Enter your mobile number to get started</p>
               </div>
-              <div>
-                <BiLabel en="Mobile Number" hi="मोबाइल नंबर" required/>
-                <div className="flex gap-2">
-                  <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium">+91</div>
-                  <input type="tel" value={mobile} onChange={e => { setMobile(e.target.value.replace(/\D/g,'').slice(0,10)); setErrors({}); }}
-                    className={inp + (errors.mobile ? ' border-red-300 bg-red-50' : '')}
-                    placeholder="98765 43210" maxLength={10}/>
-                </div>
-                {errors.mobile && (
-                  <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3"/> {errors.mobile}
-                  </p>
-                )}
-              </div>
 
-              {/* Create password */}
-              <div>
-                <BiLabel en="Create Password (Optional)" hi="पासवर्ड बनाएं (वैकल्पिक)"/>
-                <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} value={createPassword}
-                    onChange={e => setCreatePassword(e.target.value)}
-                    className={inp + ' pr-10'} placeholder="For future password-based login"/>
-                  <button type="button" onClick={() => setShowPw(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    {showPw ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+              {accountExists ? (
+                <div className="space-y-4">
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl p-4">
+                    An account already exists with this mobile number.
+                  </div>
+                  <a href="/farmer/login"
+                    className="block w-full text-center text-white font-bold py-3.5 rounded-xl text-sm"
+                    style={{ backgroundColor: primaryColor }}>
+                    Login with OTP
+                  </a>
+                  <a href="/farmer/login?mode=password"
+                    className="block w-full text-center font-bold py-3.5 rounded-xl text-sm border-2"
+                    style={{ borderColor: primaryColor, color: primaryColor }}>
+                    Login with Password
+                  </a>
+                  <button onClick={() => { setAccountExists(false); setMobile(''); }}
+                    className="w-full text-sm text-gray-400 hover:text-gray-600">
+                    ← Use a different number
                   </button>
                 </div>
-                <p className="text-gray-400 text-xs mt-1">Optional — you can always login with OTP instead</p>
-              </div>
-
-              {!otpSent ? (
-                <button onClick={sendOtp} disabled={loading}
-                  className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
-                  style={{ backgroundColor: primaryColor }}>
-                  {loading && <Loader2 className="w-4 h-4 animate-spin"/>}
-                  Send OTP / OTP भेजें
-                </button>
               ) : (
-                <div className="space-y-4">
+                <>
+                  {/* OTP / Password toggle — only one method visible at a time */}
+                  <div className="flex bg-gray-100 rounded-xl p-1">
+                    {(['otp','password'] as const).map(mode => (
+                      <button key={mode} type="button"
+                        onClick={() => { setAuthMode(mode); setErrors({}); setOtpSent(false); }}
+                        className={`flex-1 text-sm font-semibold py-2 rounded-lg transition-colors ${
+                          authMode === mode ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+                        style={authMode === mode ? { color: primaryColor } : {}}>
+                        Continue with {mode === 'otp' ? 'OTP' : 'Password'}
+                      </button>
+                    ))}
+                  </div>
+
                   <div>
-                    <BiLabel en="Enter OTP" hi="OTP दर्ज करें" required/>
-                    <input type="tel" value={otp}
-                      onChange={e => { setOtp(e.target.value.replace(/\D/g,'').slice(0,6)); setErrors({}); }}
-                      className={inp + (errors.otp ? ' border-red-300 bg-red-50' : '')}
-                      placeholder="6-digit OTP" maxLength={6}/>
-                    {errors.otp && (
+                    <BiLabel en="Mobile Number" hi="मोबाइल नंबर" required/>
+                    <div className="flex gap-2">
+                      <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium">+91</div>
+                      <input type="tel" value={mobile} onChange={e => { setMobile(e.target.value.replace(/\D/g,'').slice(0,10)); setErrors({}); }}
+                        className={inp + (errors.mobile ? ' border-red-300 bg-red-50' : '')}
+                        placeholder="98765 43210" maxLength={10} disabled={otpSent}/>
+                    </div>
+                    {errors.mobile && (
                       <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3"/> {errors.otp}
+                        <AlertCircle className="w-3 h-3"/> {errors.mobile}
                       </p>
                     )}
-                    <p className="text-gray-400 text-xs mt-1">Test OTP: use <strong>123456</strong></p>
                   </div>
-                  <button onClick={verifyOtp} disabled={loading}
-                    className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60"
-                    style={{ backgroundColor: primaryColor }}>
-                    Verify & Continue / सत्यापित करें
-                  </button>
-                  <button onClick={() => { setOtpSent(false); setErrors({}); }}
-                    className="w-full text-sm text-gray-400 hover:text-gray-600">
-                    ← Change number
-                  </button>
-                </div>
+
+                  {authMode === 'otp' ? (
+                    !otpSent ? (
+                      <button onClick={sendOtp} disabled={loading}
+                        className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                        style={{ backgroundColor: primaryColor }}>
+                        {loading && <Loader2 className="w-4 h-4 animate-spin"/>}
+                        Send OTP / OTP भेजें
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <BiLabel en="Enter OTP" hi="OTP दर्ज करें" required/>
+                          <input type="tel" value={otp}
+                            onChange={e => { setOtp(e.target.value.replace(/\D/g,'').slice(0,6)); setErrors({}); }}
+                            className={inp + (errors.otp ? ' border-red-300 bg-red-50' : '')}
+                            placeholder="6-digit OTP" maxLength={6}/>
+                          {errors.otp && (
+                            <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3"/> {errors.otp}
+                            </p>
+                          )}
+                          {process.env.NODE_ENV !== 'production' && (
+                            <p className="text-gray-400 text-xs mt-1">Test OTP (dev only): use <strong>123456</strong></p>
+                          )}
+                        </div>
+                        <button onClick={verifyOtp} disabled={loading}
+                          className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60"
+                          style={{ backgroundColor: primaryColor }}>
+                          Verify & Continue / सत्यापित करें
+                        </button>
+                        <button onClick={() => { setOtpSent(false); setErrors({}); }}
+                          className="w-full text-sm text-gray-400 hover:text-gray-600">
+                          ← Change number
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <BiLabel en="Password" hi="पासवर्ड" required/>
+                        <div className="relative">
+                          <input type={showPw ? 'text' : 'password'} value={regPassword}
+                            onChange={e => setRegPassword(e.target.value)}
+                            className={inp + ' pr-10' + (errors.password ? ' border-red-300 bg-red-50' : '')}
+                            placeholder="Min 6 characters"/>
+                          <button type="button" onClick={() => setShowPw(s => !s)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showPw ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <BiLabel en="Confirm Password" hi="पासवर्ड की पुष्टि करें" required/>
+                        <input type={showPw ? 'text' : 'password'} value={regPasswordConfirm}
+                          onChange={e => setRegPasswordConfirm(e.target.value)}
+                          className={inp + (errors.password ? ' border-red-300 bg-red-50' : '')}
+                          placeholder="Re-enter password"/>
+                        {errors.password && (
+                          <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3"/> {errors.password}
+                          </p>
+                        )}
+                      </div>
+                      <button onClick={registerWithPassword} disabled={loading}
+                        className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                        style={{ backgroundColor: primaryColor }}>
+                        {loading && <Loader2 className="w-4 h-4 animate-spin"/>}
+                        Create Account / खाता बनाएं
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-center text-xs text-gray-400">
+                    Already registered?{' '}
+                    <a href="/farmer/login" className="font-bold" style={{ color: primaryColor }}>Login here</a>
+                  </p>
+                </>
               )}
-              <p className="text-center text-xs text-gray-400">
-                Already registered?{' '}
-                <a href="/farmer/login" className="font-bold" style={{ color: primaryColor }}>Login here</a>
-              </p>
             </div>
           )}
 
@@ -407,14 +589,27 @@ export default function FarmerRegisterPage() {
               <h2 className="font-display text-xl text-gray-900">Personal Details / व्यक्तिगत विवरण</h2>
               <div>
                 <BiLabel en="Full Name" hi="पूरा नाम" required/>
-                <input value={personal.fullName}
+                <input value={personal.fullName} disabled={isEditMode}
                   onChange={e => { setPersonal(p => ({ ...p, fullName: e.target.value })); setErrors({}); }}
-                  className={inp + (errors.fullName ? ' border-red-300 bg-red-50' : '')}
+                  className={inp + (errors.fullName ? ' border-red-300 bg-red-50' : '') + (isEditMode ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : '')}
                   placeholder="As per Aadhaar card"/>
+                {isEditMode && (
+                  <p className="text-gray-400 text-xs mt-1.5">Name changes require Admin approval — contact your field officer.</p>
+                )}
                 {errors.fullName && (
                   <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3"/> {errors.fullName}
                   </p>
+                )}
+              </div>
+              <div>
+                <BiLabel en="Mobile Number" hi="मोबाइल नंबर"/>
+                <div className="flex gap-2">
+                  <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium">+91</div>
+                  <input value={mobile} disabled className={inp + ' bg-gray-100 text-gray-500 cursor-not-allowed'}/>
+                </div>
+                {isEditMode && (
+                  <p className="text-gray-400 text-xs mt-1.5">Mobile number changes require Admin approval — contact your field officer.</p>
                 )}
               </div>
               {[
@@ -498,13 +693,21 @@ export default function FarmerRegisterPage() {
               </div>
               <button onClick={captureGPS}
                 className="w-full border-2 border-dashed border-gray-200 text-gray-500 py-3 rounded-xl text-sm hover:border-gray-300 flex items-center justify-center gap-2">
-                <MapPin className="w-4 h-4"/> Capture GPS / GPS कैप्चर करें
+                <MapPin className="w-4 h-4"/> Detect GPS Automatically / GPS का पता लगाएं
               </button>
-              {land.gpsLatitude && (
-                <div className="bg-green-50 rounded-xl p-3 text-xs font-mono text-green-700">
-                  📍 {land.gpsLatitude}, {land.gpsLongitude}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Latitude</label>
+                  <input type="number" value={land.gpsLatitude} onChange={e => setLand(l => ({ ...l, gpsLatitude: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-300"/>
                 </div>
-              )}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Longitude</label>
+                  <input type="number" value={land.gpsLongitude} onChange={e => setLand(l => ({ ...l, gpsLongitude: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-300"/>
+                </div>
+              </div>
+              <p className="text-gray-400 text-xs -mt-2">Detected automatically when available — you can also type or correct it yourself.</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { k:'village', en:'Village', hi:'गांव' },
@@ -653,5 +856,13 @@ export default function FarmerRegisterPage() {
         <p className="text-center text-xs text-gray-400 mt-3">Progress auto-saved · Save Draft</p>
       </div>
     </div>
+  );
+}
+
+export default function FarmerRegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50"/>}>
+      <FarmerRegisterForm/>
+    </Suspense>
   );
 }

@@ -6,13 +6,14 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { getDefaultOrgConfig } from '@/lib/tenant';
 
 export async function getActiveOrgId(): Promise<string> {
   const session = await getServerSession(authOptions);
   if (!session?.user) throw new Error('Unauthorized');
 
   const user = session.user as any;
-  const userOrgId = user.orgId || 'org_jito_mumbai';
+  const userOrgId = user.orgId || (await getDefaultOrgConfig()).id;
 
   // Regular ADMIN — ALWAYS their own org, cookie is ignored
   if (user.role === 'ADMIN') {

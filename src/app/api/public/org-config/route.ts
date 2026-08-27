@@ -20,6 +20,7 @@ export async function GET(req: Request) {
       website:      org.website,
       treePrice:    org.treePrice,
       plan:         org.plan,
+      paymentSuccessMessage: org.paymentSuccessMessage,
     }, {
       headers: {
         // No CDN caching — tenant-specific, must be fresh per deployment

@@ -15,6 +15,7 @@ export type OrgConfig = {
   website:      string | null;
   treePrice:    number;
   plan:         string;
+  paymentSuccessMessage: string | null;
   loaded:       boolean; // true once API has responded
 };
 
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: OrgConfig = {
   website:      null,
   treePrice:    500,
   plan:         'STARTER',
+  paymentSuccessMessage: null,
   loaded:       false,
 };
 

@@ -1,9 +1,10 @@
 'use client';
 // src/app/page.tsx — Tenant-branded home page · Light Theme · Real Photography
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Leaf, Globe, Shield, FileText, TreePine } from 'lucide-react';
-import { CAMPAIGNS, CAMPAIGN_PACKAGES, INDIVIDUAL_TREE_PRICE, formatCurrency, NATURE_IMAGES, WHY_PLANT_IMAGES } from '@/lib/utils';
+import { CAMPAIGN_PACKAGES as DEFAULT_PACKAGES, INDIVIDUAL_TREE_PRICE, packagePrice, formatCurrency, NATURE_IMAGES, WHY_PLANT_IMAGES } from '@/lib/utils';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 const STATS = [
@@ -30,6 +31,20 @@ const TESTIMONIALS = [
 
 export default function HomePage() {
   const org = useOrgConfig();
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/campaigns')
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(d => setCampaigns(d.campaigns || []))
+      .catch(() => setCampaigns([]));
+  }, []);
+
+  const previewPackages = campaigns
+    .slice()
+    .sort((a, b) => (b.packages?.length || 0) - (a.packages?.length || 0))[0]?.packages
+    || DEFAULT_PACKAGES;
+
   return (
     <div className="min-h-screen bg-cream-50">
       {/* ══════════ HERO ══════════ */}
@@ -130,27 +145,31 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ══════════ FAMILY CAMPAIGNS ══════════ */}
+      {/* ══════════ CAMPAIGNS ══════════ */}
       <section className="py-24 bg-cream-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <div className="inline-block bg-sage-100 text-sage-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">Family Campaigns</div>
-            <h2 className="font-display text-4xl sm:text-5xl text-sage-950 mb-4">Plant in Her Name</h2>
-            <p className="text-sage-600 text-lg max-w-xl mx-auto leading-relaxed">Choose a campaign and dedicate a grove to the most important women in your life.</p>
+            <div className="inline-block bg-sage-100 text-sage-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">Campaigns</div>
+            <h2 className="font-display text-4xl sm:text-5xl text-sage-950 mb-4">Choose Your Campaign</h2>
+            <p className="text-sage-600 text-lg max-w-xl mx-auto leading-relaxed">Sponsor trees toward the cause or dedication that matters most to you.</p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {CAMPAIGNS.map((c, i) => (
-              <Link key={c.slug} href={`/campaigns/${c.slug}`}
+            {campaigns.map((c, i) => (
+              <Link key={c.slug} href={`/donate?campaign=${c.slug}`}
                 className="group card-lift bg-white border border-sage-100 rounded-2xl overflow-hidden shadow-sm">
                 {/* Real photo header */}
                 <div className="relative h-44 overflow-hidden">
-                  <Image
-                    src={c.image}
-                    alt={c.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
+                  {c.imageUrl ? (
+                    <Image
+                      src={c.imageUrl}
+                      alt={c.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                  ) : (
+                    <div className="w-full h-full" style={{ backgroundColor: c.accentColor || '#2d5a1b' }}/>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"/>
                   {/* Campaign heading on photo */}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -161,7 +180,9 @@ export default function HomePage() {
                 <div className="p-5">
                   <p className="text-sage-600 text-sm leading-relaxed mb-4">{c.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-sage-400">11 · 27 · 54 · 108 trees</span>
+                    <span className="text-xs text-sage-400">
+                      {(Array.isArray(c.packages) && c.packages.length ? c.packages : DEFAULT_PACKAGES).map((p: any) => p.trees).join(' · ')} trees
+                    </span>
                     <span className="flex items-center gap-1 text-sage-700 font-semibold text-sm group-hover:gap-2 transition-all">
                       Sponsor <ArrowRight className="w-4 h-4"/>
                     </span>
@@ -180,12 +201,12 @@ export default function HomePage() {
             <div className="relative z-10 p-10 md:p-14 text-center">
               <h3 className="font-display text-3xl text-white mb-2">Individual Tree Sponsorship</h3>
               <p className="text-sage-200 mb-6 text-lg max-w-lg mx-auto">
-                Buy 1 tree or any quantity — starting at <strong className="text-white">{formatCurrency(INDIVIDUAL_TREE_PRICE)}</strong> per tree.
+                Buy 1 tree or any quantity — starting at <strong className="text-white">{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}</strong> per tree.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/donate?type=individual&trees=1&amount=500"
+                <Link href={`/donate?type=individual&trees=1&amount=${org.treePrice || INDIVIDUAL_TREE_PRICE}`}
                   className="inline-flex items-center gap-2 bg-white text-sage-800 font-bold px-8 py-3.5 rounded-xl hover:bg-sage-50 transition-all hover:scale-105">
-                  Buy 1 Tree — {formatCurrency(500)}
+                  Buy 1 Tree — {formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}
                 </Link>
                 <Link href="/donate?type=individual"
                   className="inline-flex items-center gap-2 border-2 border-white/40 text-white hover:bg-white/10 font-semibold px-8 py-3.5 rounded-xl transition-all">
@@ -235,16 +256,20 @@ export default function HomePage() {
       </section>
 
       {/* ══════════ PACKAGES OVERVIEW ══════════ */}
-      <section className="py-24 bg-sage-50">
-        <div className="max-w-5xl mx-auto px-4">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0">
+          <Image src={NATURE_IMAGES.nature1} alt="" fill className="object-cover"/>
+          <div className="absolute inset-0 bg-sage-50/60"/>
+        </div>
+        <div className="relative z-10 max-w-5xl mx-auto px-4">
           <div className="text-center mb-14">
             <div className="inline-block bg-white border border-sage-200 text-sage-700 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">Sponsorship Packages</div>
             <h2 className="font-display text-4xl text-sage-950 mb-3">Choose Your Legacy</h2>
             <p className="text-sage-600 max-w-lg mx-auto">Every package includes geo-tagging, digital certificate, 80G receipt, and live tree tracking.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {CAMPAIGN_PACKAGES.map(pkg => (
-              <div key={pkg.id}
+            {previewPackages.map((pkg: any) => (
+              <div key={pkg.id || pkg.trees}
                 className={`relative rounded-2xl border-2 p-6 transition-all ${pkg.popular ? 'border-sage-600 bg-sage-800 shadow-xl' : 'border-sage-100 bg-white hover:border-sage-300 card-lift'}`}>
                 {pkg.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-sage-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
@@ -253,7 +278,7 @@ export default function HomePage() {
                 )}
                 <div className={`font-display text-5xl font-bold mb-1 ${pkg.popular ? 'text-sage-200' : 'text-sage-700'}`}>{pkg.trees}</div>
                 <div className={`text-sm mb-3 ${pkg.popular ? 'text-sage-400' : 'text-sage-400'}`}>trees · {pkg.badge}</div>
-                <div className={`font-bold text-2xl mb-2 ${pkg.popular ? 'text-white' : 'text-sage-900'}`}>{formatCurrency(pkg.price)}</div>
+                <div className={`font-bold text-2xl mb-2 ${pkg.popular ? 'text-white' : 'text-sage-900'}`}>{formatCurrency(packagePrice(pkg.trees, org.treePrice))}</div>
                 <div className={`text-xs mb-4 ${pkg.popular ? 'text-sage-400' : 'text-sage-400'}`}>{pkg.trees * 22}kg CO₂ absorbed/year</div>
                 <p className={`text-xs leading-relaxed mb-5 ${pkg.popular ? 'text-sage-300' : 'text-sage-500'}`}>{pkg.description}</p>
                 <ul className={`text-xs space-y-1.5 mb-5 ${pkg.popular ? 'text-sage-400' : 'text-sage-500'}`}>

@@ -122,7 +122,7 @@ export default async function AboutPage() {
                 ['Land Area',       '12.5 Acres Verified'],
                 ['Launch Date',     '5th June 2026'],
                 ['Tax Benefit',     '80G Eligible'],
-                ['Price per Tree',  '₹500 only'],
+                ['Price per Tree',  `₹${org.treePrice || 500} only`],
               ].map(([l, v]) => (
                 <div key={l} className="flex justify-between py-2 border-b border-sage-100 last:border-0">
                   <span className="text-sage-500 text-sm">{l}</span>

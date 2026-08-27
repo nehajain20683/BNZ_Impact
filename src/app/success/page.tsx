@@ -72,7 +72,7 @@ function SuccessContent() {
               <div className="absolute inset-0 bg-sage-900/70 flex flex-col items-center justify-center text-center p-6">
                 <CheckCircle className="w-10 h-10 text-sage-300 mb-2"/>
                 <h1 className="font-display text-2xl text-white">Thank You! 🌳</h1>
-                <p className="text-sage-300 text-xs mt-1">{orgName}</p>
+                <p className="text-sage-300 text-xs mt-1">{org.paymentSuccessMessage || orgName}</p>
               </div>
             </div>
 

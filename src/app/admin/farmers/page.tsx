@@ -7,15 +7,15 @@ import { Users, Search, TreePine, MapPin, FileText } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
 
 const STATUS_COLORS: Record<string,string> = {
-  REGISTERED:        'bg-blue-100 text-blue-700',
-  DOCUMENTS_PENDING: 'bg-amber-100 text-amber-700',
-  DOCUMENTS_SUBMITTED:'bg-purple-100 text-purple-700',
-  VERIFIED:          'bg-green-100 text-green-700',
-  APPROVED:          'bg-emerald-100 text-emerald-700',
-  REJECTED:          'bg-red-100 text-red-700',
+  REGISTERED:          'bg-blue-100 text-blue-700',
+  DOCUMENTS_PENDING:   'bg-amber-100 text-amber-700',
+  VERIFIED_LAND_OWNER: 'bg-green-100 text-green-700',
+  SUSPENDED:           'bg-red-100 text-red-700',
 };
 
-const STATUSES = ['REGISTERED','DOCUMENTS_PENDING','DOCUMENTS_SUBMITTED','VERIFIED','APPROVED','REJECTED'];
+// Matches the real (simplified) FarmerStatus enum — inspection/approval/
+// activation stages now belong to LandStatus, not the farmer entity itself.
+const STATUSES = ['REGISTERED','DOCUMENTS_PENDING','VERIFIED_LAND_OWNER','SUSPENDED'];
 
 export default function AdminFarmersPage() {
   const { data: session, status } = useSession();

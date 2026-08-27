@@ -45,8 +45,21 @@ export async function POST(req: Request) {
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 
     const org             = await resolveTenantFromRequest(req);
+
+    // Amount must always equal trees × this org's configured price-per-tree —
+    // never trust the client-supplied amount directly, or a tampered request
+    // could get any number of trees for an arbitrary price.
+    const expectedAmount = data.numberOfTrees * (org.treePrice || 500);
+    if (Math.round(data.amount) !== Math.round(expectedAmount)) {
+      return NextResponse.json({
+        error: `Amount mismatch: ${data.numberOfTrees} trees at this organisation's price should be ₹${expectedAmount}.`,
+      }, { status: 400 });
+    }
+
     const receiptNumber   = generateReceiptNumber(org.donationRefPrefix || 'BNZ');
-    const razorpayOrder   = await createOrder(data.amount, receiptNumber, org.slug);
+    const razorpayOrder   = await createOrder(data.amount, receiptNumber, org.slug, {
+      keyId: org.razorpayKeyId, keySecret: org.razorpayKeySecret,
+    });
 
     const donation = await prisma.donation.create({
       data: {
@@ -75,6 +88,11 @@ export async function POST(req: Request) {
       donationId: donation.id,
       amount:     data.amount,
       currency:   'INR',
+      // The Razorpay Checkout widget must be opened with the SAME key_id the
+      // order was created under — critical when an org has its own Razorpay
+      // account instead of the platform default.
+      keyId:      org.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      successMessage: org.paymentSuccessMessage || undefined,
     });
   } catch (e: any) {
     console.error('Create order error:', e);

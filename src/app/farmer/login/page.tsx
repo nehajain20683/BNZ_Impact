@@ -1,31 +1,45 @@
 'use client';
-// /farmer/login — OTP-based login, tenant branded
-// 123456 always works as test OTP
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+// /farmer/login — OTP or Password login, tenant branded
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
-import { Loader2, AlertCircle, ChevronRight } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-white";
 
-export default function FarmerLoginPage() {
+function FarmerLoginInner() {
   const org    = useOrgConfig();
   const router = useRouter();
+  const params = useSearchParams();
   const primaryColor = org.primaryColor || '#2d5a1b';
 
+  const [mode, setMode] = useState<'otp'|'password'>(params.get('mode') === 'password' ? 'password' : 'otp');
+
+  // OTP mode
   const [mobile, setMobile]   = useState('');
   const [otp, setOtp]         = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [devOtp, setDevOtp]   = useState('');
+
+  // Password mode
+  const [pwMobile, setPwMobile] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [noPassword, setNoPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
-  const [devOtp, setDevOtp]   = useState(''); // shows actual OTP in dev
+
+  function switchMode(m: 'otp'|'password') {
+    setMode(m); setError(''); setNoPassword(false); setOtpSent(false);
+  }
 
   async function sendOtp() {
     if (!mobile || mobile.length < 10) { setError('Enter valid 10-digit mobile number'); return; }
     setLoading(true); setError('');
     const res  = await fetch('/api/farmer/otp', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile, action: 'send' }),
+      body: JSON.stringify({ mobile, action: 'send', purpose: 'login' }),
     });
     const data = await res.json();
     setLoading(false);
@@ -50,7 +64,6 @@ export default function FarmerLoginPage() {
     if (data.success) {
       localStorage.setItem('farmerId', data.farmerId);
       localStorage.setItem('farmerMobile', `+91${mobile}`);
-
       if (data.isProfileComplete) {
         router.push('/farmer/dashboard');
       } else {
@@ -59,6 +72,28 @@ export default function FarmerLoginPage() {
       }
     } else {
       setError(data.error || 'Incorrect OTP. Try again.');
+    }
+  }
+
+  async function loginWithPassword() {
+    if (!pwMobile || pwMobile.length < 10) { setError('Enter valid 10-digit mobile number'); return; }
+    if (!password) { setError('Enter your password'); return; }
+    setLoading(true); setError(''); setNoPassword(false);
+    const res  = await fetch('/api/farmer/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: pwMobile, password, action: 'password' }),
+    });
+    const data = await res.json();
+    setLoading(false);
+
+    if (data.success) {
+      localStorage.setItem('farmerId', data.farmerId);
+      localStorage.setItem('farmerMobile', `+91${pwMobile}`);
+      router.push('/farmer/dashboard');
+    } else if (data.code === 'NO_PASSWORD') {
+      setNoPassword(true);
+    } else {
+      setError(data.error || 'Incorrect password. Please try again.');
     }
   }
 
@@ -86,6 +121,18 @@ export default function FarmerLoginPage() {
               <p className="text-gray-500 text-sm mt-1">Enter your registered mobile number</p>
             </div>
 
+            {/* OTP / Password toggle — only one mode visible at a time */}
+            <div className="flex bg-gray-100 rounded-xl p-1">
+              {(['otp','password'] as const).map(m => (
+                <button key={m} type="button" onClick={() => switchMode(m)}
+                  className={`flex-1 text-sm font-semibold py-2 rounded-lg transition-colors ${
+                    mode === m ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+                  style={mode === m ? { color: primaryColor } : {}}>
+                  {m === 'otp' ? 'OTP Login' : 'Password Login'}
+                </button>
+              ))}
+            </div>
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-xl flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0"/>
@@ -93,61 +140,104 @@ export default function FarmerLoginPage() {
               </div>
             )}
 
-            {/* Mobile */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Mobile Number / मोबाइल नंबर
-              </label>
-              <div className="flex gap-2">
-                <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium flex-shrink-0">+91</div>
-                <input type="tel" value={mobile}
-                  onChange={e => { setMobile(e.target.value.replace(/\D/g,'').slice(0,10)); setError(''); }}
-                  className={inp} placeholder="98765 43210" maxLength={10}
-                  disabled={otpSent}/>
-              </div>
-            </div>
-
-            {/* OTP */}
-            {otpSent && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  OTP / ओटीपी
-                </label>
-                <input type="tel" value={otp}
-                  onChange={e => { setOtp(e.target.value.replace(/\D/g,'').slice(0,6)); setError(''); }}
-                  className={inp} placeholder="6-digit OTP" maxLength={6} autoFocus/>
-                <p className="text-gray-400 text-xs mt-1.5">
-                  OTP sent to +91 {mobile} · Test OTP: <strong>123456</strong>
-                </p>
-                {devOtp && (
-                  <p className="text-amber-600 text-xs mt-0.5">
-                    Dev mode — actual OTP: <strong>{devOtp}</strong>
-                  </p>
-                )}
+            {noPassword && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3 rounded-xl">
+                No password has been set for this account. Continue with OTP or create a password.
+                <button onClick={() => { setMobile(pwMobile); switchMode('otp'); }}
+                  className="block mt-2 font-bold underline" style={{ color: primaryColor }}>
+                  Continue with OTP →
+                </button>
               </div>
             )}
 
-            {/* Action button */}
-            {!otpSent ? (
-              <button onClick={sendOtp} disabled={loading}
-                className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
-                style={{ backgroundColor: primaryColor }}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
-                Send OTP / OTP भेजें
-              </button>
+            {mode === 'otp' ? (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Mobile Number / मोबाइल नंबर
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium flex-shrink-0">+91</div>
+                    <input type="tel" value={mobile}
+                      onChange={e => { setMobile(e.target.value.replace(/\D/g,'').slice(0,10)); setError(''); }}
+                      className={inp} placeholder="98765 43210" maxLength={10}
+                      disabled={otpSent}/>
+                  </div>
+                </div>
+
+                {otpSent && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      OTP / ओटीपी
+                    </label>
+                    <input type="tel" value={otp}
+                      onChange={e => { setOtp(e.target.value.replace(/\D/g,'').slice(0,6)); setError(''); }}
+                      className={inp} placeholder="6-digit OTP" maxLength={6} autoFocus/>
+                    <p className="text-gray-400 text-xs mt-1.5">OTP sent to +91 {mobile}</p>
+                    {process.env.NODE_ENV !== 'production' && (
+                      <p className="text-amber-600 text-xs mt-0.5">
+                        Dev mode — test OTP: <strong>123456</strong>{devOtp ? <> · actual OTP: <strong>{devOtp}</strong></> : null}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!otpSent ? (
+                  <button onClick={sendOtp} disabled={loading}
+                    className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: primaryColor }}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+                    Send OTP / OTP भेजें
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <button onClick={verifyOtp} disabled={loading}
+                      className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                      style={{ backgroundColor: primaryColor }}>
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <ChevronRight className="w-4 h-4"/>}
+                      Login / लॉग इन
+                    </button>
+                    <button onClick={() => { setOtpSent(false); setOtp(''); setError(''); setDevOtp(''); }}
+                      className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">
+                      ← Change number
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="space-y-3">
-                <button onClick={verifyOtp} disabled={loading}
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Mobile Number / मोबाइल नंबर
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="border border-gray-200 rounded-xl px-3 py-3 text-gray-500 text-sm bg-gray-50 font-medium flex-shrink-0">+91</div>
+                    <input type="tel" value={pwMobile}
+                      onChange={e => { setPwMobile(e.target.value.replace(/\D/g,'').slice(0,10)); setError(''); setNoPassword(false); }}
+                      className={inp} placeholder="98765 43210" maxLength={10}/>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Password / पासवर्ड
+                  </label>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={password}
+                      onChange={e => { setPassword(e.target.value); setError(''); }}
+                      className={inp + ' pr-10'} placeholder="Enter your password"/>
+                    <button type="button" onClick={() => setShowPw(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      {showPw ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                    </button>
+                  </div>
+                </div>
+                <button onClick={loginWithPassword} disabled={loading}
                   className="w-full text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ backgroundColor: primaryColor }}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <ChevronRight className="w-4 h-4"/>}
                   Login / लॉग इन
                 </button>
-                <button onClick={() => { setOtpSent(false); setOtp(''); setError(''); setDevOtp(''); }}
-                  className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">
-                  ← Change number
-                </button>
-              </div>
+              </>
             )}
           </div>
 
@@ -164,5 +254,13 @@ export default function FarmerLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FarmerLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50"/>}>
+      <FarmerLoginInner/>
+    </Suspense>
   );
 }

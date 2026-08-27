@@ -54,12 +54,68 @@ export async function POST(req: Request) {
         securityStatus:   landData.securityStatus   || null,
         photos:           photos.length ? photos : [],
         kmlFileName:      kmlFileName || null,
+        ownershipType:    landData.ownershipType    || 'sole',
+        jointOwnerCount:  landData.jointOwnerCount  ? parseInt(landData.jointOwnerCount) : null,
       } as any,
     });
 
     return NextResponse.json({ success: true, land });
   } catch (e: any) {
     console.error('[farmer/land POST]', e.message);
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+// PATCH — edit an existing land parcel. Blocked once an admin has verified
+// it, since the approved record is what downstream site assignment relies on.
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { landId, farmerId, landPhotoBase64, kmlPhotoBase64, kmlFileName, ...landData } = body;
+
+    if (!landId || !farmerId) return NextResponse.json({ error: 'landId and farmerId are required' }, { status: 400 });
+
+    const existing = await prisma.land.findUnique({ where: { id: landId } });
+    if (!existing) return NextResponse.json({ error: 'Land parcel not found' }, { status: 404 });
+    if (existing.farmerId !== farmerId) return NextResponse.json({ error: 'Not authorised to edit this land parcel' }, { status: 403 });
+    if (existing.verified)
+      return NextResponse.json({ error: 'This land parcel has been approved and can no longer be edited. Contact your field officer for changes.' }, { status: 400 });
+
+    const photos = [
+      landPhotoBase64 || existing.photos?.[0] || null,
+      kmlPhotoBase64  || existing.photos?.[1] || null,
+    ].filter((p): p is string => !!p);
+
+    const land = await prisma.land.update({
+      where: { id: landId },
+      data: {
+        surveyGutNumber:  landData.surveyGutNumber  ?? existing.surveyGutNumber,
+        khataNumber:      landData.khataNumber      ?? existing.khataNumber,
+        areaAcres:        landData.areaAcres        ? parseFloat(landData.areaAcres)        : existing.areaAcres,
+        areaOfferedAcres: landData.areaOfferedAcres ? parseFloat(landData.areaOfferedAcres) : existing.areaOfferedAcres,
+        landType:         landData.landType         ?? existing.landType,
+        village:          landData.village          ?? existing.village,
+        taluka:           landData.taluka           ?? existing.taluka,
+        district:         landData.district         ?? existing.district,
+        state:            landData.state            ?? existing.state,
+        pincode:          landData.pincode          ?? existing.pincode,
+        gpsLatitude:      landData.gpsLatitude      ? parseFloat(landData.gpsLatitude)      : existing.gpsLatitude,
+        gpsLongitude:     landData.gpsLongitude     ? parseFloat(landData.gpsLongitude)     : existing.gpsLongitude,
+        waterAvailability:landData.waterAvailability?? existing.waterAvailability,
+        securityStatus:   landData.securityStatus   ?? existing.securityStatus,
+        photos,
+        kmlFileName:      kmlFileName ?? existing.kmlFileName,
+        speciesPreference: Array.isArray(landData.speciesPreference) ? landData.speciesPreference : existing.speciesPreference,
+        ownershipType:    landData.ownershipType    ?? existing.ownershipType,
+        jointOwnerCount:  landData.jointOwnerCount  !== undefined
+          ? (landData.jointOwnerCount ? parseInt(landData.jointOwnerCount) : null)
+          : existing.jointOwnerCount,
+      } as any,
+    });
+
+    return NextResponse.json({ success: true, land });
+  } catch (e: any) {
+    console.error('[farmer/land PATCH]', e.message);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

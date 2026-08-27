@@ -2,12 +2,14 @@ export const runtime = 'nodejs';
 // src/app/api/campaigns/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { resolveTenantFromRequest } from '@/lib/tenant';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const org = await resolveTenantFromRequest(req);
     const campaigns = await prisma.campaign.findMany({
-      where: { active: true },
-      orderBy: { name: 'asc' },
+      where: { orgId: org.id, active: true, isIndividual: false },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
     return NextResponse.json({ campaigns });
   } catch (error: any) {

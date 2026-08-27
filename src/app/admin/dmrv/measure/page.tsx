@@ -1,25 +1,17 @@
 'use client';
 import DMRVLayout from '@/components/admin/DMRVLayout';
-import { useState } from 'react';
-import { Camera, MapPin, Plane, Satellite, Beaker, Upload, CheckCircle2, Plus, Eye } from 'lucide-react';
-
-const SURVEYS = [
-  { id:'SRV-001', farmer:'Farmer 1', land:'Survey 35/2/k', officer:'Rajan P.', date:'08 Jul 2026', signed:true, photos:12, gps:true },
-  { id:'SRV-002', farmer:'Ramesh Jain', land:'Survey 12/k', officer:'Priya S.', date:'07 Jul 2026', signed:true, photos:8, gps:true },
-  { id:'SRV-003', farmer:'Sunil Mehta', land:'Survey 78/3', officer:'Amit K.', date:'05 Jul 2026', signed:false, photos:5, gps:false },
-];
-
-const EVIDENCE = [
-  { id:'EV-001', type:'Geo-tagged Photo', species:'Mango', count:3000, lat:'19.2092', lng:'72.8738', ts:'08 Jul 2026 14:32', device:'Samsung S24', status:'VERIFIED' },
-  { id:'EV-002', type:'Geo-tagged Photo', species:'Neem',  count:1000, lat:'19.2098', lng:'72.8741', ts:'08 Jul 2026 14:45', device:'Redmi 12', status:'VERIFIED' },
-  { id:'EV-003', type:'Geo-tagged Photo', species:'Teak',  count:500,  lat:'19.2105', lng:'72.8729', ts:'08 Jul 2026 15:01', device:'Motorola G84', status:'PENDING' },
-];
+import { useState, useEffect } from 'react';
+import { Camera, MapPin, Plane, Satellite, Beaker, Upload, CheckCircle2, Plus, Eye, X, Trash2, Loader2 } from 'lucide-react';
 
 const STATUS_COLOR: Record<string,string> = {
   VERIFIED: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  PENDING:  'text-amber-400 bg-amber-500/10 border-amber-500/30',
-  FAILED:   'text-rose-400 bg-rose-500/10 border-rose-500/30',
+  PUBLISHED: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  SUBMITTED:  'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  SENT_BACK:   'text-rose-400 bg-rose-500/10 border-rose-500/30',
 };
+
+const HEALTH_OPTIONS = ['HEALTHY', 'STRESSED', 'DISEASED', 'DEAD'];
+const emptySample = () => ({ treeId: '', species: '', height: '', diameter: '', health: 'HEALTHY', survived: true, notes: '' });
 
 function UploadBox({ label, accept }: { label: string; accept: string }) {
   return (
@@ -34,9 +26,80 @@ function UploadBox({ label, accept }: { label: string; accept: string }) {
 
 export default function MeasurePage() {
   const [activeSection, setActiveSection] = useState('surveys');
+  const [visits, setVisits]     = useState<any[]>([]);
+  const [sites, setSites]       = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState('');
+  const [gpsStatus, setGpsStatus] = useState<'idle'|'capturing'|'captured'>('idle');
+
+  const [form, setForm] = useState({
+    siteId: '', visitDate: new Date().toISOString().slice(0,10),
+    gpsLat: '', gpsLng: '', recommendations: '', diseaseNotes: '',
+    samples: [emptySample()],
+  });
+
+  async function load() {
+    setLoading(true);
+    const [vRes, sRes] = await Promise.all([
+      fetch('/api/admin/monitoring-visits'),
+      fetch('/api/admin/plantation-sites'),
+    ]);
+    const [vData, sData] = await Promise.all([vRes.json(), sRes.json()]);
+    setVisits(vData.visits || []);
+    setSites(sData.sites || []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  function captureGPS() {
+    if (!navigator.geolocation) return;
+    setGpsStatus('capturing');
+    navigator.geolocation.getCurrentPosition(pos => {
+      setForm(p => ({ ...p, gpsLat: String(pos.coords.latitude), gpsLng: String(pos.coords.longitude) }));
+      setGpsStatus('captured');
+    }, () => setGpsStatus('idle'));
+  }
+
+  function updateSample(i: number, key: string, value: any) {
+    setForm(p => {
+      const samples = [...p.samples];
+      samples[i] = { ...samples[i], [key]: value };
+      return { ...p, samples };
+    });
+  }
+  function addSample() { setForm(p => ({ ...p, samples: [...p.samples, emptySample()] })); }
+  function removeSample(i: number) { setForm(p => ({ ...p, samples: p.samples.filter((_, idx) => idx !== i) })); }
+
+  async function submitVisit() {
+    setError('');
+    if (!form.siteId) { setError('Select a plantation site'); return; }
+    setSaving(true);
+    const res = await fetch('/api/admin/monitoring-visits', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        siteId: form.siteId, visitDate: form.visitDate,
+        gpsLat: form.gpsLat ? parseFloat(form.gpsLat) : undefined,
+        gpsLng: form.gpsLng ? parseFloat(form.gpsLng) : undefined,
+        recommendations: form.recommendations || undefined,
+        diseaseNotes: form.diseaseNotes || undefined,
+        treeSamples: form.samples.filter(s => s.species || s.treeId).map(s => ({
+          ...s, height: s.height ? parseFloat(s.height) : undefined,
+          diameter: s.diameter ? parseFloat(s.diameter) : undefined,
+        })),
+      }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) { setError(data.error || 'Failed to save visit'); return; }
+    setShowForm(false);
+    setForm({ siteId: '', visitDate: new Date().toISOString().slice(0,10), gpsLat: '', gpsLng: '', recommendations: '', diseaseNotes: '', samples: [emptySample()] });
+    load();
+  }
 
   const sections = [
-    { id:'surveys',   label:'Farmer Surveys',     icon: CheckCircle2 },
+    { id:'surveys',   label:'Monitoring Visits',  icon: CheckCircle2 },
     { id:'evidence',  label:'Plantation Evidence', icon: Camera },
     { id:'drone',     label:'Drone Surveys',       icon: Plane },
     { id:'satellite', label:'Satellite Data',      icon: Satellite },
@@ -48,14 +111,15 @@ export default function MeasurePage() {
       <div className="bg-gray-950 min-h-screen text-white">
         <div className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              <Camera className="w-5 h-5 text-emerald-400"/> Measure
-            </h1>
-            <p className="text-gray-400 text-xs">Capture digital evidence from field</p>
+            <h1 className="font-bold text-lg">Measure</h1>
+            <p className="text-gray-500 text-xs mt-0.5">Sampling-based field monitoring — official dMRV evidence</p>
           </div>
-          <button className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl">
-            <Plus className="w-3.5 h-3.5"/> Log New Evidence
-          </button>
+          {activeSection === 'surveys' && (
+            <button onClick={() => setShowForm(true)}
+              className="flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-xl text-xs font-semibold">
+              <Plus className="w-3.5 h-3.5"/> New Monitoring Visit
+            </button>
+          )}
         </div>
 
         <div className="p-6">
@@ -73,33 +137,39 @@ export default function MeasurePage() {
             ))}
           </div>
 
-          {/* Farmer Surveys */}
+          {/* Monitoring Visits — real data */}
           {activeSection === 'surveys' && (
             <div className="space-y-4">
-              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-800/60">
-                    <tr>{['Survey ID','Farmer','Land','Field Officer','Date','Signed','Photos','GPS','Status'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                    ))}</tr>
-                  </thead>
-                  <tbody>
-                    {SURVEYS.map(s => (
-                      <tr key={s.id} className="border-t border-gray-800 hover:bg-gray-800/30">
-                        <td className="px-4 py-3 font-mono text-emerald-400 text-[11px]">{s.id}</td>
-                        <td className="px-4 py-3 font-semibold text-white">{s.farmer}</td>
-                        <td className="px-4 py-3 text-gray-400">{s.land}</td>
-                        <td className="px-4 py-3 text-gray-300">{s.officer}</td>
-                        <td className="px-4 py-3 text-gray-400">{s.date}</td>
-                        <td className="px-4 py-3">{s.signed ? <span className="text-emerald-400 text-[10px] font-semibold">✓ Signed</span> : <span className="text-amber-400 text-[10px]">Pending</span>}</td>
-                        <td className="px-4 py-3 text-gray-300">{s.photos} photos</td>
-                        <td className="px-4 py-3">{s.gps ? <span className="text-emerald-400 text-[10px]">✓ GPS</span> : <span className="text-rose-400 text-[10px]">Missing</span>}</td>
-                        <td className="px-4 py-3"><button className="text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 rounded-lg flex items-center gap-1"><Eye className="w-3 h-3"/> View</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {loading ? (
+                <p className="text-gray-500 text-sm">Loading…</p>
+              ) : visits.length === 0 ? (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center text-gray-500 text-sm">
+                  No monitoring visits recorded yet. Click "New Monitoring Visit" to log a sampling-based visit.
+                </div>
+              ) : (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-800/60">
+                      <tr>{['Site','Date','Trees Sampled','Survival','Avg Height','GPS','Status'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody>
+                      {visits.map((v: any) => (
+                        <tr key={v.id} className="border-t border-gray-800 hover:bg-gray-800/30">
+                          <td className="px-4 py-3 font-semibold text-white">{v.site?.siteName}</td>
+                          <td className="px-4 py-3 text-gray-400">{new Date(v.visitDate).toLocaleDateString('en-IN')}</td>
+                          <td className="px-4 py-3 text-gray-300">{v.treeSamples?.length || 0} trees</td>
+                          <td className="px-4 py-3 text-gray-300">{v.survivalPct != null ? `${v.survivalPct}%` : '—'}</td>
+                          <td className="px-4 py-3 text-gray-300">{v.avgHeight != null ? `${Math.round(v.avgHeight)}cm` : '—'}</td>
+                          <td className="px-4 py-3">{v.gpsLat ? <span className="text-emerald-400 text-[10px]">✓ GPS</span> : <span className="text-rose-400 text-[10px]">Missing</span>}</td>
+                          <td className="px-4 py-3"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLOR[v.status] || STATUS_COLOR.SUBMITTED}`}>{v.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -112,28 +182,8 @@ export default function MeasurePage() {
                 <UploadBox label="GeoJSON / KML" accept=".geojson · .kml · .kmz"/>
                 <UploadBox label="Survey Reports" accept="PDF · DOCX"/>
               </div>
-              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-800/60">
-                    <tr>{['Evidence ID','Type','Species','Count','GPS Coords','Timestamp','Device','Status'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                    ))}</tr>
-                  </thead>
-                  <tbody>
-                    {EVIDENCE.map(e => (
-                      <tr key={e.id} className="border-t border-gray-800 hover:bg-gray-800/30">
-                        <td className="px-4 py-3 font-mono text-emerald-400 text-[11px]">{e.id}</td>
-                        <td className="px-4 py-3 text-gray-300">{e.type}</td>
-                        <td className="px-4 py-3 font-semibold text-white">{e.species}</td>
-                        <td className="px-4 py-3 text-white font-bold">{e.count.toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3 font-mono text-[10px] text-cyan-400">{e.lat}, {e.lng}</td>
-                        <td className="px-4 py-3 text-gray-400">{e.ts}</td>
-                        <td className="px-4 py-3 text-gray-500">{e.device}</td>
-                        <td className="px-4 py-3"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLOR[e.status]}`}>{e.status}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-500 text-sm">
+                See the <a href="/admin/dmrv/evidence" className="text-emerald-400 underline">Evidence Vault</a> for real community-update and monitoring photos.
               </div>
             </div>
           )}
@@ -253,6 +303,105 @@ export default function MeasurePage() {
           )}
         </div>
       </div>
+
+      {/* New Monitoring Visit — sampling-based, not every tree required */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800 sticky top-0 bg-gray-900">
+              <h2 className="font-bold text-white">New Monitoring Visit</h2>
+              <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-500"/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {error && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm rounded-xl p-3">{error}</div>}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Plantation Site *</label>
+                  <select value={form.siteId} onChange={e => setForm(p => ({ ...p, siteId: e.target.value }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Select a site…</option>
+                    {sites.map((s: any) => <option key={s.id} value={s.id}>{s.siteName}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Visit Date</label>
+                  <input type="date" value={form.visitDate} onChange={e => setForm(p => ({ ...p, visitDate: e.target.value }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-400">GPS Location</label>
+                  <button onClick={captureGPS} type="button" disabled={gpsStatus === 'capturing'}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:underline disabled:opacity-60">
+                    {gpsStatus === 'capturing' ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <MapPin className="w-3.5 h-3.5"/>}
+                    Detect Automatically
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" value={form.gpsLat} onChange={e => setForm(p => ({ ...p, gpsLat: e.target.value }))}
+                    placeholder="Latitude" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+                  <input type="number" value={form.gpsLng} onChange={e => setForm(p => ({ ...p, gpsLng: e.target.value }))}
+                    placeholder="Longitude" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+                </div>
+                <p className="text-gray-600 text-[11px] mt-1">Detected automatically when available — you can still type or correct it manually.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Disease / Issues</label>
+                <textarea rows={2} value={form.diseaseNotes} onChange={e => setForm(p => ({ ...p, diseaseNotes: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Recommendations / Notes</label>
+                <textarea rows={2} value={form.recommendations} onChange={e => setForm(p => ({ ...p, recommendations: e.target.value }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+              </div>
+
+              <div className="pt-2 border-t border-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-gray-400">Tree Samples (sampling-based — not every tree required)</label>
+                  <button type="button" onClick={addSample} className="text-emerald-400 text-xs font-semibold">+ Add tree</button>
+                </div>
+                <div className="space-y-2">
+                  {form.samples.map((s, i) => (
+                    <div key={i} className="bg-gray-800/60 border border-gray-700 rounded-xl p-3 grid grid-cols-6 gap-2 items-center">
+                      <input value={s.treeId} onChange={e => updateSample(i, 'treeId', e.target.value)}
+                        placeholder="Tree ID" className="col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white"/>
+                      <input value={s.species} onChange={e => updateSample(i, 'species', e.target.value)}
+                        placeholder="Species" className="col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white"/>
+                      <input type="number" value={s.height} onChange={e => updateSample(i, 'height', e.target.value)}
+                        placeholder="Height cm" className="col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white"/>
+                      <input type="number" value={s.diameter} onChange={e => updateSample(i, 'diameter', e.target.value)}
+                        placeholder="Diam cm" className="col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white"/>
+                      <select value={s.health} onChange={e => updateSample(i, 'health', e.target.value)}
+                        className="col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white">
+                        {HEALTH_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <div className="col-span-1 flex items-center justify-between gap-1">
+                        <label className="flex items-center gap-1 text-[10px] text-gray-400">
+                          <input type="checkbox" checked={s.survived} onChange={e => updateSample(i, 'survived', e.target.checked)}/>
+                          Alive
+                        </label>
+                        <button type="button" onClick={() => removeSample(i)} className="text-rose-400"><Trash2 className="w-3.5 h-3.5"/></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-800 flex justify-end gap-2 sticky bottom-0 bg-gray-900">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm font-semibold text-gray-400">Cancel</button>
+              <button onClick={submitVisit} disabled={saving}
+                className="px-5 py-2 text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-gray-950 rounded-lg disabled:opacity-60">
+                {saving ? 'Saving…' : 'Save Monitoring Visit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DMRVLayout>
   );
 }

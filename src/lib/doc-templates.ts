@@ -1,15 +1,20 @@
 // src/lib/doc-templates.ts — HTML templates for all farmer documents
 
-function logoHeader() {
+type DocOrg = { name: string; logoUrl?: string | null; email?: string | null };
+const DEFAULT_DOC_ORG: DocOrg = { name: 'BNZ Impact', logoUrl: null, email: null };
+
+function logoHeader(org: DocOrg = DEFAULT_DOC_ORG) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #2d5a1b;padding-bottom:12px;margin-bottom:20px">
-    <div>
-      <div style="font-size:22px;font-weight:900;color:#2d5a1b;letter-spacing:1px">JITO GREEN LEGACY</div>
-      <div style="font-size:11px;color:#5a8a3a;margin-top:2px">A Family Tree Plantation Drive by Mumbai Zone</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${org.logoUrl ? `<img src="${org.logoUrl}" alt="${org.name}" style="height:36px;max-width:120px;object-fit:contain"/>` : ''}
+      <div>
+        <div style="font-size:22px;font-weight:900;color:#2d5a1b;letter-spacing:1px">${org.name.toUpperCase()}</div>
+        <div style="font-size:11px;color:#5a8a3a;margin-top:2px">Tree Plantation & Farmer Documentation</div>
+      </div>
     </div>
-    <div style="text-align:right;font-size:10px;color:#888">
-      <div>Mumbai Zone · JES Wing</div>
-      <div>mumbaizoneJES@jito.org</div>
-    </div>
+    ${org.email ? `<div style="text-align:right;font-size:10px;color:#888">
+      <div>${org.email}</div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -26,11 +31,12 @@ export function generateParticipationAgreement(data: {
   farmerName: string; fatherName?: string; mobile: string;
   aadhaar?: string; village?: string; taluka?: string; district?: string; state?: string;
   surveyNumber?: string; areaAcres?: number; farmerId?: string;
-  date?: string;
+  date?: string; org?: DocOrg;
 }) {
+  const org = data.org || DEFAULT_DOC_ORG;
   const date = data.date || new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' });
   return `<div style="${baseStyle}">
-    ${logoHeader()}
+    ${logoHeader(org)}
     <div style="text-align:center;margin:20px 0">
       <div style="font-size:18px;font-weight:900;color:#2d5a1b;text-transform:uppercase;letter-spacing:2px">Landowner Participation Agreement</div>
       <div style="font-size:11px;color:#888;margin-top:4px">For Tree Plantation, Agroforestry, Afforestation and Environmental Attribute Projects</div>
@@ -39,7 +45,7 @@ export function generateParticipationAgreement(data: {
 
     <div style="${sectionStyle}">
       <p>This Landowner Participation Agreement (<strong>"Agreement"</strong>) is executed on this <strong>${date}</strong> between:</p>
-      <p><strong>FIRST PARTY:</strong> JITO Mumbai Zone, an administrative zone of Jain International Trade Organisation (JITO), Mumbai, Maharashtra (<strong>"Project Authority"</strong>)</p>
+      <p><strong>FIRST PARTY:</strong> ${org.name} (<strong>"Project Authority"</strong>)</p>
       <p><strong>AND</strong></p>
       <p><strong>SECOND PARTY:</strong> <strong>${data.farmerName}</strong>, S/o / D/o / W/o <strong>${data.fatherName || '___________'}</strong>, Mobile: <strong>${data.mobile}</strong>, Aadhaar: <strong>${data.aadhaar ? '••••••••'+data.aadhaar.slice(-4) : '___________'}</strong>, residing at Village: <strong>${data.village||'___'}</strong>, Taluka: <strong>${data.taluka||'___'}</strong>, District: <strong>${data.district||'___'}</strong>, State: <strong>${data.state||'___'}</strong> (<strong>"Landowner"</strong>)</p>
     </div>
@@ -99,7 +105,7 @@ export function generateParticipationAgreement(data: {
       <div>
         <div style="${headingStyle}">PROJECT AUTHORITY</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
-          <div style="font-size:12px"><strong>JITO Mumbai Zone</strong></div>
+          <div style="font-size:12px"><strong>${org.name}</strong></div>
           <div style="font-size:11px;color:#666">Authorised Signatory</div>
           <div style="font-size:11px;color:#666">Date: ___________</div>
         </div>
@@ -113,11 +119,12 @@ export function generateJointOwnerNOC(data: {
   ownerName: string; fatherName?: string; age?: string;
   address?: string; aadhaar?: string;
   surveyNumber?: string; village?: string; taluka?: string; district?: string; areaAcres?: number;
-  primaryOwnerName: string; date?: string;
+  primaryOwnerName: string; date?: string; org?: DocOrg;
 }) {
+  const org = data.org || DEFAULT_DOC_ORG;
   const date = data.date || new Date().toLocaleDateString('hi-IN', { day:'2-digit', month:'long', year:'numeric' });
   return `<div style="${baseStyle}">
-    ${logoHeader()}
+    ${logoHeader(org)}
     <div style="text-align:center;margin:20px 0">
       <div style="font-size:20px;font-weight:900;color:#2d5a1b">अनापत्ति प्रमाण पत्र</div>
       <div style="font-size:14px;color:#555;margin-top:2px">No Objection Certificate</div>
@@ -132,7 +139,7 @@ export function generateJointOwnerNOC(data: {
         <tr><td style="${tdStyle}">${data.surveyNumber||'___'}</td><td style="${tdStyle}">${data.village||'___'}</td><td style="${tdStyle}">${data.taluka||'___'}</td><td style="${tdStyle}">${data.district||'___'}</td><td style="${tdStyle}">${data.areaAcres||'___'} एकड़</td></tr>
       </table>
 
-      <p>मैं अपनी पूर्ण स्वेच्छा एवं बिना किसी दबाव के यह <strong>अनापत्ति (NOC)</strong> प्रदान करता/करती हूँ कि उपरोक्त भूमि पर <strong>JITO मुंबई ज़ोन</strong> द्वारा संचालित वृक्षारोपण, कृषि-वनीकरण (Agroforestry), मियावाकी वन, प्राकृतिक वनीकरण एवं कार्बन क्रेडिट परियोजनाओं के अंतर्गत <strong>श्री/श्रीमती ${data.primaryOwnerName}</strong> द्वारा भूमि का उपयोग किया जा सकता है।</p>
+      <p>मैं अपनी पूर्ण स्वेच्छा एवं बिना किसी दबाव के यह <strong>अनापत्ति (NOC)</strong> प्रदान करता/करती हूँ कि उपरोक्त भूमि पर <strong>${org.name}</strong> द्वारा संचालित वृक्षारोपण, कृषि-वनीकरण (Agroforestry), मियावाकी वन, प्राकृतिक वनीकरण एवं कार्बन क्रेडिट परियोजनाओं के अंतर्गत <strong>श्री/श्रीमती ${data.primaryOwnerName}</strong> द्वारा भूमि का उपयोग किया जा सकता है।</p>
 
       <p>मैं इस बात की पुष्टि करता/करती हूँ कि मुझे इस परियोजना से कोई आपत्ति नहीं है और मैं सभी संबंधित कार्यों में पूर्ण सहयोग प्रदान करूँगा/करूँगी।</p>
     </div>
@@ -154,7 +161,7 @@ export function generateJointOwnerNOC(data: {
       </div>
     </div>
     <p style="font-size:11px;color:#888;margin-top:20px;border-top:1px solid #eee;padding-top:10px">
-      नोट: यह प्रमाण पत्र सभी सम्बंधित पक्षों के हस्ताक्षर के पश्चात् JITO Green Legacy कार्यालय में जमा किया जाना आवश्यक है।
+      नोट: यह प्रमाण पत्र सभी सम्बंधित पक्षों के हस्ताक्षर के पश्चात् ${org.name} कार्यालय में जमा किया जाना आवश्यक है।
     </p>
   </div>`;
 }
@@ -165,13 +172,14 @@ export function generatePaymentReceipt(data: {
   village?: string; district?: string; surveyNumber?: string;
   paymentType: string; amount: number; amountWords?: string;
   paymentMode: string; utrNumber?: string; bankName?: string;
-  paymentDate: string; period?: string; notes?: string;
+  paymentDate: string; period?: string; notes?: string; org?: DocOrg;
 }) {
+  const org = data.org || DEFAULT_DOC_ORG;
   return `<div style="${baseStyle}">
-    ${logoHeader()}
+    ${logoHeader(org)}
     <div style="text-align:center;margin:16px 0">
       <div style="font-size:17px;font-weight:900;color:#2d5a1b;text-transform:uppercase">Farmer Payment Receipt & Acknowledgement</div>
-      <div style="font-size:11px;color:#888">Document No.: JGL/OPS/007</div>
+      <div style="font-size:11px;color:#888">Document No.: DOC/OPS/007</div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -230,19 +238,20 @@ export function generateSaplingReceipt(data: {
   farmerName: string; farmerId?: string; village?: string;
   surveyNumber?: string; date: string; projectName?: string;
   species: Array<{ name: string; qty: number; condition?: string }>;
-  totalSaplings: number; fieldOfficer?: string;
+  totalSaplings: number; fieldOfficer?: string; org?: DocOrg;
 }) {
+  const org = data.org || DEFAULT_DOC_ORG;
   return `<div style="${baseStyle}">
-    ${logoHeader()}
+    ${logoHeader(org)}
     <div style="text-align:center;margin:16px 0">
       <div style="font-size:17px;font-weight:900;color:#2d5a1b;text-transform:uppercase">Sapling Receipt cum Handover Form</div>
-      <div style="font-size:11px;color:#888">Document No.: JGL/OPS/001</div>
+      <div style="font-size:11px;color:#888">Document No.: DOC/OPS/001</div>
     </div>
 
     <div style="${sectionStyle}">
       <div style="${headingStyle}">PROJECT & FARMER DETAILS</div>
       <table style="${tableStyle}">
-        ${[['Farmer Name',data.farmerName],['Farmer ID',data.farmerId||'—'],['Project Name',data.projectName||'JITO Green Legacy'],['Village',data.village||'—'],['Survey No.',data.surveyNumber||'—'],['Date of Distribution',data.date]].map(([k,v])=>`<tr><td style="${tdStyle};color:#666;width:40%">${k}</td><td style="${tdStyle};font-weight:600">${v}</td></tr>`).join('')}
+        ${[['Farmer Name',data.farmerName],['Farmer ID',data.farmerId||'—'],['Project Name',data.projectName||org.name],['Village',data.village||'—'],['Survey No.',data.surveyNumber||'—'],['Date of Distribution',data.date]].map(([k,v])=>`<tr><td style="${tdStyle};color:#666;width:40%">${k}</td><td style="${tdStyle};font-weight:600">${v}</td></tr>`).join('')}
       </table>
     </div>
 
@@ -261,11 +270,11 @@ export function generateSaplingReceipt(data: {
     </div>
 
     <div style="${sectionStyle}">
-      <p style="font-size:13px"><em>I acknowledge receipt of the above saplings in good condition and agree to plant and maintain them in accordance with the JITO Green Legacy Programme.</em></p>
+      <p style="font-size:13px"><em>I acknowledge receipt of the above saplings in good condition and agree to plant and maintain them in accordance with the ${org.name} Programme.</em></p>
     </div>
 
     <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
-      ${[['FARMER','Signature / Thumb Impression',data.farmerName],['FIELD OFFICER','Name & Signature',data.fieldOfficer||''],['AUTHORISED BY','JITO Mumbai Zone','']].map(([label,sub,name])=>`
+      ${[['FARMER','Signature / Thumb Impression',data.farmerName],['FIELD OFFICER','Name & Signature',data.fieldOfficer||''],['AUTHORISED BY',org.name,'']].map(([label,sub,name])=>`
       <div>
         <div style="${headingStyle}">${label}</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
@@ -285,15 +294,17 @@ export function generatePlantationCertificate(data: {
   plantationDate?: string; completionDate?: string;
   species: Array<{ name: string; qty: number }>;
   totalTrees: number; plantationType?: string; fieldOfficer?: string;
-  gpsCoords?: string; date?: string;
+  gpsCoords?: string; projectName?: string; date?: string; org?: DocOrg;
 }) {
+  const org = data.org || DEFAULT_DOC_ORG;
   const date = data.date || new Date().toLocaleDateString('en-IN');
   return `<div style="${baseStyle}">
-    ${logoHeader()}
+    ${logoHeader(org)}
     <div style="text-align:center;margin:16px 0;padding:16px;background:#f6faf3;border:2px solid #2d5a1b;border-radius:8px">
       <div style="font-size:18px;font-weight:900;color:#2d5a1b;text-transform:uppercase">Plantation Completion Certificate</div>
-      <div style="font-size:11px;color:#888">Document No.: JGL/OPS/002 | Issued: ${date}</div>
+      <div style="font-size:11px;color:#888">Document No.: DOC/OPS/002 | Issued: ${date}</div>
       <div style="font-size:11px;color:#888">Farmer ID: ${data.farmerId||'—'} | GIS ID: ${data.gisId||'—'}</div>
+      ${data.projectName ? `<div style="font-size:12px;color:#2d5a1b;font-weight:700;margin-top:4px">${data.projectName}</div>` : ''}
     </div>
 
     <div style="${sectionStyle}">
@@ -313,11 +324,11 @@ export function generatePlantationCertificate(data: {
     </div>
 
     <div style="${sectionStyle};background:#f6faf3;padding:12px;border-radius:8px;border-left:4px solid #2d5a1b">
-      <p style="font-size:13px"><strong>Certification:</strong> This is to certify that the plantation of <strong>${data.totalTrees} trees</strong> has been successfully completed on the above-mentioned land parcel under the JITO Green Legacy Programme. All trees are geo-tagged and will be monitored periodically.</p>
+      <p style="font-size:13px"><strong>Certification:</strong> This is to certify that the plantation of <strong>${data.totalTrees} trees</strong> has been successfully completed on the above-mentioned land parcel under the ${org.name} Programme. All trees are geo-tagged and will be monitored periodically.</p>
     </div>
 
     <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
-      ${[['LANDOWNER',data.farmerName],['FIELD OFFICER',data.fieldOfficer||''],['PROJECT AUTHORITY','JITO Mumbai Zone']].map(([label,name])=>`
+      ${[['LANDOWNER',data.farmerName],['FIELD OFFICER',data.fieldOfficer||''],['PROJECT AUTHORITY',org.name]].map(([label,name])=>`
       <div>
         <div style="${headingStyle}">${label}</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">

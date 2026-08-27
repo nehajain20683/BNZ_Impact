@@ -2,11 +2,85 @@
 // src/app/admin/donations/page.tsx
 // Org-aware: bank details, tree price and ref prefix come from org config
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DollarSign, Plus, Search, Download, Trash2, X, CheckCircle } from 'lucide-react';
+import { DollarSign, Plus, Search, Download, Trash2, X, CheckCircle, MoreVertical, Eye, Mail, Loader2, Upload, AlertCircle } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
+
+function RowActions({ d, onEmailed, onDelete }: { d: any; onEmailed: (msg: string) => void; onDelete: (id: string, name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      if (btnRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + window.scrollY + 4, left: r.right + window.scrollX - 208 }); // 208px = menu width
+    }
+    setOpen(o => !o);
+  }
+
+  async function emailDocuments() {
+    if (!d.donorEmail) { onEmailed('No email on file for this donor'); return; }
+    setSending(true);
+    const res = await fetch('/api/admin/donations/send-email', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ donationId: d.id, type: 'certificate' }),
+    });
+    const data = await res.json();
+    setSending(false);
+    setOpen(false);
+    onEmailed(res.ok ? `Emailed to ${d.donorEmail} ✓` : (data.error || 'Failed to send email'));
+  }
+
+  return (
+    <>
+      <button ref={btnRef} onClick={toggle}
+        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">
+        <MoreVertical className="w-4 h-4"/>
+      </button>
+      {open && typeof document !== 'undefined' && createPortal(
+        <div ref={menuRef} style={{ position: 'absolute', top: pos.top, left: pos.left, width: 208 }}
+          className="bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 text-xs">
+          <a href={`/api/certificates/${d.id}/pdf`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-gray-700">
+            <Eye className="w-3.5 h-3.5 text-gray-400"/> View Certificate
+          </a>
+          <a href={`/api/receipts/${d.id}/pdf`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-gray-700">
+            <Eye className="w-3.5 h-3.5 text-gray-400"/> View Receipt
+          </a>
+          <div className="h-px bg-gray-100 my-1"/>
+          <button onClick={emailDocuments} disabled={sending}
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-gray-700 text-left disabled:opacity-60">
+            {sending ? <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin"/> : <Mail className="w-3.5 h-3.5 text-gray-400"/>}
+            Email Receipt &amp; Certificate
+          </button>
+          <div className="h-px bg-gray-100 my-1"/>
+          <button onClick={() => { setOpen(false); onDelete(d.id, d.donorName); }}
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-500 text-left">
+            <Trash2 className="w-3.5 h-3.5"/> Delete
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
@@ -15,6 +89,195 @@ const STATUS_COLOR: Record<string,string> = {
   PENDING:   'bg-amber-100 text-amber-700',
   FAILED:    'bg-red-100 text-red-700',
 };
+
+// Minimal CSV parser — handles quoted fields with embedded commas, good
+// enough for admin-uploaded spreadsheets without adding a new dependency.
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  function parseLine(line: string): string[] {
+    const cells: string[] = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        cells.push(cur); cur = '';
+      } else cur += ch;
+    }
+    cells.push(cur);
+    return cells.map(c => c.trim());
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, ''));
+  return lines.slice(1).map(line => {
+    const cells = parseLine(line);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = cells[i] || ''; });
+    return row;
+  });
+}
+
+const SAMPLE_CSV = 'donorName,donorEmail,donorMobile,numberOfTrees,amount,campaignSlug,donationDate,paymentMode,notes\nRamesh Shah,ramesh@example.com,9876543210,108,54000,individual,15/03/2025,BANK_TRANSFER,Migrated from old system';
+
+function BulkImportModal({ campaigns, onClose, onSave }: any) {
+  const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState('');
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setError(''); setResult(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = parseCSV(String(reader.result));
+      if (parsed.length === 0) { setError('No valid rows found in this file'); return; }
+      setRows(parsed);
+    };
+    reader.readAsText(file);
+  }
+
+  async function runImport() {
+    if (rows.length === 0) return;
+    setImporting(true); setError(''); setResult(null);
+    setProgress({ done: 0, total: rows.length });
+
+    // Client-side batching so a very large file (thousands of rows) doesn't
+    // hang in one giant request — send in chunks of 500 and accumulate results.
+    const CHUNK = 500;
+    let imported = 0, failed = 0;
+    const allResults: any[] = [];
+
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const slice = rows.slice(i, i + CHUNK).map(r => ({
+        donorName: r.donorname, donorEmail: r.donoremail, donorMobile: r.donormobile,
+        numberOfTrees: r.numberoftrees, amount: r.amount, campaignSlug: r.campaignslug,
+        donationDate: r.donationdate, paymentMode: r.paymentmode, notes: r.notes,
+      }));
+      const res = await fetch('/api/admin/donations/bulk-import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: slice }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Import failed'); setImporting(false); return; }
+      imported += data.imported; failed += data.failed;
+      allResults.push(...data.results);
+      setProgress({ done: Math.min(i + CHUNK, rows.length), total: rows.length });
+    }
+
+    setImporting(false);
+    setResult({ imported, failed, results: allResults });
+    if (imported > 0) onSave();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h3 className="font-bold text-gray-900">Bulk Import Historical Donations</h3>
+            <p className="text-gray-400 text-xs mt-0.5">Creates real Donation + Tree records — imported trees behave exactly like any other donation</p>
+          </div>
+          <button onClick={onClose}><X className="w-5 h-5 text-gray-400"/></button>
+        </div>
+
+        <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5"/> {error}
+            </div>
+          )}
+
+          {!result && (
+            <>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                <strong>Expected columns:</strong> donorName* (required), donorEmail, donorMobile, numberOfTrees* (required),
+                amount (auto-calculated if blank), campaignSlug (defaults to "individual"), donationDate (DD/MM/YYYY),
+                paymentMode, notes.{' '}
+                <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`} download="donation-import-sample.csv"
+                  className="underline font-semibold">Download sample CSV</a>
+              </div>
+
+              <label className="border-2 border-dashed border-gray-200 rounded-xl py-8 flex flex-col items-center justify-center gap-2 text-sm text-gray-500 hover:bg-gray-50 cursor-pointer">
+                <Upload className="w-6 h-6 text-gray-300"/>
+                {fileName || 'Click to select a CSV file'}
+                <input type="file" accept=".csv" className="hidden" onChange={handleFile}/>
+              </label>
+
+              {rows.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">{rows.length} rows found — preview of first 5:</p>
+                  <div className="border border-gray-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50"><tr>
+                        {Object.keys(rows[0]).map(h => <th key={h} className="px-2 py-1.5 text-left text-gray-500 whitespace-nowrap">{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {rows.slice(0, 5).map((r, i) => (
+                          <tr key={i} className="border-t">
+                            {Object.values(r).map((v, j) => <td key={j} className="px-2 py-1.5 text-gray-700 whitespace-nowrap">{v || '—'}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {importing && (
+                <div className="text-center text-sm text-gray-500">Importing {progress.done} / {progress.total}…</div>
+              )}
+            </>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-green-50 rounded-xl p-3 text-center">
+                  <div className="font-bold text-green-700 text-xl">{result.imported}</div>
+                  <div className="text-green-600 text-xs">Imported</div>
+                </div>
+                <div className="bg-red-50 rounded-xl p-3 text-center">
+                  <div className="font-bold text-red-700 text-xl">{result.failed}</div>
+                  <div className="text-red-600 text-xs">Failed</div>
+                </div>
+              </div>
+              {result.failed > 0 && (
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl">
+                  {result.results.filter((r: any) => !r.success).map((r: any) => (
+                    <div key={r.row} className="px-3 py-2 border-b last:border-0 text-xs">
+                      <span className="font-semibold text-gray-700">Row {r.row + 1}:</span> <span className="text-red-600">{r.error}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">
+            {result ? 'Close' : 'Cancel'}
+          </button>
+          {!result && (
+            <button onClick={runImport} disabled={rows.length === 0 || importing}
+              className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+              {importing ? 'Importing…' : `Import ${rows.length || ''} Donations`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ManualEntryModal({ orgConfig, campaigns, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -142,6 +405,7 @@ export default function AdminDonationsPage() {
   const [search, setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showManual, setShowManual]     = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [toast, setToast]         = useState('');
   const [total, setTotal]         = useState(0);
   const role = (session?.user as any)?.role;
@@ -205,11 +469,22 @@ export default function AdminDonationsPage() {
           onSave={() => { load(); showToast('Donation saved ✓'); }}
         />
       )}
+      {showBulkImport && (
+        <BulkImportModal
+          campaigns={campaigns}
+          onClose={() => setShowBulkImport(false)}
+          onSave={() => { load(); showToast('Import complete ✓'); }}
+        />
+      )}
 
       <PageHeader title="Donations" subtitle={`${total} total · ₹${totalAmount.toLocaleString('en-IN')} collected`}>
         <button onClick={() => window.open('/api/admin/export-csv?type=donations','_blank')}
           className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs hover:bg-gray-50">
           <Download className="w-3.5 h-3.5"/> Export CSV
+        </button>
+        <button onClick={() => setShowBulkImport(true)}
+          className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs hover:bg-gray-50">
+          <Upload className="w-3.5 h-3.5"/> Bulk Import
         </button>
         <button onClick={() => setShowManual(true)}
           className="flex items-center gap-2 bg-[var(--admin-primary)] hover:opacity-90 text-white font-bold px-4 py-2 rounded-xl text-sm">
@@ -251,12 +526,12 @@ export default function AdminDonationsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 {['Ref ID','Donor','Campaign','Trees','Amount','Mode','Status','Date','Actions'].map(h => (
-                  <th key={h} className="px-3 py-3 text-left font-semibold">{h}</th>
+                  <th key={h} className="px-3 py-3 text-left font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -291,16 +566,7 @@ export default function AdminDonationsPage() {
                     {new Date(d.createdAt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
                   </td>
                   <td className="px-3 py-2.5">
-                    <div className="flex gap-1">
-                      <Link href={`/certificate?id=${d.id}`} target="_blank"
-                        className="text-[10px] text-[var(--admin-primary)] border border-[var(--admin-primary)]/25 bg-[var(--admin-primary)]/10 px-1.5 py-1 rounded-lg hover:bg-[var(--admin-primary)]/15">
-                        Cert
-                      </Link>
-                      <button onClick={() => deleteDonation(d.id, d.donorName)}
-                        className="text-[10px] text-red-500 border border-red-200 bg-red-50 px-1.5 py-1 rounded-lg hover:bg-red-100">
-                        Del
-                      </button>
-                    </div>
+                    <RowActions d={d} onEmailed={showToast} onDelete={deleteDonation}/>
                   </td>
                 </tr>
               ))}

@@ -71,6 +71,24 @@ export async function POST(req: Request) {
       },
     });
 
+    // Every tenant needs at least one campaign for the public site to show
+    // anything donatable — seed a starter one so a brand-new org is never
+    // empty before Super Admin/Admin configures real campaigns.
+    await prisma.campaign.create({
+      data: {
+        orgId:  org.id,
+        name:   'General Tree Sponsorship',
+        slug:   `${org.slug}-general`,
+        shortName: 'General',
+        subtitle: 'Support our tree plantation programme',
+        description: 'Sponsor trees to support this organisation\'s plantation and carbon-impact programme.',
+        dedicationLabel: 'Someone Special',
+        treePrice: org.tree_price || 500,
+        active: true,
+        displayOrder: 0,
+      },
+    }).catch((e) => console.error('Failed to seed default campaign for new org:', e));
+
     return NextResponse.json({ success: true, org });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

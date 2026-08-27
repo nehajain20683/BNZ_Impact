@@ -22,6 +22,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     donorName:      donation.donorName,
     numberOfTrees:  donation.numberOfTrees,
     campaignName:   donation.campaign.name,
+    isIndividual:   (donation.campaign as any).isIndividual || false,
+    individualMessage: org.individualDonationMessage || undefined,
     dedicationName: donation.dedicationName || undefined,
     date:           donation.createdAt,
     receiptNumber:  donation.receiptNumber!,

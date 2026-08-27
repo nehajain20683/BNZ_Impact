@@ -16,6 +16,10 @@ const SUPER_ADMIN_EMAIL = 'sadmin@bnzgreen.io';
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages:   { signIn: '/auth/login' },
+  // Prints the real reason a sign-in attempt failed (wrong password vs. no
+  // user vs. thrown error) to your terminal — safe to leave on in dev,
+  // should NOT be on in production (it can log sensitive request details).
+  debug: process.env.NODE_ENV !== 'production',
 
   providers: [
     CredentialsProvider({
@@ -32,10 +36,20 @@ export const authOptions: NextAuthOptions = {
             where: { email: credentials.email },
           });
 
-          if (!user || !user.password) return null;
+          if (!user) {
+            console.log(`[auth] No user found for email: "${credentials.email}"`);
+            return null;
+          }
+          if (!user.password) {
+            console.log(`[auth] User "${credentials.email}" has no password set (password column is null)`);
+            return null;
+          }
 
           const isValid = await bcrypt.compare(credentials.password, user.password);
-          if (!isValid) return null;
+          if (!isValid) {
+            console.log(`[auth] Password mismatch for "${credentials.email}"`);
+            return null;
+          }
 
           // Only sadmin@bnzgreen.io may ever hold SUPER_ADMIN. Downgrade any
           // other account that somehow carries that role in the database.

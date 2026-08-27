@@ -21,11 +21,82 @@ const PHASE_COLORS: Record<string,string> = {
 
 const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 
+// Shared status row for any generated/shared document (certificate, sapling
+// receipt, etc.) — same visual language used consistently wherever a
+// document's send/sign/approve status needs to be shown.
+const DOC_STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
+  SHARED:       { color: 'bg-amber-100 text-amber-700', icon: '📤', label: 'Sent — Awaiting Farmer' },
+  ACKNOWLEDGED: { color: 'bg-blue-100 text-blue-700',    icon: '👁️', label: 'Farmer Reviewed' },
+  SIGNED:       { color: 'bg-teal-100 text-teal-700',    icon: '📄', label: 'Signed Copy Received' },
+  COMPLETED:    { color: 'bg-green-100 text-green-700',  icon: '✅', label: 'Approved' },
+};
+
+function DocStatusRow({ doc, onSendAgain, onDelete, sendBusy, deleteBusy }: {
+  doc: any; onSendAgain: () => void; onDelete: () => void; sendBusy?: boolean; deleteBusy?: boolean;
+}) {
+  const cfg = DOC_STATUS_CONFIG[doc.status] || DOC_STATUS_CONFIG.SHARED;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-2 bg-gray-50 rounded-xl px-3 py-2 text-xs">
+      <div className="flex items-center gap-3">
+        <span className="text-gray-400">Generated {new Date(doc.createdAt).toLocaleDateString('en-IN')}</span>
+        <span className={`font-bold px-2 py-1 rounded-full ${cfg.color}`}>{cfg.icon} {cfg.label}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <a href={`/api/farmer/agreements/${doc.id}`} target="_blank" rel="noopener noreferrer"
+          className="text-[var(--admin-primary)] hover:underline font-medium">View</a>
+        {doc.signedPdfUrl && (
+          <a href={doc.signedPdfUrl} target="_blank" rel="noopener noreferrer"
+            className="text-teal-600 hover:underline font-medium">Signed Copy</a>
+        )}
+        <button onClick={onSendAgain} disabled={sendBusy}
+          className="text-[var(--admin-primary)] hover:underline font-medium disabled:opacity-50">
+          {sendBusy ? 'Sending…' : 'Send Again'}
+        </button>
+        <button onClick={onDelete} disabled={deleteBusy}
+          className="text-red-500 hover:underline font-medium disabled:opacity-50">
+          {deleteBusy ? 'Deleting…' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PlantationSiteDetailPage() {
   const { id } = useParams() as { id: string };
   const [site, setSite]       = useState<any>(null);
   const [dash, setDash]       = useState<any>(null);
   const [farmers, setFarmers] = useState<any[]>([]);
+  const [certStatusByFarmer, setCertStatusByFarmer] = useState<Record<string, any>>({});
+  const [saplingStatusByFarmer, setSaplingStatusByFarmer] = useState<Record<string, any>>({});
+  const [docSendBusyKey, setDocSendBusyKey]     = useState<string | null>(null);
+  const [docDeleteBusyKey, setDocDeleteBusyKey] = useState<string | null>(null);
+
+  async function sendDoc(farmerId: string, agreementType: 'PLANTATION_CERTIFICATE' | 'SAPLING_RECEIPT', templateData: any, isResend: boolean) {
+    const key = `${farmerId}-${agreementType}`;
+    setDocSendBusyKey(key);
+    const res = await fetch('/api/admin/agreements', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmerId, agreementType, templateData }),
+    });
+    const data = await res.json();
+    setDocSendBusyKey(null);
+    const label = agreementType === 'PLANTATION_CERTIFICATE' ? 'Certificate' : 'Sapling receipt';
+    if (data.success) {
+      showToast(isResend ? `${label} sent again ✓` : `${label} generated and shared with farmer ✓`);
+      loadSite();
+    } else showToast('Error: ' + data.error);
+  }
+
+  async function deleteDoc(agreementId: string, key: string) {
+    if (!confirm('Delete this document? It will also disappear from the farmer\'s own view.')) return;
+    setDocDeleteBusyKey(key);
+    const res = await fetch(`/api/admin/agreements?agreementId=${agreementId}`, { method: 'DELETE' });
+    const data = await res.json();
+    setDocDeleteBusyKey(null);
+    if (!res.ok) { showToast(data.error || 'Failed to delete'); return; }
+    showToast('Document deleted ✓');
+    loadSite();
+  }
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard'|'farmers'|'activities'|'monitoring'|'documents'|'timeline'>('dashboard');
   const [toast, setToast]     = useState('');
@@ -37,9 +108,10 @@ export default function PlantationSiteDetailPage() {
   const [showActivity, setShowActivity] = useState(false);
   const [showMonitor, setShowMonitor] = useState(false);
   const [assignForm, setAssignForm]   = useState<any>({farmerId:'',landId:'',treesAssigned:'',plantationDate:'',remarks:''});
+  const [selectedFarmerLands, setSelectedFarmerLands] = useState<any[]>([]); // >1 lands → show a picker
   const [activityForm, setActivityForm] = useState<any>({date:'',activityType:'PLANTATION',description:'',team:'',workers:'',treesPlanted:'',treesSurviving:'',assignmentId:'',remarks:'',driveLink:''});
   const [speciesRows, setSpeciesRows]       = useState<{species:string;qty:string}[]>([{species:'',qty:''}]);
-  const [monitorForm, setMonitorForm] = useState<any>({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:''});
+  const [monitorForm, setMonitorForm] = useState<any>({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
   const [farmerSearch, setFarmerSearch] = useState('');
   const [farmerResults, setFarmerResults] = useState<any[]>([]);
 
@@ -55,8 +127,30 @@ export default function PlantationSiteDetailPage() {
       const dd = dRes ? await dRes.json().catch(() => ({})) : {};
       if (sd.site) {
         setSite(sd.site);
-        setFarmers(sd.site.landAssignments || []);
+        const assignments = sd.site.landAssignments || [];
+        setFarmers(assignments);
         setNewPhase(sd.site.currentPhase || 'PLANNING');
+
+        // Document status per farmer — Plantation Certificate and Sapling
+        // Receipt — so admin can see at a glance whether one's already been
+        // generated/shared/signed, right on the card, instead of having to
+        // open each farmer's own detail page. Both come from the same
+        // per-farmer agreements fetch, just filtered by type.
+        const uniqueFarmerIds = [...new Set(assignments.map((a: any) => a.farmerId).filter(Boolean))];
+        const perFarmerAgreements = await Promise.all(uniqueFarmerIds.map(async (fid: any) => {
+          const data = await fetch(`/api/admin/agreements?farmerId=${fid}`).then(r => r.json()).catch(() => ({ agreements: [] }));
+          return [fid, data.agreements || []] as const;
+        }));
+        const certEntries = perFarmerAgreements.map(([fid, agreements]) => {
+          const certs = agreements.filter((a: any) => a.agreementType === 'PLANTATION_CERTIFICATE');
+          return [fid, certs[0] || null]; // most recent first, per the agreements GET's own ordering
+        });
+        const saplingEntries = perFarmerAgreements.map(([fid, agreements]) => {
+          const receipts = agreements.filter((a: any) => a.agreementType === 'SAPLING_RECEIPT');
+          return [fid, receipts[0] || null];
+        });
+        setCertStatusByFarmer(Object.fromEntries(certEntries));
+        setSaplingStatusByFarmer(Object.fromEntries(saplingEntries));
       }
       if (dd.summary) setDash(dd);
     } catch (e) {
@@ -70,18 +164,20 @@ export default function PlantationSiteDetailPage() {
 
   async function searchFarmers() {
     if (farmerSearch.length < 2) return;
-    const res  = await fetch(`/api/admin/farmers?q=${farmerSearch}&status=APPROVED`);
+    const res  = await fetch(`/api/admin/farmers?q=${farmerSearch}&status=VERIFIED_LAND_OWNER`);
     const data = await res.json();
     setFarmerResults(data.farmers || []);
   }
 
   async function assignFarmer() {
+    if (!assignForm.farmerId) { showToast('Select a farmer first'); return; }
+    if (!assignForm.landId) { showToast('Select which land parcel this assignment is for'); return; }
     const res  = await fetch(`/api/admin/plantation-sites/${id}/assignments`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(assignForm),
     });
     const data = await res.json();
-    if (data.success) { showToast('Farmer assigned ✓'); setShowAssign(false); setAssignForm({farmerId:'',landId:'',treesAssigned:'',plantationDate:'',remarks:''}); loadSite(); }
+    if (data.success) { showToast('Farmer assigned ✓'); setShowAssign(false); setAssignForm({farmerId:'',landId:'',treesAssigned:'',plantationDate:'',remarks:''}); setSelectedFarmerLands([]); loadSite(); }
     else showToast('Error: ' + data.error);
   }
 
@@ -108,13 +204,36 @@ export default function PlantationSiteDetailPage() {
   }
 
   async function logMonitoring() {
+    // If a specific farmer/assignment is selected, this visit becomes
+    // visible on their dashboard (assignment.monitoring) and survival % is
+    // calculated against that land's own planted count. With no assignment
+    // selected, it's a site-wide visit calculated against the site total.
+    const selected = farmers.find((a: any) => a.id === monitorForm.assignmentId);
+    const treesPlanted = selected ? selected.treesPlanted : site?.treesPlanted;
     const res  = await fetch(`/api/admin/plantation-sites/${id}/monitoring`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(monitorForm),
+      body: JSON.stringify({ ...monitorForm, farmerId: selected?.farmerId, treesPlanted }),
     });
     const data = await res.json();
-    if (data.success) { showToast('Monitoring logged ✓'); setShowMonitor(false); loadSite(); }
+    if (data.success) {
+      showToast('Monitoring logged ✓'); setShowMonitor(false);
+      setMonitorForm({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
+      loadSite();
+    }
     else showToast('Error: ' + data.error);
+  }
+
+  const [monitorGpsStatus, setMonitorGpsStatus] = useState<'idle'|'detecting'>('idle');
+  function detectMonitorGPS() {
+    if (!navigator.geolocation) { showToast('GPS not available on this device/browser'); return; }
+    setMonitorGpsStatus('detecting');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setMonitorForm((p: any) => ({ ...p, gpsLat: String(pos.coords.latitude), gpsLng: String(pos.coords.longitude) }));
+        setMonitorGpsStatus('idle');
+      },
+      () => { showToast('Could not detect location — enter it manually'); setMonitorGpsStatus('idle'); },
+    );
   }
 
   async function updatePhase() {
@@ -131,6 +250,122 @@ export default function PlantationSiteDetailPage() {
       body: JSON.stringify({ assignmentId, stage }),
     });
     showToast('Stage updated ✓'); loadSite();
+  }
+
+  const [treeAssignTarget, setTreeAssignTarget] = useState<any>(null);
+  const [dataEditTarget, setDataEditTarget] = useState<any>(null); // the "Update Plantation Data" modal
+  const [dataEditForm, setDataEditForm]     = useState<any>({ treesPlanted:'', treesSurviving:'', plantationDate:'', species:[{species:'',qty:''}] });
+  const [dataEditHistory, setDataEditHistory] = useState<any[]>([]);
+  const [dataEditReason, setDataEditReason]   = useState('');
+  const [dataEditBusy, setDataEditBusy]       = useState(false);
+  const [showDataHistory, setShowDataHistory] = useState(false);
+
+  async function openDataEdit(assignment: any) {
+    setDataEditTarget(assignment);
+    setDataEditReason('');
+    setShowDataHistory(false);
+    const existingSpecies = Array.isArray(assignment.speciesPlanted) && assignment.speciesPlanted.length
+      ? assignment.speciesPlanted.map((s: any) => ({ species: s.species, qty: String(s.qty) }))
+      : [{ species: '', qty: '' }];
+    setDataEditForm({
+      treesPlanted: String(assignment.treesPlanted ?? ''),
+      treesSurviving: String(assignment.treesSurviving ?? ''),
+      plantationDate: assignment.plantationDate ? new Date(assignment.plantationDate).toISOString().slice(0,10) : '',
+      species: existingSpecies,
+    });
+    const data = await fetch(`/api/admin/land-assignments/${assignment.id}/plantation-data`).then(r => r.json()).catch(() => null);
+    if (data?.history) setDataEditHistory(data.history);
+  }
+
+  async function saveDataEdit() {
+    if (!dataEditTarget) return;
+    setDataEditBusy(true);
+    const res = await fetch(`/api/admin/land-assignments/${dataEditTarget.id}/plantation-data`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        treesPlanted: dataEditForm.treesPlanted,
+        treesSurviving: dataEditForm.treesSurviving,
+        plantationDate: dataEditForm.plantationDate || null,
+        speciesPlanted: dataEditForm.species.filter((s: any) => s.species && s.qty),
+        reason: dataEditReason || undefined,
+      }),
+    });
+    const data = await res.json();
+    setDataEditBusy(false);
+    if (!res.ok) { showToast(data.error || 'Failed to save'); return; }
+    showToast('Plantation data updated ✓');
+    setDataEditTarget(null);
+    loadSite();
+  }
+
+  const [treeAssignCount, setTreeAssignCount]   = useState('');
+  const [treeAssignAvailable, setTreeAssignAvailable] = useState<number | null>(null);
+  const [treeAssignBusy, setTreeAssignBusy]     = useState(false);
+  const [treeAssignSpecies, setTreeAssignSpecies] = useState('');
+
+  async function openTreeAssign(assignment: any) {
+    setTreeAssignTarget(assignment);
+    setTreeAssignCount('');
+    setTreeAssignAvailable(null);
+    setTreeAssignSpecies('');
+    const data = await fetch(`/api/admin/land-assignments/${assignment.id}/assign-trees`).then(r => r.json()).catch(() => null);
+    if (data) setTreeAssignAvailable(data.availableCount);
+  }
+
+  async function confirmTreeAssign() {
+    if (!treeAssignTarget) return;
+    const n = parseInt(treeAssignCount);
+    if (!n || n < 1) { showToast('Enter a valid number of trees'); return; }
+    setTreeAssignBusy(true);
+    const res = await fetch(`/api/admin/land-assignments/${treeAssignTarget.id}/assign-trees`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count: n, species: treeAssignSpecies || undefined }),
+    });
+    const data = await res.json();
+    setTreeAssignBusy(false);
+    if (!res.ok) { showToast(data.error || 'Failed to assign trees'); return; }
+    showToast(`${data.assignedCount} sponsored trees linked to this land ✓${data.shortfall ? ` (${data.shortfall} short — not enough unassigned trees available)` : ''}`);
+    setTreeAssignTarget(null);
+    loadSite();
+  }
+
+  const [backfillBusyId, setBackfillBusyId] = useState<string | null>(null);
+  async function backfillTags(assignment: any) {
+    setBackfillBusyId(assignment.id);
+    const res = await fetch(`/api/admin/land-assignments/${assignment.id}/backfill-tags`, { method: 'POST' });
+    const data = await res.json();
+    setBackfillBusyId(null);
+    if (!res.ok) { showToast(data.error || 'Failed to generate tags'); return; }
+    showToast(data.taggedCount > 0 ? `Generated tags for ${data.taggedCount} trees ✓` : (data.message || 'Nothing to do — all trees already tagged.'));
+    loadSite();
+  }
+
+  const [speciesFixTarget, setSpeciesFixTarget] = useState<any>(null);
+  const [speciesFixForm, setSpeciesFixForm]     = useState({ species: '', count: '' });
+  const [speciesFixUnlabeled, setSpeciesFixUnlabeled] = useState<number | null>(null);
+  const [speciesFixBusy, setSpeciesFixBusy]     = useState(false);
+
+  async function openSpeciesFix(assignment: any) {
+    setSpeciesFixTarget(assignment);
+    setSpeciesFixForm({ species: '', count: '' });
+    setSpeciesFixUnlabeled(null);
+    const data = await fetch(`/api/admin/land-assignments/${assignment.id}/assign-species`).then(r => r.json()).catch(() => null);
+    if (data) setSpeciesFixUnlabeled(data.unlabeledCount);
+  }
+
+  async function confirmSpeciesFix() {
+    if (!speciesFixTarget || !speciesFixForm.species) { showToast('Select a species'); return; }
+    setSpeciesFixBusy(true);
+    const res = await fetch(`/api/admin/land-assignments/${speciesFixTarget.id}/assign-species`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ species: speciesFixForm.species, count: speciesFixForm.count || undefined }),
+    });
+    const data = await res.json();
+    setSpeciesFixBusy(false);
+    if (!res.ok) { showToast(data.error || 'Failed to update species'); return; }
+    showToast(data.updatedCount > 0 ? `Updated ${data.updatedCount} trees to ${speciesFixForm.species} ✓` : (data.message || 'Nothing to update.'));
+    setSpeciesFixTarget(null);
+    loadSite();
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading site…</div>;
@@ -150,7 +385,7 @@ export default function PlantationSiteDetailPage() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
             <div className="flex justify-between mb-4">
               <h3 className="font-bold text-gray-900">Assign Farmer Land</h3>
-              <button onClick={()=>setShowAssign(false)}><X className="w-5 h-5 text-gray-400"/></button>
+              <button onClick={() => { setShowAssign(false); setSelectedFarmerLands([]); }}><X className="w-5 h-5 text-gray-400"/></button>
             </div>
             <div className="space-y-3">
               <div>
@@ -165,7 +400,8 @@ export default function PlantationSiteDetailPage() {
                   <div className="border border-gray-200 rounded-xl mt-1 max-h-40 overflow-y-auto">
                     {farmerResults.map((f:any)=>(
                       <button key={f.id} onClick={()=>{
-                        setAssignForm((p:any)=>({...p,farmerId:f.id,landId:f.lands?.[0]?.id||''}));
+                        setAssignForm((p:any)=>({...p,farmerId:f.id,landId:f.lands?.length===1?f.lands[0].id:''}));
+                        setSelectedFarmerLands(f.lands || []);
                         setFarmerResults([]);
                         setFarmerSearch(f.fullName);
                       }} className="w-full text-left px-3 py-2 hover:bg-[var(--admin-primary)]/10 text-sm border-b last:border-0">
@@ -176,6 +412,23 @@ export default function PlantationSiteDetailPage() {
                   </div>
                 )}
               </div>
+              {selectedFarmerLands.length > 1 && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Which Land Parcel? *</label>
+                  <div className="space-y-1.5">
+                    {selectedFarmerLands.map((l: any) => (
+                      <button key={l.id} type="button"
+                        onClick={() => setAssignForm((p: any) => ({ ...p, landId: l.id }))}
+                        className={`w-full text-left px-3 py-2 rounded-xl border-2 text-sm transition-colors ${
+                          assignForm.landId === l.id ? 'border-[var(--admin-primary)] bg-[var(--admin-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <span className="font-medium text-gray-900">Survey {l.surveyGutNumber || '—'}</span>
+                        <span className="text-gray-400 text-xs ml-2">{l.areaAcres ? `${l.areaAcres} acres` : ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-1">This farmer has {selectedFarmerLands.length} land parcels — pick which one this assignment is for.</p>
+                </div>
+              )}
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Trees to Assign *</label>
                 <input type="number" value={assignForm.treesAssigned} onChange={e=>setAssignForm((p:any)=>({...p,treesAssigned:e.target.value}))} className={inp}/></div>
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Plantation Date</label>
@@ -184,7 +437,7 @@ export default function PlantationSiteDetailPage() {
                 <input value={assignForm.remarks} onChange={e=>setAssignForm((p:any)=>({...p,remarks:e.target.value}))} className={inp}/></div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={()=>setShowAssign(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
+              <button onClick={() => { setShowAssign(false); setSelectedFarmerLands([]); }} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
               <button onClick={assignFarmer} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Assign</button>
             </div>
           </div>
@@ -194,12 +447,12 @@ export default function PlantationSiteDetailPage() {
       {/* Activity Modal */}
       {showActivity && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
-            <div className="flex justify-between mb-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="font-bold text-gray-900">Log Plantation Activity</h3>
               <button onClick={()=>setShowActivity(false)}><X className="w-5 h-5 text-gray-400"/></button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 px-6 py-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-xs font-medium text-gray-600 block mb-1">Date *</label>
                   <input type="date" value={activityForm.date} onChange={e=>setActivityForm((p:any)=>({...p,date:e.target.value}))} className={inp}/></div>
@@ -290,9 +543,215 @@ export default function PlantationSiteDetailPage() {
               <div><label className="text-xs font-medium text-gray-600 block mb-1">Description / Remarks</label>
                 <textarea value={activityForm.description} onChange={e=>setActivityForm((p:any)=>({...p,description:e.target.value}))} className={inp} rows={2}/></div>
             </div>
-            <div className="flex gap-3 mt-5">
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
               <button onClick={()=>setShowActivity(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
               <button onClick={logActivity} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Activity</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Sponsored Trees Modal */}
+      {treeAssignTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-bold text-gray-900">Link Sponsored Trees</h3>
+              <button onClick={() => setTreeAssignTarget(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-500 text-xs mb-4">
+              {treeAssignTarget.farmer?.fullName}'s land — pulls the oldest unassigned, already-paid-for trees in your
+              organisation's pool and links them to this specific farmer/land, so donors can see exactly whose land
+              their tree is growing on.
+            </p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700 mb-4">
+              {treeAssignAvailable === null ? 'Checking available trees…' : `${treeAssignAvailable} sponsored trees currently unassigned across your organisation`}
+            </div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">How many trees to link?</label>
+            <input type="number" value={treeAssignCount} onChange={e => setTreeAssignCount(e.target.value)}
+              placeholder={`e.g. ${treeAssignTarget.treesAssigned || 10}`}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Species (optional)</label>
+            {Array.isArray(treeAssignTarget.speciesPlanted) && treeAssignTarget.speciesPlanted.length > 0 ? (
+              <select value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40">
+                <option value="">Unspecified</option>
+                {treeAssignTarget.speciesPlanted.map((s: any) => (
+                  <option key={s.species} value={s.species}>{s.species} ({s.qty} planted on this land)</option>
+                ))}
+              </select>
+            ) : (
+              <input value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
+                placeholder="e.g. Mango — no species breakdown recorded yet for this land"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
+            )}
+            <p className="text-gray-400 text-[11px] mb-4">
+              All trees linked in this action are tagged as this one species — link in separate batches if this group is mixed.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setTreeAssignTarget(null)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
+              <button onClick={confirmTreeAssign} disabled={treeAssignBusy}
+                className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+                {treeAssignBusy ? 'Linking…' : 'Link Trees'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fix Tree Species Modal — corrects/fills in species on already-linked trees */}
+      {speciesFixTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-bold text-gray-900">Fix Tree Species</h3>
+              <button onClick={() => setSpeciesFixTarget(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-gray-500 text-xs mb-4">
+              {speciesFixTarget.farmer?.fullName}'s land — assigns a species to trees that are already linked but
+              have no species set yet (linked before this feature existed, or need correcting).
+            </p>
+            <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 text-xs text-teal-700 mb-4">
+              {speciesFixUnlabeled === null ? 'Checking…' : `${speciesFixUnlabeled} linked trees currently have no species set`}
+            </div>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">Species *</label>
+            {Array.isArray(speciesFixTarget.speciesPlanted) && speciesFixTarget.speciesPlanted.length > 0 ? (
+              <select value={speciesFixForm.species} onChange={e => setSpeciesFixForm(p => ({ ...p, species: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-teal-300">
+                <option value="">Select…</option>
+                {speciesFixTarget.speciesPlanted.map((s: any) => (
+                  <option key={s.species} value={s.species}>{s.species} ({s.qty} planted on this land)</option>
+                ))}
+              </select>
+            ) : (
+              <input value={speciesFixForm.species} onChange={e => setSpeciesFixForm(p => ({ ...p, species: e.target.value }))}
+                placeholder="e.g. Mango"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-teal-300"/>
+            )}
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">How many trees? <span className="text-gray-400">(leave blank for all unlabeled)</span></label>
+            <input type="number" value={speciesFixForm.count} onChange={e => setSpeciesFixForm(p => ({ ...p, count: e.target.value }))}
+              placeholder={speciesFixUnlabeled ? `e.g. ${speciesFixUnlabeled}` : ''}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-teal-300"/>
+
+            <div className="flex gap-2">
+              <button onClick={() => setSpeciesFixTarget(null)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
+              <button onClick={confirmSpeciesFix} disabled={speciesFixBusy}
+                className="flex-1 bg-teal-600 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+                {speciesFixBusy ? 'Updating…' : 'Update Species'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Plantation Data Modal — explicit, correctable, traceable */}
+      {dataEditTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h3 className="font-bold text-gray-900">Update Plantation Data</h3>
+                <p className="text-gray-400 text-xs mt-0.5">{dataEditTarget.farmer?.fullName} — sets the real numbers directly, separate from the Activity Log</p>
+              </div>
+              <button onClick={() => setDataEditTarget(null)}><X className="w-5 h-5 text-gray-400"/></button>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto flex-1 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Trees Planted</label>
+                  <input type="number" value={dataEditForm.treesPlanted}
+                    onChange={e => setDataEditForm((p: any) => ({ ...p, treesPlanted: e.target.value }))} className={inp}/>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Trees Surviving</label>
+                  <input type="number" value={dataEditForm.treesSurviving}
+                    onChange={e => setDataEditForm((p: any) => ({ ...p, treesSurviving: e.target.value }))} className={inp}/>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Plantation Date</label>
+                <input type="date" value={dataEditForm.plantationDate}
+                  onChange={e => setDataEditForm((p: any) => ({ ...p, plantationDate: e.target.value }))} className={inp}/>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-2">Species Breakdown</label>
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr><th className="px-3 py-2 text-left text-gray-500">Species</th><th className="px-3 py-2 text-left text-gray-500">Quantity</th><th className="px-3 py-2 w-8"></th></tr>
+                    </thead>
+                    <tbody>
+                      {dataEditForm.species.map((row: any, i: number) => (
+                        <tr key={i} className="border-t">
+                          <td className="px-2 py-1.5">
+                            <input value={row.species}
+                              onChange={e => setDataEditForm((p: any) => ({ ...p, species: p.species.map((r: any, j: number) => j === i ? { ...r, species: e.target.value } : r) }))}
+                              placeholder="e.g. Mango, Neem, Teak"
+                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-full focus:outline-none focus:ring-1 focus:ring-[var(--admin-primary)]/40"/>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input type="number" value={row.qty}
+                              onChange={e => setDataEditForm((p: any) => ({ ...p, species: p.species.map((r: any, j: number) => j === i ? { ...r, qty: e.target.value } : r) }))}
+                              placeholder="0"
+                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-[var(--admin-primary)]/40"/>
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button onClick={() => setDataEditForm((p: any) => ({ ...p, species: p.species.filter((_: any, j: number) => j !== i) }))}
+                              className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="px-3 py-2 border-t bg-gray-50">
+                    <button onClick={() => setDataEditForm((p: any) => ({ ...p, species: [...p.species, { species: '', qty: '' }] }))}
+                      className="text-[var(--admin-primary)] text-xs font-semibold hover:underline">+ Add Species</button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Reason for this change <span className="text-gray-400">(optional, shown in history)</span></label>
+                <input value={dataEditReason} onChange={e => setDataEditReason(e.target.value)} className={inp} placeholder="e.g. Correcting earlier data entry error"/>
+              </div>
+
+              {dataEditHistory.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <button onClick={() => setShowDataHistory(s => !s)} className="text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDataHistory ? 'rotate-180' : ''}`}/>
+                    Change History ({dataEditHistory.length})
+                  </button>
+                  {showDataHistory && (
+                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                      {dataEditHistory.map((h: any) => (
+                        <div key={h.id} className="bg-gray-50 rounded-lg p-2 text-[11px]">
+                          <div className="text-gray-400">{new Date(h.createdAt).toLocaleString('en-IN')}</div>
+                          {h.details?.before?.treesPlanted !== undefined && (
+                            <div className="text-gray-600">Trees Planted: {h.details.before.treesPlanted} → <strong>{h.details.after.treesPlanted}</strong></div>
+                          )}
+                          {h.details?.before?.treesSurviving !== undefined && (
+                            <div className="text-gray-600">Trees Surviving: {h.details.before.treesSurviving} → <strong>{h.details.after.treesSurviving}</strong></div>
+                          )}
+                          {h.details?.reason && <div className="text-gray-500 italic mt-0.5">"{h.details.reason}"</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+              <button onClick={() => setDataEditTarget(null)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
+              <button onClick={saveDataEdit} disabled={dataEditBusy}
+                className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
+                {dataEditBusy ? 'Saving…' : '✓ Save Plantation Data'}
+              </button>
             </div>
           </div>
         </div>
@@ -301,31 +760,71 @@ export default function PlantationSiteDetailPage() {
       {/* Monitoring Modal */}
       {showMonitor && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
-            <div className="flex justify-between mb-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="font-bold text-gray-900">Log Monitoring Visit</h3>
               <button onClick={()=>setShowMonitor(false)}><X className="w-5 h-5 text-gray-400"/></button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 px-6 py-4 overflow-y-auto flex-1">
               <div className="col-span-2"><label className="text-xs font-medium text-gray-600 block mb-1">Visit Date *</label>
                 <input type="date" value={monitorForm.visitDate} onChange={e=>setMonitorForm((p:any)=>({...p,visitDate:e.target.value}))} className={inp}/></div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 block mb-1">Farmer / Assignment</label>
+                <select value={monitorForm.assignmentId} onChange={e=>setMonitorForm((p:any)=>({...p,assignmentId:e.target.value}))} className={inp}>
+                  <option value="">All / Site-wide (not tied to a specific farmer)</option>
+                  {farmers.map((a:any)=>(
+                    <option key={a.id} value={a.id}>{a.farmer?.fullName} — {a.treesPlanted} planted</option>
+                  ))}
+                </select>
+                <p className="text-gray-400 text-[10px] mt-1">Selecting a farmer makes this visit visible on their own dashboard, and calculates survival % against their land's planted count.</p>
+              </div>
               {[['survivalCount','Survival Count','number'],['deadTrees','Dead Trees','number'],
-                ['avgHeight','Avg Height (cm)','number'],['gpsLat','GPS Latitude','number'],['gpsLng','GPS Longitude','number']].map(([k,l,t])=>(
+                ['avgHeight','Avg Height (cm)','number']].map(([k,l,t])=>(
                 <div key={k as string}><label className="text-xs font-medium text-gray-600 block mb-1">{l}</label>
                   <input type={t as string} value={monitorForm[k as string]} onChange={e=>setMonitorForm((p:any)=>({...p,[k]:e.target.value}))} className={inp}/></div>
               ))}
+              <div className="col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-600">GPS Location</label>
+                  <button type="button" onClick={detectMonitorGPS} disabled={monitorGpsStatus === 'detecting'}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[var(--admin-primary)] hover:underline disabled:opacity-60">
+                    <MapPin className="w-3 h-3"/> {monitorGpsStatus === 'detecting' ? 'Detecting…' : 'Detect Automatically'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-[10px] text-gray-400 block mb-1">GPS Latitude</label>
+                    <input type="number" value={monitorForm.gpsLat} onChange={e=>setMonitorForm((p:any)=>({...p,gpsLat:e.target.value}))} className={inp}/></div>
+                  <div><label className="text-[10px] text-gray-400 block mb-1">GPS Longitude</label>
+                    <input type="number" value={monitorForm.gpsLng} onChange={e=>setMonitorForm((p:any)=>({...p,gpsLng:e.target.value}))} className={inp}/></div>
+                </div>
+                <p className="text-gray-400 text-[10px] mt-1">Detected automatically when available — you can still type or correct it manually.</p>
+              </div>
               <div className="col-span-2"><label className="text-xs font-medium text-gray-600 block mb-1">Disease / Issues</label>
                 <textarea value={monitorForm.diseaseNotes} onChange={e=>setMonitorForm((p:any)=>({...p,diseaseNotes:e.target.value}))} className={inp} rows={2}/></div>
               <div className="col-span-2"><label className="text-xs font-medium text-gray-600 block mb-1">Recommendations</label>
                 <textarea value={monitorForm.recommendations} onChange={e=>setMonitorForm((p:any)=>({...p,recommendations:e.target.value}))} className={inp} rows={2}/></div>
-            </div>
-            {monitorForm.survivalCount && site.treesPlanted && (
-              <div className="mt-3 bg-[var(--admin-primary)]/10 rounded-xl p-3 text-sm">
-                <strong>Survival: {Math.round(parseInt(monitorForm.survivalCount)/site.treesPlanted*100)}%</strong>
-                · Mortality: {Math.round((1-parseInt(monitorForm.survivalCount)/site.treesPlanted)*100)}%
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  📸 Google Drive / Photos &amp; Videos Link <span className="text-gray-400">(optional)</span>
+                </label>
+                <input type="url" value={monitorForm.driveLink} onChange={e=>setMonitorForm((p:any)=>({...p,driveLink:e.target.value}))}
+                  className={inp} placeholder="https://drive.google.com/drive/folders/..."/>
+                <p className="text-gray-400 text-xs mt-0.5">Paste a shared Google Drive folder or Google Photos album link for this visit</p>
               </div>
-            )}
-            <div className="flex gap-3 mt-5">
+            </div>
+            {monitorForm.survivalCount && (() => {
+              const selected = farmers.find((a: any) => a.id === monitorForm.assignmentId);
+              const denominator = selected ? selected.treesPlanted : site.treesPlanted;
+              if (!denominator) return null;
+              const pct = Math.round(parseInt(monitorForm.survivalCount) / denominator * 100);
+              return (
+                <div className="mx-6 mb-2 bg-[var(--admin-primary)]/10 rounded-xl p-3 text-sm flex-shrink-0">
+                  <strong>Survival: {pct}%</strong> · Mortality: {100 - pct}%
+                  <span className="text-gray-400 text-xs ml-1">(of {denominator} {selected ? "this farmer's" : 'site'} planted trees)</span>
+                </div>
+              );
+            })()}
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
               <button onClick={()=>setShowMonitor(false)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
               <button onClick={logMonitoring} className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm">✓ Log Visit</button>
             </div>
@@ -519,7 +1018,7 @@ export default function PlantationSiteDetailPage() {
                     {a.land && <div className="text-gray-400 text-xs mt-0.5">Survey: {a.land.surveyGutNumber||'—'} · {a.land.areaAcres} acres · {a.land.village}</div>}
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-[var(--admin-primary)] text-sm">{a.treesAssigned} trees</div>
+                    <div className="font-bold text-[var(--admin-primary)] text-sm">{a.treesAssigned} trees assigned</div>
                     <select value={a.stage} onChange={e=>updateStage(a.id, e.target.value)}
                       className="mt-1 text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none">
                       {LAND_STAGES.map(s=><option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
@@ -531,37 +1030,87 @@ export default function PlantationSiteDetailPage() {
                   <div><span className="text-gray-400">Surviving: </span><span className="font-medium text-green-600">{a.treesSurviving}</span></div>
                   <div><span className="text-gray-400">Date: </span><span className="font-medium">{a.plantationDate?new Date(a.plantationDate).toLocaleDateString('en-IN'):'—'}</span></div>
                 </div>
-                {/* Plantation Completion Certificate */}
-                {a.treesPlanted > 0 && (
-                  <div className="mt-2">
-                    <button
-                      onClick={async () => {
-                        const res = await fetch('/api/admin/agreements', {
-                          method: 'POST', headers: {'Content-Type':'application/json'},
-                          body: JSON.stringify({
-                            farmerId: a.farmerId,
-                            agreementType: 'PLANTATION_CERTIFICATE',
-                            templateData: {
-                              totalTrees:       a.treesPlanted,
-                              plantationDate:   a.plantationDate || new Date().toISOString().split('T')[0],
-                              plantationType:   site.currentPhase,
-                              fieldOfficer:     site.fieldOfficerId || '',
-                              species:          (a.speciesPlanted as any[])?.map((s:any)=>({name:s.species, qty:s.qty})) || [],
-                              completionDate:   new Date().toISOString().split('T')[0],
-                            },
-                          }),
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                          showToast('Certificate generated and shared with farmer ✓');
-                          if (data.agreement?.id) window.open(`/api/farmer/agreements/${data.agreement.id}`, '_blank');
-                        } else showToast('Error: ' + data.error);
-                      }}
-                      className="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 font-medium">
-                      🏆 Generate Plantation Certificate
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={() => openTreeAssign(a)}
+                    className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                    <Plus className="w-3.5 h-3.5"/> Link Sponsored Trees ({a._count?.trees || 0} linked)
+                  </button>
+                  {a._count?.trees > 0 && (
+                    <button onClick={() => backfillTags(a)} disabled={backfillBusyId === a.id}
+                      className="flex items-center gap-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg hover:bg-purple-100 font-medium disabled:opacity-60">
+                      <Search className="w-3.5 h-3.5"/> {backfillBusyId === a.id ? 'Generating…' : 'Generate Missing Tags'}
                     </button>
-                  </div>
-                )}
+                  )}
+                  {a._count?.trees > 0 && (
+                    <button onClick={() => openSpeciesFix(a)}
+                      className="flex items-center gap-1.5 text-xs bg-teal-50 text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-100 font-medium">
+                      <Leaf className="w-3.5 h-3.5"/> Fix Tree Species
+                    </button>
+                  )}
+                  <button onClick={() => openDataEdit(a)}
+                    className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 font-medium">
+                    <Edit className="w-3.5 h-3.5"/> Update Plantation Data
+                  </button>
+                </div>
+                {/* Sapling Receipt cum Handover — shown first, before the certificate */}
+                {a.treesAssigned > 0 && (() => {
+                  const receipt = saplingStatusByFarmer[a.farmerId];
+                  const key = `${a.farmerId}-SAPLING_RECEIPT`;
+                  const buildData = () => ({
+                    date:           new Date().toISOString().split('T')[0],
+                    projectName:    site.siteName,
+                    species:        (a.speciesPlanted as any[])?.map((s:any)=>({name:s.species, qty:s.qty})) || [],
+                    totalSaplings:  a.treesAssigned,
+                    fieldOfficer:   site.fieldOfficerId || '',
+                  });
+                  return (
+                    <div className="mt-2">
+                      {receipt ? (
+                        <DocStatusRow doc={receipt}
+                          onSendAgain={() => sendDoc(a.farmerId, 'SAPLING_RECEIPT', buildData(), true)}
+                          onDelete={() => deleteDoc(receipt.id, key)}
+                          sendBusy={docSendBusyKey === key} deleteBusy={docDeleteBusyKey === key}/>
+                      ) : (
+                        <button onClick={() => sendDoc(a.farmerId, 'SAPLING_RECEIPT', buildData(), false)}
+                          disabled={docSendBusyKey === key}
+                          className="flex items-center gap-1.5 text-xs bg-lime-600 text-white px-3 py-1.5 rounded-lg hover:bg-lime-700 font-medium disabled:opacity-60">
+                          🌱 {docSendBusyKey === key ? 'Sending…' : 'Generate Sapling Receipt'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Plantation Completion Certificate */}
+                {a.treesPlanted > 0 && (() => {
+                  const cert = certStatusByFarmer[a.farmerId];
+                  const key = `${a.farmerId}-PLANTATION_CERTIFICATE`;
+                  const buildData = () => ({
+                    totalTrees:       a.treesPlanted,
+                    plantationDate:   a.plantationDate || new Date().toISOString().split('T')[0],
+                    plantationType:   site.currentPhase,
+                    fieldOfficer:     site.fieldOfficerId || '',
+                    species:          (a.speciesPlanted as any[])?.map((s:any)=>({name:s.species, qty:s.qty})) || [],
+                    completionDate:   new Date().toISOString().split('T')[0],
+                    projectName:      site.siteName,
+                  });
+                  return (
+                    <div className="mt-2">
+                      {cert ? (
+                        <DocStatusRow doc={cert}
+                          onSendAgain={() => sendDoc(a.farmerId, 'PLANTATION_CERTIFICATE', buildData(), true)}
+                          onDelete={() => deleteDoc(cert.id, key)}
+                          sendBusy={docSendBusyKey === key} deleteBusy={docDeleteBusyKey === key}/>
+                      ) : (
+                        <button onClick={() => sendDoc(a.farmerId, 'PLANTATION_CERTIFICATE', buildData(), false)}
+                          disabled={docSendBusyKey === key}
+                          className="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-60">
+                          🏆 {docSendBusyKey === key ? 'Sending…' : 'Generate Plantation Certificate'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* GIS Info from farmer land */}
                 {a.land?.gpsLatitude && (
                   <div className="mt-2 flex items-center gap-2">
@@ -655,22 +1204,36 @@ export default function PlantationSiteDetailPage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <tr>{['Date','Survival','Dead','Height','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+                  <tr>{['Date','Farmer','Survival','Dead','Height','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {(site.monitoringVisits||[]).map((v:any)=>(
                     <tr key={v.id} className="border-t hover:bg-gray-50">
                       <td className="px-4 py-2 text-gray-500 text-xs">{new Date(v.visitDate).toLocaleDateString('en-IN')}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {v.assignmentId
+                          ? <span className="text-gray-700 font-medium">{farmers.find((a:any)=>a.id===v.assignmentId)?.farmer?.fullName || 'Farmer'}</span>
+                          : <span className="text-gray-400 italic">Site-wide</span>}
+                      </td>
                       <td className="px-4 py-2 font-semibold text-green-700">{v.survivalCount??'—'}</td>
                       <td className="px-4 py-2 text-red-500">{v.deadTrees??'—'}</td>
                       <td className="px-4 py-2 text-gray-600">{v.avgHeight ? `${v.avgHeight} cm` : '—'}</td>
                       <td className="px-4 py-2"><span className={`font-bold ${(v.survivalPct||0)>=85?'text-green-600':'text-amber-600'}`}>{v.survivalPct ? `${v.survivalPct}%` : '—'}</span></td>
                       <td className="px-4 py-2 text-red-500">{v.mortalityPct ? `${v.mortalityPct}%` : '—'}</td>
                       <td className="px-4 py-2 text-gray-400 text-xs">{v.gpsLat ? `${v.gpsLat?.toFixed(4)}, ${v.gpsLng?.toFixed(4)}` : '—'}</td>
-                      <td className="px-4 py-2 text-gray-400 text-xs max-w-[150px] truncate">{v.recommendations||v.diseaseNotes||'—'}</td>
+                      <td className="px-4 py-2 text-gray-500 text-xs max-w-[220px]">
+                        <div className="max-h-16 overflow-y-auto whitespace-pre-wrap pr-1 space-y-1">
+                          {v.diseaseNotes && <div><span className="font-semibold text-red-600">Disease/Issues:</span> {v.diseaseNotes}</div>}
+                          {v.recommendations && <div><span className="font-semibold text-gray-600">Recommendations:</span> {v.recommendations}</div>}
+                          {!v.diseaseNotes && !v.recommendations && '—'}
+                        </div>
+                        {v.driveLink && (
+                          <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="text-[var(--admin-primary)] text-[10px] hover:underline block mt-0.5">📸 Photos/Videos →</a>
+                        )}
+                      </td>
                     </tr>
                   ))}
-                  {!(site.monitoringVisits?.length) && <tr><td colSpan={8} className="text-center py-8 text-gray-400">No monitoring visits</td></tr>}
+                  {!(site.monitoringVisits?.length) && <tr><td colSpan={9} className="text-center py-8 text-gray-400">No monitoring visits</td></tr>}
                 </tbody>
               </table>
             </div>
