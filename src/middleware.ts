@@ -53,6 +53,15 @@ export default withAuth(
     });
   },
   {
+    // Passed explicitly rather than relying on next-auth/middleware's
+    // automatic detection. Middleware runs in Vercel's Edge Runtime — a
+    // genuinely separate execution environment from the Node.js functions
+    // that create the session during login — and auto-detection of the
+    // secret and of secure-cookie naming (__Secure- prefix) has a known
+    // failure mode there: the session looks valid everywhere else, but
+    // getToken() here treats it as absent, sending every request back to
+    // the login page with a callbackUrl. Being explicit removes that gap.
+    secret: process.env.NEXTAUTH_SECRET,
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
