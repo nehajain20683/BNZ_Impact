@@ -58,9 +58,16 @@ function LoginForm() {
         // Fetch the freshly-issued session directly so the role check is correct.
         const freshSession = await getSession();
         const role = (freshSession?.user as any)?.role;
-        if (['ADMIN', 'SUPER_ADMIN'].includes(role)) router.push('/admin');
-        else router.push('/dashboard');
-        router.refresh();
+        const destination = ['ADMIN', 'SUPER_ADMIN'].includes(role) ? '/admin' : '/dashboard';
+        // A full browser navigation, not router.push() — the destination
+        // page's own useSession() can otherwise still see the stale
+        // "unauthenticated" state for a moment (client-side session cache
+        // hasn't caught up yet) and immediately bounce back to this login
+        // page, which looks exactly like login "not working" even though
+        // it succeeded. A hard navigation guarantees the browser re-requests
+        // with the fresh session cookie already in place.
+        window.location.href = destination;
+        return;
       }
     } catch (err) {
       setError('Something went wrong. Please try again.');
