@@ -27,7 +27,17 @@ export default withAuth(
       // itself still handles the SUPER_ADMIN-only check and bounces to
       // /sadmin/login when not authenticated, so this only needs to steer
       // traffic there, not duplicate that check.
-      if (!pathname.startsWith('/sadmin') && pathname !== '/superadmin' && !pathname.startsWith('/superadmin/')) {
+      //
+      // /auth/* must stay excluded: when an unauthenticated request hits
+      // /sadmin, NextAuth's own authorized() callback below returns false
+      // and automatically redirects to pages.signIn ('/auth/login') — a
+      // step outside this function's control. Redirecting /auth/login back
+      // to /sadmin here would immediately re-trigger that same NextAuth
+      // redirect, looping forever (ERR_TOO_MANY_REDIRECTS).
+      const isExempt = pathname.startsWith('/sadmin')
+        || pathname === '/superadmin' || pathname.startsWith('/superadmin/')
+        || pathname.startsWith('/auth');
+      if (!isExempt) {
         return NextResponse.redirect(new URL('/sadmin', req.url));
       }
     }
