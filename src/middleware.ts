@@ -20,11 +20,32 @@ export default withAuth(
     requestHeaders.set('x-is-superadmin', pathname.startsWith('/sadmin') ? '1' : '0');
 
     // Deployment-boundary enforcement (no-op unless DEPLOYMENT_TARGET is set)
-    if (DEPLOYMENT_TARGET === 'superadmin' && pathname.startsWith('/admin')) {
-      return NextResponse.redirect(new URL('/sadmin/login', req.url));
+    if (DEPLOYMENT_TARGET === 'superadmin') {
+      // This deployment exists only to serve the Super Admin panel — every
+      // other route (donor site, tenant admin, farmer portal) redirects to
+      // /sadmin instead, regardless of what was actually requested. /sadmin
+      // itself still handles the SUPER_ADMIN-only check and bounces to
+      // /sadmin/login when not authenticated, so this only needs to steer
+      // traffic there, not duplicate that check.
+      if (!pathname.startsWith('/sadmin') && pathname !== '/superadmin' && !pathname.startsWith('/superadmin/')) {
+        return NextResponse.redirect(new URL('/sadmin', req.url));
+      }
     }
     if (DEPLOYMENT_TARGET === 'tenant' && pathname.startsWith('/sadmin')) {
       return NextResponse.redirect(new URL('/', req.url));
+    }
+
+    // An Admin/Super Admin's day-to-day browsing should stay inside /admin —
+    // not the donor-only /dashboard area, as if they were a regular donor.
+    // An explicit link clicked *from inside* the admin panel (e.g. "view as
+    // donor") is still allowed — detected via a same-origin referer coming
+    // from /admin — so that intentional path is preserved.
+    if (pathname.startsWith('/dashboard') && role && ['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      const referer = req.headers.get('referer') || '';
+      const cameFromAdmin = referer.startsWith(`${req.nextUrl.origin}/admin`);
+      if (!cameFromAdmin) {
+        return NextResponse.redirect(new URL('/admin', req.url));
+      }
     }
 
     // Legacy redirect
@@ -80,10 +101,10 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: [
-    '/sadmin/:path*',
-    '/superadmin/:path*',
-    '/admin/:path*',
-    '/dashboard/:path*',
-  ],
+  // Broad, standard Next.js pattern: match every page route except API
+  // routes, static files, and Next internals. This used to only cover
+  // /sadmin, /admin and /dashboard — meaning the deployment-boundary check
+  // above never even ran for /, /donate, /farmer/*, etc., so the
+  // superadmin-only-deployment lockdown had no effect on most of the app.
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.[a-zA-Z0-9]+$).*)'],
 };
