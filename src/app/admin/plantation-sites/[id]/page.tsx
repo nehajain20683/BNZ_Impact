@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { LandGallery } from '@/components/LandGallery';
 import { ArrowLeft, Plus, Search, TreePine, MapPin, Users, Leaf, CheckCircle,
-         Activity, BarChart2, FileText, X, Edit, ChevronDown } from 'lucide-react';
+         Activity, BarChart2, FileText, X, Edit, ChevronDown, Camera } from 'lucide-react';
 
 const PHASES = ['PLANNING','LAND_PREPARATION','PIT_DIGGING','PLANTATION','GAP_FILLING','MONITORING','COMPLETED'];
 const ACTIVITY_TYPES = ['PIT_DIGGING','SAPLING_DELIVERY','PLANTATION','IRRIGATION','FERTILIZER',
@@ -300,16 +301,19 @@ export default function PlantationSiteDetailPage() {
 
   const [treeAssignCount, setTreeAssignCount]   = useState('');
   const [treeAssignAvailable, setTreeAssignAvailable] = useState<number | null>(null);
+  const [treeAssignCapacity, setTreeAssignCapacity]   = useState<number | null>(null);
   const [treeAssignBusy, setTreeAssignBusy]     = useState(false);
   const [treeAssignSpecies, setTreeAssignSpecies] = useState('');
+  const [treeAssignMode, setTreeAssignMode] = useState<'manual'|'auto'>('manual');
 
   async function openTreeAssign(assignment: any) {
     setTreeAssignTarget(assignment);
     setTreeAssignCount('');
     setTreeAssignAvailable(null);
+    setTreeAssignCapacity(null);
     setTreeAssignSpecies('');
     const data = await fetch(`/api/admin/land-assignments/${assignment.id}/assign-trees`).then(r => r.json()).catch(() => null);
-    if (data) setTreeAssignAvailable(data.availableCount);
+    if (data) { setTreeAssignAvailable(data.availableCount); setTreeAssignCapacity(data.plantedCapacity); }
   }
 
   async function confirmTreeAssign() {
@@ -319,12 +323,25 @@ export default function PlantationSiteDetailPage() {
     setTreeAssignBusy(true);
     const res = await fetch(`/api/admin/land-assignments/${treeAssignTarget.id}/assign-trees`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ count: n, species: treeAssignSpecies || undefined }),
+      body: JSON.stringify({
+        count: n,
+        allocationMode: treeAssignMode,
+        species: treeAssignMode === 'manual' ? (treeAssignSpecies || undefined) : undefined,
+      }),
     });
     const data = await res.json();
     setTreeAssignBusy(false);
     if (!res.ok) { showToast(data.error || 'Failed to assign trees'); return; }
-    showToast(`${data.assignedCount} sponsored trees linked to this land ✓${data.shortfall ? ` (${data.shortfall} short — not enough unassigned trees available)` : ''}`);
+    const reason = data.cappedByPlantedLimit
+      ? ` (capped at ${data.plantedCapacity} — this land has no more planted trees to link yet; the rest stay in the pool for other farmers)`
+      : (data.shortfall ? ` (${data.shortfall} short — not enough unassigned trees available org-wide)` : '');
+    const allocationNote = data.allocationSummary?.length
+      ? ` — ${data.allocationSummary.map((a: any) => `${a.species}: ${a.count}`).join(', ')}`
+      : '';
+    const uncatNote = data.uncategorizedSpecies?.length
+      ? ` (note: ${data.uncategorizedSpecies.join(', ')} not yet categorized as Main/Side — treated as Side)`
+      : '';
+    showToast(`${data.assignedCount} sponsored trees linked to this land ✓${reason}${allocationNote}${uncatNote}`);
     setTreeAssignTarget(null);
     loadSite();
   }
@@ -341,6 +358,17 @@ export default function PlantationSiteDetailPage() {
   }
 
   const [speciesFixTarget, setSpeciesFixTarget] = useState<any>(null);
+  const [treePhotosTarget, setTreePhotosTarget] = useState<any>(null);
+  const [treePhotos, setTreePhotos] = useState<any[]>([]);
+  const [treePhotosLoading, setTreePhotosLoading] = useState(false);
+
+  async function openTreePhotos(assignment: any) {
+    setTreePhotosTarget(assignment);
+    setTreePhotosLoading(true);
+    const res = await fetch(`/api/field-officer/tree-photo?assignmentId=${assignment.id}`).then(r => r.json()).catch(() => ({ images: [] }));
+    setTreePhotos(res.images || []);
+    setTreePhotosLoading(false);
+  }
   const [speciesFixForm, setSpeciesFixForm]     = useState({ species: '', count: '' });
   const [speciesFixUnlabeled, setSpeciesFixUnlabeled] = useState<number | null>(null);
   const [speciesFixBusy, setSpeciesFixBusy]     = useState(false);
@@ -564,34 +592,65 @@ export default function PlantationSiteDetailPage() {
               organisation's pool and links them to this specific farmer/land, so donors can see exactly whose land
               their tree is growing on.
             </p>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700 mb-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700 mb-2">
               {treeAssignAvailable === null ? 'Checking available trees…' : `${treeAssignAvailable} sponsored trees currently unassigned across your organisation`}
             </div>
+            {treeAssignCapacity !== null && (
+              <div className={`rounded-xl p-3 text-xs mb-4 ${treeAssignCapacity > 0 ? 'bg-amber-50 border border-amber-100 text-amber-700' : 'bg-red-50 border border-red-100 text-red-700'}`}>
+                {treeAssignCapacity > 0
+                  ? `This land can accept up to ${treeAssignCapacity} more — a tree can only be linked once it's actually planted, so this can never exceed ${treeAssignTarget.treesPlanted || 0} planted minus what's already linked.`
+                  : `This land has no room to link more right now — all ${treeAssignTarget.treesPlanted || 0} planted trees are already linked. Report more planting via "Update Plantation Data" first.`}
+              </div>
+            )}
             <label className="block text-xs font-medium text-gray-600 mb-1">How many trees to link?</label>
             <input type="number" value={treeAssignCount} onChange={e => setTreeAssignCount(e.target.value)}
               placeholder={`e.g. ${treeAssignTarget.treesAssigned || 10}`}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
 
-            <label className="block text-xs font-medium text-gray-600 mb-1">Species (optional)</label>
-            {Array.isArray(treeAssignTarget.speciesPlanted) && treeAssignTarget.speciesPlanted.length > 0 ? (
-              <select value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40">
-                <option value="">Unspecified</option>
-                {treeAssignTarget.speciesPlanted.map((s: any) => (
-                  <option key={s.species} value={s.species}>{s.species} ({s.qty} planted on this land)</option>
-                ))}
-              </select>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Species Allocation</label>
+            <div className="flex gap-2 mb-3">
+              <button type="button" onClick={() => setTreeAssignMode('manual')}
+                className={`flex-1 text-xs font-semibold py-2 rounded-xl border-2 transition-colors ${
+                  treeAssignMode === 'manual' ? 'border-[var(--admin-primary)] bg-[var(--admin-primary)]/5 text-[var(--admin-primary)]' : 'border-gray-200 text-gray-500'}`}>
+                One Species (Manual)
+              </button>
+              <button type="button" onClick={() => setTreeAssignMode('auto')}
+                className={`flex-1 text-xs font-semibold py-2 rounded-xl border-2 transition-colors ${
+                  treeAssignMode === 'auto' ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}>
+                Auto by Category Ratio
+              </button>
+            </div>
+
+            {treeAssignMode === 'manual' ? (
+              <>
+                {Array.isArray(treeAssignTarget.speciesPlanted) && treeAssignTarget.speciesPlanted.length > 0 ? (
+                  <select value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40">
+                    <option value="">Unspecified</option>
+                    {treeAssignTarget.speciesPlanted.map((s: any) => (
+                      <option key={s.species} value={s.species}>{s.species} ({s.qty} planted on this land)</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
+                    placeholder="e.g. Mango — no species breakdown recorded yet for this land"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
+                )}
+                <p className="text-gray-400 text-[11px] mb-4">
+                  All trees linked in this action are tagged as this one species — link in separate batches if this group is mixed.
+                </p>
+              </>
             ) : (
-              <input value={treeAssignSpecies} onChange={e => setTreeAssignSpecies(e.target.value)}
-                placeholder="e.g. Mango — no species breakdown recorded yet for this land"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40"/>
+              <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 text-xs text-teal-700 mb-4">
+                Distributes this batch across this land's actual planted species mix, targeting the organisation's Main/Side
+                ratio (set in Species Images) — e.g. mostly Mango, a smaller share Bamboo — instead of one species for
+                the whole batch. Species not yet marked Main or Side are treated as Side.
+              </div>
             )}
-            <p className="text-gray-400 text-[11px] mb-4">
-              All trees linked in this action are tagged as this one species — link in separate batches if this group is mixed.
-            </p>
+
             <div className="flex gap-2">
               <button onClick={() => setTreeAssignTarget(null)} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm">Cancel</button>
-              <button onClick={confirmTreeAssign} disabled={treeAssignBusy}
+              <button onClick={confirmTreeAssign} disabled={treeAssignBusy || treeAssignCapacity === 0}
                 className="flex-1 bg-[var(--admin-primary)] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
                 {treeAssignBusy ? 'Linking…' : 'Link Trees'}
               </button>
@@ -642,6 +701,49 @@ export default function PlantationSiteDetailPage() {
                 className="flex-1 bg-teal-600 text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
                 {speciesFixBusy ? 'Updating…' : 'Update Species'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tree Photos Modal — Field Officer captures for trees on this land */}
+      {treePhotosTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-xl max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h3 className="font-bold text-gray-900">Tree Photos</h3>
+                <p className="text-gray-400 text-xs mt-0.5">{treePhotosTarget.farmer?.fullName}'s land — captured by field officers</p>
+              </div>
+              <button onClick={() => setTreePhotosTarget(null)}><X className="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <div className="px-6 py-4 overflow-y-auto flex-1">
+              {treePhotosLoading ? (
+                <p className="text-gray-400 text-sm">Loading…</p>
+              ) : treePhotos.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  No tree photos captured yet for this land.
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {treePhotos.map((img: any) => (
+                    <div key={img.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                      <img src={img.imageUrl} alt="" className="w-full h-28 object-cover"/>
+                      <div className="p-2">
+                        <div className="font-mono text-[10px] text-gray-500 truncate">{img.tree?.treeTagId || img.treeTag || '—'}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{new Date(img.capturedAt).toLocaleDateString('en-IN')} · {img.capturedBy?.name}</div>
+                        <div className="flex items-center gap-1 mt-1">
+                          {img.latitude ? (
+                            <span className="flex items-center gap-0.5 text-[9px] text-green-600"><MapPin className="w-2.5 h-2.5"/> GPS captured</span>
+                          ) : (
+                            <span className="text-[9px] text-gray-400">No GPS</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -920,7 +1022,8 @@ export default function PlantationSiteDetailPage() {
             {/* Species breakdown */}
             {dash.speciesBreakdown?.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-4">Species Distribution</h3>
+                <h3 className="font-semibold text-gray-900 mb-1">Species Distribution</h3>
+                <p className="text-gray-400 text-xs mb-4">Actual species planted, from real plantation data entered per farmer — not the original target mix.</p>
                 <div className="space-y-2">
                   {dash.speciesBreakdown.map((s:any)=>(
                     <div key={s.species}>
@@ -934,23 +1037,37 @@ export default function PlantationSiteDetailPage() {
                     </div>
                   ))}
                 </div>
+                {dash.speciesPlanTargets?.length > 0 && (
+                  <details className="mt-4 pt-3 border-t border-gray-100">
+                    <summary className="text-xs font-semibold text-gray-500 cursor-pointer">Compare to original target mix</summary>
+                    <div className="space-y-2 mt-3">
+                      {dash.speciesPlanTargets.map((s:any)=>(
+                        <div key={s.species}>
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>{s.species}</span>
+                            <span>{s.planned.toLocaleString('en-IN')} planned ({s.pct}%)</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-gray-300 rounded-full" style={{width:`${s.pct}%`}}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 
-            {/* GIS Summary — GPS from assigned farmers */}
-            {dash.farmerProgress?.length > 0 && site.landAssignments?.some((a: any) => a.land?.gpsLatitude) && (
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            {/* GIS Summary — GPS + full land photos from assigned farmers */}
+            {dash.farmerProgress?.length > 0 && site.landAssignments?.some((a: any) => a.land?.gpsLatitude || a.land?.photos?.length > 0) && (
+              <div>
                 <h3 className="font-semibold text-gray-900 mb-3">📍 GIS Coverage — Assigned Land Parcels</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {site.landAssignments?.filter((a: any) => a.land?.gpsLatitude).map((a: any) => (
-                    <div key={a.id} className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs">
-                      <div className="font-semibold text-blue-900 mb-1">{a.farmer?.fullName}</div>
-                      <div className="font-mono text-blue-700">{a.land?.gpsLatitude?.toFixed(5)}, {a.land?.gpsLongitude?.toFixed(5)}</div>
-                      <div className="text-blue-500 mt-1">{a.land?.areaAcres} acres · {a.land?.village}</div>
-                      <a href={`https://www.google.com/maps?q=${a.land.gpsLatitude},${a.land.gpsLongitude}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline mt-1 inline-block">Open in Maps →</a>
-                    </div>
+                <div className="space-y-4">
+                  {site.landAssignments?.filter((a: any) => a.land?.gpsLatitude || a.land?.photos?.length > 0).map((a: any) => (
+                    <LandGallery key={a.id} variant="admin" label={a.farmer?.fullName}
+                      meta={[a.land?.areaAcres ? `${a.land.areaAcres} acres` : null, a.land?.village].filter(Boolean).join(' · ')}
+                      photos={a.land?.photos} kmlFileName={a.land?.kmlFileName}
+                      gpsLatitude={a.land?.gpsLatitude} gpsLongitude={a.land?.gpsLongitude}/>
                   ))}
                 </div>
               </div>
@@ -1047,6 +1164,12 @@ export default function PlantationSiteDetailPage() {
                       <Leaf className="w-3.5 h-3.5"/> Fix Tree Species
                     </button>
                   )}
+                  {a._count?.trees > 0 && (
+                    <button onClick={() => openTreePhotos(a)}
+                      className="flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium">
+                      <Camera className="w-3.5 h-3.5"/> View Tree Photos
+                    </button>
+                  )}
                   <button onClick={() => openDataEdit(a)}
                     className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 font-medium">
                     <Edit className="w-3.5 h-3.5"/> Update Plantation Data
@@ -1060,7 +1183,11 @@ export default function PlantationSiteDetailPage() {
                     date:           new Date().toISOString().split('T')[0],
                     projectName:    site.siteName,
                     species:        (a.speciesPlanted as any[])?.map((s:any)=>({name:s.species, qty:s.qty})) || [],
-                    totalSaplings:  a.treesAssigned,
+                    // Was previously a.treesAssigned — the committee-approved
+                    // quota (e.g. 3000), not what was actually handed over/
+                    // planted (e.g. 2995). A receipt must reflect the real
+                    // figure, same field the certificate already uses.
+                    totalSaplings:  a.treesPlanted,
                     fieldOfficer:   site.fieldOfficerId || '',
                   });
                   return (
@@ -1204,7 +1331,7 @@ export default function PlantationSiteDetailPage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <tr>{['Date','Farmer','Survival','Dead','Height','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+                  <tr>{['Date','Farmer','Officer','Survival','Dead','Height','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {(site.monitoringVisits||[]).map((v:any)=>(
@@ -1215,6 +1342,7 @@ export default function PlantationSiteDetailPage() {
                           ? <span className="text-gray-700 font-medium">{farmers.find((a:any)=>a.id===v.assignmentId)?.farmer?.fullName || 'Farmer'}</span>
                           : <span className="text-gray-400 italic">Site-wide</span>}
                       </td>
+                      <td className="px-4 py-2 text-xs text-gray-600">{v.officerName || '—'}</td>
                       <td className="px-4 py-2 font-semibold text-green-700">{v.survivalCount??'—'}</td>
                       <td className="px-4 py-2 text-red-500">{v.deadTrees??'—'}</td>
                       <td className="px-4 py-2 text-gray-600">{v.avgHeight ? `${v.avgHeight} cm` : '—'}</td>

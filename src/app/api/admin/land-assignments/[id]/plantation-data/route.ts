@@ -22,7 +22,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     await requireAdmin();
     const assignment = await prisma.landAssignment.findUnique({
       where: { id: params.id },
-      select: { treesPlanted: true, treesSurviving: true, speciesPlanted: true, plantationDate: true, farmerId: true },
+      select: { treesPlanted: true, treesSurviving: true, treesAssigned: true, speciesPlanted: true, plantationDate: true, farmerId: true },
     });
     if (!assignment) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
 
@@ -54,7 +54,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const after: any = {};
 
     if (body.treesPlanted !== undefined) {
-      data.treesPlanted = parseInt(body.treesPlanted) || 0;
+      const requested = parseInt(body.treesPlanted) || 0;
+      // Trees planted can never exceed what was actually assigned/approved
+      // for this land — that number represents the committee-approved
+      // quota for this specific farmer's parcel, and no matter which
+      // screen this value is entered from, it must respect that ceiling.
+      if (existing.treesAssigned && requested > existing.treesAssigned) {
+        return NextResponse.json({
+          error: `Trees planted (${requested}) cannot exceed the ${existing.treesAssigned} trees assigned to this land.`,
+        }, { status: 400 });
+      }
+      data.treesPlanted = requested;
       before.treesPlanted = existing.treesPlanted; after.treesPlanted = data.treesPlanted;
     }
     if (body.treesSurviving !== undefined) {

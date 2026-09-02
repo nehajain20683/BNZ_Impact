@@ -1,10 +1,14 @@
 'use client';
 // src/components/dashboard/MyTreesSection.tsx
 // Handles potentially large tree counts: grouped-by-donation by default
-// (collapsible, paginated on expand), with a separate filterable/searchable
-// "All Trees" view for cross-donation browsing.
+// (collapsible, with its own search so a specific tree can be found inside
+// a 500-tree donation without switching views), a separate filterable/
+// searchable "All Trees" cross-donation view, and a prominent Linked vs
+// Not Yet Linked split up front — since that distinction was previously
+// buried inside a raw status dropdown, not something a donor could see
+// or filter by directly.
 import { useState } from 'react';
-import { MapPin, TreePine, ChevronDown, Search } from 'lucide-react';
+import { MapPin, TreePine, ChevronDown, Search, Link2, Clock } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, string> = {
   PLANTED: 'bg-green-100 text-green-700',
@@ -14,12 +18,17 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function TreeCard({ tree }: { tree: any }) {
+  const linked = !!tree.assignmentId;
   return (
     <a href={`/dashboard/tree/${tree.id}`} className="block bg-white border border-sage-100 rounded-2xl p-4 hover:shadow-md hover:border-sage-200 transition-all">
-      <div className="w-full h-24 bg-sage-50 rounded-xl flex items-center justify-center mb-4">
+      <div className="w-full h-24 bg-sage-50 rounded-xl flex items-center justify-center mb-4 relative">
         {tree.imageUrl
           ? <img src={tree.imageUrl} alt="tree" className="w-full h-full object-cover rounded-xl" />
           : <TreePine className="w-10 h-10 text-sage-400" />}
+        <span className={`absolute top-1.5 right-1.5 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${linked ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+          {linked ? <Link2 className="w-2.5 h-2.5"/> : <Clock className="w-2.5 h-2.5"/>}
+          {linked ? 'Linked' : 'Pending'}
+        </span>
       </div>
       <div className="font-mono text-xs text-sage-500 mb-1">{tree.treeTagId || 'Tag pending'}</div>
       <div className="font-semibold text-sage-900 text-sm">{tree.species || 'Species TBA'}</div>
@@ -47,14 +56,21 @@ function DonationTreeGroup({ donation }: { donation: any }) {
   const [trees, setTrees]       = useState<any[]>([]);
   const [page, setPage]         = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal]       = useState(donation.treeCount);
   const [loading, setLoading]   = useState(false);
+  const [search, setSearch]     = useState('');
+  const [linkedFilter, setLinkedFilter] = useState<''|'true'|'false'>('');
 
-  async function loadPage(p: number) {
+  async function loadPage(p: number, reset = false) {
     setLoading(true);
-    const res = await fetch(`/api/dashboard/trees?donationId=${donation.id}&page=${p}&pageSize=24`);
+    const params = new URLSearchParams({ donationId: donation.id, page: String(p), pageSize: '24' });
+    if (search) params.set('search', search);
+    if (linkedFilter) params.set('linked', linkedFilter);
+    const res = await fetch(`/api/dashboard/trees?${params}`);
     const data = await res.json();
-    setTrees(p === 1 ? (data.trees || []) : [...trees, ...(data.trees || [])]);
+    setTrees(reset || p === 1 ? (data.trees || []) : [...trees, ...(data.trees || [])]);
     setTotalPages(data.totalPages || 1);
+    setTotal(data.total ?? donation.treeCount);
     setPage(p);
     setLoading(false);
   }
@@ -62,6 +78,10 @@ function DonationTreeGroup({ donation }: { donation: any }) {
   function toggle() {
     if (!expanded && trees.length === 0) loadPage(1);
     setExpanded(!expanded);
+  }
+
+  function applyLocalFilters() {
+    loadPage(1, true);
   }
 
   if (donation.treeCount === 0) return null;
@@ -77,11 +97,35 @@ function DonationTreeGroup({ donation }: { donation: any }) {
       </button>
       {expanded && (
         <div className="p-5 pt-0 border-t border-sage-50">
+          {donation.treeCount > 12 && (
+            <div className="flex flex-wrap gap-2 mt-4 mb-1">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search className="w-3.5 h-3.5 text-sage-400 absolute left-2.5 top-1/2 -translate-y-1/2"/>
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && applyLocalFilters()}
+                  placeholder="Find a tree by tag ID within this donation…"
+                  className="w-full pl-8 pr-2 py-1.5 text-xs border border-sage-200 rounded-lg focus:outline-none focus:border-sage-500"/>
+              </div>
+              <select value={linkedFilter} onChange={e => { setLinkedFilter(e.target.value as any); }}
+                className="px-2 py-1.5 text-xs border border-sage-200 rounded-lg">
+                <option value="">Linked or Not</option>
+                <option value="true">Linked only</option>
+                <option value="false">Not yet linked</option>
+              </select>
+              <button onClick={applyLocalFilters} className="px-3 py-1.5 text-xs font-semibold bg-sage-700 hover:bg-sage-800 text-white rounded-lg">
+                Find
+              </button>
+            </div>
+          )}
+
           {loading && trees.length === 0 ? (
             <p className="text-sage-400 text-sm py-4">Loading trees…</p>
+          ) : trees.length === 0 ? (
+            <p className="text-sage-400 text-sm py-4">No trees match this search.</p>
           ) : (
             <>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
+              {(search || linkedFilter) && <p className="text-sage-400 text-xs mt-3">{total} match{total===1?'':'es'}</p>}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
                 {trees.map(t => <TreeCard key={t.id} tree={t} />)}
               </div>
               {page < totalPages && (
@@ -98,22 +142,31 @@ function DonationTreeGroup({ donation }: { donation: any }) {
   );
 }
 
-export default function MyTreesSection({ donations, sites }: { donations: any[]; sites: { id: string; siteName: string }[] }) {
+export default function MyTreesSection({
+  donations, sites, linkedTreeCount = 0, unlinkedTreeCount = 0,
+}: {
+  donations: any[];
+  sites: { id: string; siteName: string }[];
+  linkedTreeCount?: number;
+  unlinkedTreeCount?: number;
+}) {
   const [view, setView] = useState<'byDonation' | 'all'>('byDonation');
   const [trees, setTrees] = useState<any[]>([]);
   const [page, setPage]   = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({ status: '', siteId: '', search: '', sort: 'newest' });
+  const [filters, setFilters] = useState({ status: '', siteId: '', search: '', sort: 'newest', linked: '' });
   const [loaded, setLoaded] = useState(false);
 
-  async function loadAll(p: number, reset = false) {
+  async function loadAll(p: number, reset = false, overrideFilters?: typeof filters) {
+    const f = overrideFilters || filters;
     setLoading(true);
-    const params = new URLSearchParams({ page: String(p), pageSize: '24', sort: filters.sort });
-    if (filters.status) params.set('status', filters.status);
-    if (filters.siteId) params.set('siteId', filters.siteId);
-    if (filters.search) params.set('search', filters.search);
+    const params = new URLSearchParams({ page: String(p), pageSize: '24', sort: f.sort });
+    if (f.status) params.set('status', f.status);
+    if (f.siteId) params.set('siteId', f.siteId);
+    if (f.search) params.set('search', f.search);
+    if (f.linked) params.set('linked', f.linked);
     const res = await fetch(`/api/dashboard/trees?${params}`);
     const data = await res.json();
     setTrees(reset || p === 1 ? (data.trees || []) : [...trees, ...(data.trees || [])]);
@@ -133,12 +186,20 @@ export default function MyTreesSection({ donations, sites }: { donations: any[];
     loadAll(1, true);
   }
 
+  function jumpToLinked(linked: 'true' | 'false') {
+    const next = { ...filters, linked, status: '' };
+    setFilters(next);
+    setView('all');
+    setLoaded(true);
+    loadAll(1, true, next);
+  }
+
   const totalTreeCount = donations.reduce((s, d) => s + d.treeCount, 0);
   if (totalTreeCount === 0) return null;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-2xl text-sage-950">My Trees ({totalTreeCount})</h2>
         <div className="flex bg-sage-100 rounded-xl p-1">
           <button onClick={() => setView('byDonation')}
@@ -150,6 +211,29 @@ export default function MyTreesSection({ donations, sites }: { donations: any[];
             All Trees
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <button onClick={() => jumpToLinked('true')}
+          className="flex items-center gap-3 bg-green-50 hover:bg-green-100 border border-green-100 rounded-2xl p-4 text-left transition-colors">
+          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+            <Link2 className="w-4 h-4 text-green-700"/>
+          </div>
+          <div>
+            <div className="font-bold text-green-900 text-lg leading-none">{linkedTreeCount}</div>
+            <div className="text-green-600 text-xs mt-0.5">Linked to a Farmer's Land</div>
+          </div>
+        </button>
+        <button onClick={() => jumpToLinked('false')}
+          className="flex items-center gap-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-2xl p-4 text-left transition-colors">
+          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-amber-700"/>
+          </div>
+          <div>
+            <div className="font-bold text-amber-900 text-lg leading-none">{unlinkedTreeCount}</div>
+            <div className="text-amber-600 text-xs mt-0.5">Not Yet Linked</div>
+          </div>
+        </button>
       </div>
 
       {view === 'byDonation' ? (
@@ -165,6 +249,12 @@ export default function MyTreesSection({ donations, sites }: { donations: any[];
                 onKeyDown={e => e.key === 'Enter' && applyFilters()}
                 placeholder="Search tag ID…" className="pl-9 pr-3 py-2 text-sm border border-sage-200 rounded-xl focus:outline-none focus:border-sage-500"/>
             </div>
+            <select value={filters.linked} onChange={e => setFilters(p => ({ ...p, linked: e.target.value }))}
+              className="px-3 py-2 text-sm border border-sage-200 rounded-xl">
+              <option value="">Linked or Not</option>
+              <option value="true">Linked only</option>
+              <option value="false">Not yet linked</option>
+            </select>
             <select value={filters.status} onChange={e => setFilters(p => ({ ...p, status: e.target.value }))}
               className="px-3 py-2 text-sm border border-sage-200 rounded-xl">
               <option value="">All Statuses</option>

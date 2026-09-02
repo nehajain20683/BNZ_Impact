@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 import { MapPin, Upload, X, Image, FileText, ChevronLeft, CheckCircle, Loader2, LogOut, Lock } from 'lucide-react';
 
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-white";
@@ -238,7 +239,7 @@ function FarmerLandForm() {
             <ChevronLeft className="w-5 h-5"/>
           </button>
           {org.logoUrl
-            ? <img src={org.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+            ? <OrgLogo src={org.logoUrl} alt="" size="sm" badge/>
             : null}
           <div>
             <div className="font-bold text-sm">{org.loaded ? org.name : ''}</div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Menu, X, ChevronDown, User, LayoutDashboard, Settings, LogOut, Shield } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -33,7 +34,7 @@ export default function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
           {org.logoUrl ? (
-            <img src={org.logoUrl} alt={org.name} className="w-9 h-9 rounded-lg object-contain"/>
+            <OrgLogo src={org.logoUrl} alt={org.name} size="md"/>
           ) : (
             <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm"
               style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>

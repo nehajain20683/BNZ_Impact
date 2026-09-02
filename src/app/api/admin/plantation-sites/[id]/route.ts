@@ -14,8 +14,14 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         landAssignments: {
           include: {
             farmer: { select: { id: true, fullName: true, mobile: true, farmerIdGenerated: true, village: true } },
-            land:   { select: { id: true, surveyGutNumber: true, areaAcres: true, village: true, district: true, gpsLatitude: true, gpsLongitude: true } },
+            land:   { select: { id: true, surveyGutNumber: true, areaAcres: true, village: true, district: true, gpsLatitude: true, gpsLongitude: true, photos: true, kmlFileName: true } },
             stageHistory: { orderBy: { date: 'desc' }, take: 1 },
+            // Real count of Tree rows actually linked via "Link Sponsored
+            // Trees" — was missing entirely here, so the card always
+            // displayed "(0 linked)" regardless of the real number; this
+            // route (not the separate /assignments sub-route) is what
+            // actually powers the page.
+            _count: { select: { trees: true } },
           },
         },
         activities:     { orderBy: { date: 'desc' }, take: 20 },
@@ -24,6 +30,26 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     });
 
     if (!site) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Resolve who logged each monitoring visit — officerId can be either a
+    // User.id (admin logged it via "Log Visit") or a FieldOfficer.id (an
+    // officer logged it in the field), so both tables need checking. Was
+    // previously not resolved at all — the table showed which farmer a
+    // visit was for, but never who actually did the visit.
+    const officerIds = [...new Set(site.monitoringVisits.map(v => v.officerId).filter(Boolean))] as string[];
+    const [adminUsers, fieldOfficers] = officerIds.length
+      ? await Promise.all([
+          prisma.user.findMany({ where: { id: { in: officerIds } }, select: { id: true, name: true } }),
+          prisma.fieldOfficer.findMany({ where: { id: { in: officerIds } }, select: { id: true, name: true } }),
+        ])
+      : [[], []];
+    const officerNameById = new Map<string, string>([
+      ...adminUsers.map(u => [u.id, u.name || 'Admin'] as [string, string]),
+      ...fieldOfficers.map(o => [o.id, o.name] as [string, string]),
+    ]);
+    const monitoringVisitsWithOfficer = site.monitoringVisits.map(v => ({
+      ...v, officerName: v.officerId ? (officerNameById.get(v.officerId) || 'Unknown') : null,
+    }));
 
     // Optional tables — fetch separately so failures don't break the page
     const [timelineEvents, siteDocuments] = await Promise.all([
@@ -36,7 +62,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ]);
 
     return NextResponse.json({
-      site: { ...site, timelineEvents, siteDocuments, carbonMonitoring: null, notifications: [] }
+      site: { ...site, monitoringVisits: monitoringVisitsWithOfficer, timelineEvents, siteDocuments, carbonMonitoring: null, notifications: [] }
     });
   } catch (e: any) {
     console.error('[plantation-site GET]', e.message);

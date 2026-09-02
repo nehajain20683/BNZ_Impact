@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, FileText, Send, Eye, CheckCircle, AlertCircle, Edit, Save, X, Plus } from 'lucide-react';
 import { LAND_DOC_TYPES, LAND_STATUS_ORDER, LAND_LOCK_STATUS } from '@/lib/farmer-constants';
+import { LandGallery } from '@/components/LandGallery';
 
 const STATUS_OPTIONS = ['REGISTERED','DOCUMENTS_PENDING','VERIFIED_LAND_OWNER','SUSPENDED'];
 const AGREEMENT_TYPES = [
@@ -25,10 +26,46 @@ export default function AdminFarmerDetailPage() {
   const [farmer, setFarmer]       = useState<any>(null);
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [activeTab, setActiveTab] = useState<'profile'|'lands'|'documents'|'agreements'|'logs'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile'|'lands'|'documents'|'agreements'|'inspections'|'logs'>('profile');
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [inspectionsLoaded, setInspectionsLoaded] = useState(false);
+  const [monitoringVisits, setMonitoringVisits] = useState<any[]>([]);
+
+  async function loadInspections() {
+    const res = await fetch(`/api/field-officer/inspect?farmerId=${farmerId}`).then(r => r.json()).catch(() => ({ inspections: [] }));
+    setInspections(res.inspections || []);
+    const monRes = await fetch(`/api/admin/farmers/${farmerId}/monitoring`).then(r => r.json()).catch(() => ({ visits: [] }));
+    setMonitoringVisits(monRes.visits || []);
+    setInspectionsLoaded(true);
+  }
   const [generating, setGenerating] = useState<string|null>(null);
   const [toast, setToast]         = useState('');
   const [editStatus, setEditStatus] = useState(false);
+  const [editOfficer, setEditOfficer] = useState(false);
+  const [officerList, setOfficerList] = useState<any[]>([]);
+  const [officerSaving, setOfficerSaving] = useState(false);
+
+  async function openOfficerEdit() {
+    setEditOfficer(true);
+    if (officerList.length === 0) {
+      const res = await fetch('/api/admin/field-officers').then(r => r.json()).catch(() => ({ officers: [] }));
+      setOfficerList((res.officers || []).filter((o: any) => o.active));
+    }
+  }
+
+  async function saveOfficerAssignment(officerId: string) {
+    setOfficerSaving(true);
+    const res = await fetch(`/api/admin/farmers/${farmerId}/assign-officer`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ officerId: officerId || null }),
+    });
+    const data = await res.json();
+    setOfficerSaving(false);
+    if (!res.ok) { showToast(data.error || 'Failed to assign officer'); return; }
+    showToast(officerId ? 'Field officer assigned ✓' : 'Field officer unassigned');
+    setEditOfficer(false);
+    load();
+  }
   const [newStatus, setNewStatus]   = useState('');
   const [showGenModal, setShowGenModal] = useState<string|null>(null);
   const [genForm, setGenForm]       = useState<any>({});
@@ -313,9 +350,10 @@ export default function AdminFarmerDetailPage() {
             { id:'lands',      label:'Lands' },
             { id:'documents',  label:'Documents' },
             { id:'agreements', label:`Documents Sent (${agreements.length})` },
+            { id:'inspections', label:'Farm Visits' },
             { id:'logs',       label:'Audit Log' },
           ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id as any)}
+            <button key={t.id} onClick={() => { setActiveTab(t.id as any); if (t.id === 'inspections' && !inspectionsLoaded) loadInspections(); }}
               className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 activeTab===t.id ? 'bg-[var(--admin-primary)] text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}>
@@ -327,6 +365,32 @@ export default function AdminFarmerDetailPage() {
         {/* ── PROFILE TAB ── */}
         {activeTab === 'profile' && (
           <div className="grid md:grid-cols-2 gap-5">
+            <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-semibold text-gray-900 text-sm">Assigned Field Officer</h3>
+                {editOfficer ? (
+                  <button onClick={() => setEditOfficer(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                ) : (
+                  <button onClick={openOfficerEdit} className="text-xs text-[var(--admin-primary)] font-semibold hover:underline">
+                    {farmer.assignedOfficer ? 'Change' : 'Assign'}
+                  </button>
+                )}
+              </div>
+              {editOfficer ? (
+                <select disabled={officerSaving} defaultValue={farmer.assignedOfficer?.id || ''}
+                  onChange={e => saveOfficerAssignment(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-2">
+                  <option value="">Unassigned</option>
+                  {officerList.map((o: any) => (
+                    <option key={o.id} value={o.id}>{o.name}{o.district ? ` — ${o.district}` : ''}</option>
+                  ))}
+                </select>
+              ) : farmer.assignedOfficer ? (
+                <p className="text-gray-700 text-sm mt-1">{farmer.assignedOfficer.name} <span className="text-gray-400">· {farmer.assignedOfficer.mobile}{farmer.assignedOfficer.designation ? ` · ${farmer.assignedOfficer.designation}` : ''}</span></p>
+              ) : (
+                <p className="text-gray-400 text-sm mt-1">No field officer assigned yet.</p>
+              )}
+            </div>
             {[
               { title:'Personal Information', fields:[
                 ['Farmer ID', farmer.farmerIdGenerated||'—'],['GIS ID', farmer.gisId||'—'],
@@ -404,6 +468,11 @@ export default function AdminFarmerDetailPage() {
                     <div key={l as string}><span className="text-gray-400">{l}: </span><span className="font-medium text-gray-800">{v}</span></div>
                   ))}
                 </div>
+                {(land.photos?.length > 0 || land.kmlFileName) && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <LandGallery variant="admin" photos={land.photos} kmlFileName={land.kmlFileName}/>
+                  </div>
+                )}
               </div>
               );
             }) : <p className="text-gray-400 text-sm py-8 text-center">No land parcels registered</p>}
@@ -540,6 +609,100 @@ export default function AdminFarmerDetailPage() {
               </div>
             ) : (
               <p className="text-gray-400 text-sm text-center py-4">No documents generated yet. Use the buttons above to generate documents for this farmer.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'inspections' && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Farm Visit / Land Verification Reports</h3>
+            {inspections.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No farm visits recorded yet by a field officer.</p>
+            ) : (
+              <div className="space-y-3">
+                {inspections.map((insp: any) => (
+                  <div key={insp.id} className="border border-gray-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-gray-800 text-sm">{insp.officer?.name || 'Unknown Officer'}</div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        insp.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {insp.status}
+                      </span>
+                    </div>
+                    <div className="text-gray-400 text-xs mb-2">
+                      {insp.inspectedAt ? new Date(insp.inspectedAt).toLocaleString('en-IN') : 'Not yet visited'}
+                      {insp.land?.surveyNumber ? ` · Land ${insp.land.surveyNumber}` : ''}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {[
+                        ['Met Farmer', insp.farmerMetPersonally], ['Ownership', insp.ownershipVerified],
+                        ['Boundary', insp.boundaryVerified], ['Water Source', insp.waterSourceAvailable],
+                        ['Plantation Feasible', insp.plantationFeasible],
+                      ].map(([label, val]: any) => (
+                        <span key={label} className={`text-[10px] px-2 py-0.5 rounded-full ${val ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-400'}`}>
+                          {val ? '✓' : '✗'} {label}
+                        </span>
+                      ))}
+                    </div>
+                    {insp.notes && <p className="text-gray-600 text-xs italic mb-2">"{insp.notes}"</p>}
+                    {insp.photos?.length > 0 && (
+                      <div className="flex gap-1.5 overflow-x-auto">
+                        {insp.photos.map((p: string, i: number) => (
+                          <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0"/>
+                        ))}
+                      </div>
+                    )}
+                    {insp.gpsLatitude && (
+                      <a href={`https://www.google.com/maps?q=${insp.gpsLatitude},${insp.gpsLongitude}`} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] text-[var(--admin-primary)] font-semibold mt-2 inline-block">View GPS location →</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'inspections' && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 mt-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Tree Health Monitoring Visits</h3>
+            {monitoringVisits.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No health monitoring visits recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {monitoringVisits.map((v: any) => (
+                  <div key={v.id} className="border border-gray-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-gray-800 text-sm">
+                        {new Date(v.visitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </div>
+                      {v.survivalPct != null && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          v.survivalPct >= 80 ? 'bg-green-100 text-green-700' : v.survivalPct >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                          {v.survivalPct}% survival
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-gray-400 text-xs mb-2">
+                      {v.treeSamples.length} tree{v.treeSamples.length === 1 ? '' : 's'} checked
+                      {v.avgHeight ? ` · avg height ${Math.round(v.avgHeight)}cm` : ''}
+                      {v.deadTrees ? ` · ${v.deadTrees} dead` : ''}
+                    </div>
+                    {v.treeSamples.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {v.treeSamples.map((s: any) => (
+                          <span key={s.id} className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                            s.health === 'DEAD' ? 'bg-red-50 text-red-600' :
+                            s.health === 'DISEASED' ? 'bg-orange-50 text-orange-600' :
+                            s.health === 'STRESSED' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
+                            {s.tree?.treeTagId || 'Tree'} · {s.health || 'HEALTHY'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

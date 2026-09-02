@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 import { Loader2, AlertCircle, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-white";
@@ -103,7 +104,7 @@ function FarmerLoginInner() {
       <div className="text-white px-4 py-5" style={{ backgroundColor: primaryColor }}>
         <div className="max-w-sm mx-auto flex items-center gap-3">
           {org.logoUrl
-            ? <img src={org.logoUrl} alt="" className="w-10 h-10 rounded-xl object-contain bg-white/20 p-1"/>
+            ? <OrgLogo src={org.logoUrl} alt="" size="lg" className="rounded-xl bg-white/20 p-1"/>
             : <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold text-lg">{(org.name||'G').charAt(0)}</div>
           }
           <div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 
 export default function Footer() {
   const org = useOrgConfig();
@@ -16,7 +17,7 @@ export default function Footer() {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
               {org.logoUrl ? (
-                <img src={org.logoUrl} alt={org.name} className="w-10 h-10 rounded-lg object-contain"/>
+                <OrgLogo src={org.logoUrl} alt={org.name} size="lg"/>
               ) : (
                 <div className="w-10 h-10 rounded-lg bg-sage-700 flex items-center justify-center text-white font-bold text-lg">
                   {org.name.charAt(0)}

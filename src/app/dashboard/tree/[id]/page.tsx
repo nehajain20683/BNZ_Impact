@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, TreePine, Calendar, User, Sprout, CheckCircle } from 'lucide-react';
+import { LandGallery } from '@/components/LandGallery';
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Awaiting Planting', PLANTED: 'Planted', GROWING: 'Growing', MATURE: 'Mature',
@@ -35,16 +36,22 @@ export default function TreeStoryPage() {
     );
   }
 
-  const { tree, campaign, dedicationName, site, farmer, land, verifiedVisits } = data;
+  const { tree, speciesImageUrl, capturedImages, campaign, dedicationName, site, farmer, land, verifiedVisits } = data;
   const mapUrl = (land?.gpsLatitude || tree.geoLatitude)
     ? `https://www.google.com/maps?q=${land?.gpsLatitude || tree.geoLatitude},${land?.gpsLongitude || tree.geoLongitude}`
     : null;
+  // Priority: a real Field Officer photo of this exact tree > the org's
+  // species stock photo > nothing (plain background). Previously this app
+  // had no per-tree photo capture at all, so speciesImageUrl was the best
+  // available fallback — now an actual photo of this actual tree wins
+  // whenever one exists.
+  const heroImage = capturedImages?.[0]?.imageUrl || tree.imageUrl || speciesImageUrl;
 
   return (
     <div className="min-h-screen bg-cream-50 pb-16">
       {/* Hero */}
       <div className="relative h-64 bg-sage-800">
-        {tree.imageUrl && <img src={tree.imageUrl} alt="" className="w-full h-full object-cover opacity-70"/>}
+        {heroImage && <img src={heroImage} alt="" className="w-full h-full object-cover opacity-70"/>}
         <div className="absolute inset-0 bg-gradient-to-t from-sage-950/80 to-sage-900/20"/>
         <button onClick={() => router.push('/dashboard')} className="absolute top-5 left-4 text-white/80 hover:text-white flex items-center gap-1.5 text-sm font-semibold">
           <ArrowLeft className="w-4 h-4"/> Dashboard
@@ -76,12 +83,25 @@ export default function TreeStoryPage() {
             </div>
             <div className="font-semibold text-sage-900">{site.siteName}</div>
             <div className="text-sage-500 text-sm mt-0.5">{site.district}{site.district && site.state ? ', ' : ''}{site.state}</div>
-            {mapUrl && (
-              <a href={mapUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-3 text-xs font-bold text-sage-700 border-2 border-sage-200 px-3 py-1.5 rounded-xl hover:border-sage-400">
-                View on Map →
-              </a>
+
+            {(land?.photos?.length > 0 || land?.kmlFileName) && (
+              <div className="mt-4">
+                <LandGallery variant="sage" photos={land.photos} kmlFileName={land.kmlFileName}/>
+              </div>
             )}
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              {mapUrl && (
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs font-bold text-sage-700 border-2 border-sage-200 px-3 py-1.5 rounded-xl hover:border-sage-400">
+                  View on Map →
+                </a>
+              )}
+              <a href={`/sites/${site.id}`} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-bold text-white bg-sage-700 hover:bg-sage-800 px-3 py-1.5 rounded-xl">
+                See the Full Story of This Grove →
+              </a>
+            </div>
           </div>
         )}
 
@@ -106,6 +126,24 @@ export default function TreeStoryPage() {
         ) : site && (
           <div className="bg-sage-50 border border-sage-100 rounded-2xl p-4 text-center">
             <p className="text-sage-500 text-xs">Farmer details for this specific tree haven't been linked yet — check back soon.</p>
+          </div>
+        )}
+
+        {/* Photo history — real Field Officer captures over time, beyond
+            just the latest one used as the hero image above. */}
+        {capturedImages?.length > 1 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-5">
+            <h2 className="font-display text-lg text-sage-950 mb-3">Photo History</h2>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {capturedImages.map((img: any) => (
+                <div key={img.id} className="flex-shrink-0 w-28">
+                  <img src={img.imageUrl} alt="" className="w-28 h-28 rounded-xl object-cover border border-sage-100"/>
+                  <div className="text-sage-400 text-[10px] mt-1 text-center">
+                    {new Date(img.capturedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

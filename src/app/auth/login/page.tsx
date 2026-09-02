@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { signIn, useSession, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 import { LogIn, Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { Suspense } from 'react';
 
@@ -85,8 +86,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           {org.logoUrl ? (
-            <img src={org.logoUrl} alt={org.name}
-              className="w-16 h-16 rounded-2xl object-contain mx-auto mb-4 shadow-lg"/>
+            <OrgLogo src={org.logoUrl} alt={org.name} size="2xl" className="rounded-2xl mx-auto mb-4 shadow-lg"/>
           ) : (
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg"
               style={{ backgroundColor: primaryColor }}>

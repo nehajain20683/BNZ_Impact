@@ -29,10 +29,33 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     const survivalPct    = totalPlanted > 0 ? (totalSurviving / totalPlanted) * 100 : 0;
     const latestVisit    = visits[visits.length - 1] || null;
 
-    const speciesBreakdown = site.speciesPlans.map(sp => ({
-      species: sp.species,
-      planned: sp.plannedQty,
-      pct:     totalPlanned > 0 ? Math.round((sp.plannedQty / totalPlanned) * 100) : 0,
+    // Actual planted species mix — was previously site.speciesPlans, the
+    // static target set once at site creation, never what's actually been
+    // entered via "Update Plantation Data" across real farmer assignments.
+    // Aggregated here from LandAssignment.speciesPlanted, the real source
+    // of truth for what's genuinely in the ground.
+    const actualSpeciesTotals: Record<string, number> = {};
+    for (const a of assignments) {
+      const list = (a.speciesPlanted as any[]) || [];
+      for (const sp of list) {
+        if (!sp?.species || !sp?.qty) continue;
+        actualSpeciesTotals[sp.species] = (actualSpeciesTotals[sp.species] || 0) + sp.qty;
+      }
+    }
+    const totalActualSpecies = Object.values(actualSpeciesTotals).reduce((s, n) => s + n, 0);
+    const speciesBreakdown = Object.entries(actualSpeciesTotals)
+      .map(([species, qty]) => ({
+        species, planned: qty,
+        pct: totalActualSpecies > 0 ? Math.round((qty / totalActualSpecies) * 100) : 0,
+      }))
+      .sort((a, b) => b.planned - a.planned);
+
+    // Kept separately for reference — the original target mix, shown
+    // alongside actual rather than replaced by it, so a real gap between
+    // plan and reality stays visible instead of silently disappearing.
+    const speciesPlanTargets = site.speciesPlans.map(sp => ({
+      species: sp.species, planned: sp.plannedQty,
+      pct: totalPlanned > 0 ? Math.round((sp.plannedQty / totalPlanned) * 100) : 0,
     }));
 
     const monthlyMap: Record<string, number> = {};
@@ -70,6 +93,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         monitoringCount: site._count.monitoringVisits,
       },
       speciesBreakdown,
+      speciesPlanTargets,
       monthlyProgress,
       farmerProgress,
       latestVisit,

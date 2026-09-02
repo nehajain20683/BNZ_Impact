@@ -20,6 +20,7 @@ export async function GET(req: Request) {
   const donationId = searchParams.get('donationId') || undefined;
   const siteId     = searchParams.get('siteId') || undefined;
   const status     = searchParams.get('status') || undefined;
+  const linked     = searchParams.get('linked') || undefined; // 'true' | 'false'
   const search     = searchParams.get('search') || undefined;
   const sort       = searchParams.get('sort') === 'oldest' ? 'asc' : 'desc';
 
@@ -29,6 +30,12 @@ export async function GET(req: Request) {
   if (donationId) where.donationId = donationId;
   if (siteId)     where.siteId = siteId;
   if (status)      where.status = status;
+  // Explicit, unambiguous "has this specific sponsored tree actually been
+  // matched to a real farmer's planted land yet" — set together with
+  // status/siteId by "Link Sponsored Trees", so assignmentId is the
+  // reliable signal, not an inference from status alone.
+  if (linked === 'true')  where.assignmentId = { not: null };
+  if (linked === 'false') where.assignmentId = null;
   if (search)      where.treeTagId = { contains: search, mode: 'insensitive' };
 
   const [trees, total] = await Promise.all([

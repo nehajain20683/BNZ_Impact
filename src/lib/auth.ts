@@ -51,6 +51,13 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Login was successful from here on — record it. This was
+          // previously only done for the separate farmer auth system;
+          // regular Users (donor/admin/super admin) never had this field
+          // written at all, so it always showed blank on the admin side.
+          // Fire-and-forget: never let this delay or break a real login.
+          prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
+
           // Only sadmin@bnzgreen.io may ever hold SUPER_ADMIN. Downgrade any
           // other account that somehow carries that role in the database.
           // Compare case-insensitively — emails are stored/typed inconsistently

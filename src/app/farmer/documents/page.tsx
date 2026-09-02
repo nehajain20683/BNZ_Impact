@@ -12,6 +12,7 @@ import {
   ChevronLeft, Trash2, Eye, AlertCircle, LogOut, Lock, MapPin, Send, Download
 } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 import { FARMER_DOC_TYPES, LAND_DOC_TYPES } from '@/lib/farmer-constants';
 
 const AGREEMENT_STATUS_CONFIG: Record<string, { color: string; label: string }> = {
@@ -286,7 +287,7 @@ export default function FarmerDocumentsPage() {
             <ChevronLeft className="w-5 h-5"/>
           </Link>
           {org.logoUrl && (
-            <img src={org.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+            <OrgLogo src={org.logoUrl} alt="" size="sm" badge/>
           )}
           <div>
             <div className="font-bold text-sm">Upload Documents</div>

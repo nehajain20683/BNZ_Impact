@@ -40,6 +40,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       mortalityPct:    mortality ? mortality : undefined,
     },
   });
+
+  // Every monitoring visit also shows up in the site's general Activity
+  // timeline, not just the dedicated Monitoring tab — a supervisor
+  // scanning overall site activity shouldn't need to check two separate
+  // places to see that a visit happened.
+  await prisma.plantationActivity.create({
+    data: {
+      siteId: params.id,
+      date: new Date(body.visitDate),
+      activityType: 'MONITORING',
+      description: `Monitoring visit${body.survivalCount ? ` — ${body.survivalCount} trees surviving` : ''}${body.deadTrees ? `, ${body.deadTrees} dead` : ''}`,
+      remarks: body.diseaseNotes || body.recommendations || undefined,
+      photos: body.photos || [],
+      loggedById: body.officerId || (session.user as any).id,
+    },
+  }).catch(() => {});
   // Update site survival rate
   if (survival !== undefined) {
     await prisma.plantationSite.update({

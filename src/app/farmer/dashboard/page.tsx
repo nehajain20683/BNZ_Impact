@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
+import { LandGallery } from '@/components/LandGallery';
 import {
   User, MapPin, FileText, Home, LogOut,
   TreePine, Plus, CheckCircle, Clock, Image, ChevronRight, Bell,
@@ -180,7 +182,7 @@ export default function FarmerDashboard() {
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             {org.logoUrl
-              ? <img src={org.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+              ? <OrgLogo src={org.logoUrl} alt="" size="sm" badge/>
               : <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-sm">{(org.name||'G').charAt(0)}</div>
             }
             <div>
@@ -453,7 +455,6 @@ export default function FarmerDashboard() {
                 {lands.map((land: any, i: number) => {
                   const photos = land.photos || [];
                   const landPhoto = photos[0] || null;
-                  const kmlPhoto  = photos[1] || null;
 
                   return (
                     <div key={land.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -518,12 +519,12 @@ export default function FarmerDashboard() {
                           </div>
                         )}
 
-                        {/* KML photo */}
-                        {kmlPhoto && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-500 mb-1.5">KML Map Photo</p>
-                            <img src={kmlPhoto} alt="KML map" className="w-full h-32 object-cover rounded-xl border border-gray-100"/>
-                          </div>
+                        {/* All uploaded land/KML photos — not just the first
+                            two, which is all this card used to show; any
+                            photo beyond that was previously never visible
+                            anywhere. */}
+                        {photos.length > 0 && (
+                          <LandGallery variant="admin" photos={photos} kmlFileName={land.kmlFileName}/>
                         )}
 
                         {/* Plantation Preference — per land, moved here from the profile so

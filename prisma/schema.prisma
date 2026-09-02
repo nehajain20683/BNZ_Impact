@@ -88,6 +88,29 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+// A real, admin-uploaded representative photo per plant species — shown on
+// a donor's Tree Story page. Deliberately not a hardcoded set of external
+// stock-photo URLs: those can break, may not accurately represent what an
+// org is actually planting, and carry licensing ambiguity. This lets each
+// org set (and correct) their own image per species, once, reused
+// everywhere that species appears.
+model SpeciesImage {
+  id        String   @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id])
+  species   String   // matches Tree.species / LandAssignment.speciesPlanted[].species, case-insensitive
+  imageUrl  String
+  // MAIN (primary/economic species, e.g. Mango) or SIDE (support/boundary
+  // species, e.g. Bamboo) — drives the auto-allocation ratio when linking
+  // sponsored trees. Null/uncategorized is treated as SIDE by default.
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, species])
+  @@map("species_images")
+}
+
 model Campaign {
   orgId   String?
   organization Organization? @relation(fields: [orgId], references: [id])
@@ -197,8 +220,44 @@ model Tree {
   monitoringSamples MonitoringTreeSample[]
   assignmentId   String?
   assignment     LandAssignment? @relation(fields: [assignmentId], references: [id])
+  images         TreeImage[]
 
   @@map("trees")
+}
+
+// Field Officer photo captures of a specific planted tree — the actual
+// evidence photo, distinct from Tree.imageUrl (unused/legacy) and from
+// SpeciesImage (a generic representative stock photo, not this specific
+// tree). Deliberately allows many photos per tree over time — a tree
+// photographed at planting, then again months later, should keep both,
+// not overwrite. Storage uses the same base64-in-column approach already
+// used everywhere else in this app (org logos, land photos, monitoring
+// photos) — this app has no object storage (S3/R2/Supabase Storage)
+// integration at all yet, so this matches the existing, proven pattern
+// rather than introducing new infrastructure. storageKey is reserved for
+// a future migration to real object storage without a breaking schema
+// change later.
+model TreeImage {
+  id           String   @id @default(cuid())
+  treeId       String
+  tree         Tree     @relation(fields: [treeId], references: [id])
+  treeTag      String?  // denormalized copy of Tree.treeTagId at capture time, for fast lookup/display
+  imageUrl     String   @db.Text // base64 data URL
+  fileName     String   // server-generated: {TreeTag}_{YYYYMMDD_HHMMSS}.jpg — never trusts a client-supplied name
+  capturedById String
+  capturedBy   FieldOfficer @relation(fields: [capturedById], references: [id])
+  capturedAt   DateTime @default(now()) // server timestamp — source of truth, not client-supplied
+  latitude     Float?
+  longitude    Float?
+  gpsAccuracy  Float?
+  storageKey   String?  // reserved for a future real-object-storage migration
+  tenantId     String   // orgId — every image is tenant-scoped, never visible cross-tenant
+  createdAt    DateTime @default(now())
+
+  @@index([treeId])
+  @@index([treeTag])
+  @@index([tenantId])
+  @@map("tree_images")
 }
 
 // ─── MASTER PROJECT ──────────────────────────────────────────────────────────
@@ -670,6 +729,12 @@ model Organization {
   // fallback message is used instead.
   individual_donation_message String? @db.Text
 
+  // Target % of a donor's linked trees that should be Main-category species
+  // (e.g. Mango) vs Side-category (e.g. Bamboo) when using "Auto-allocate
+  // by category ratio" in Link Sponsored Trees. Configurable per org since
+  // different programs may target a different split.
+  main_tree_target_percent Int @default(80)
+
 
   users            User[]
   campaigns        Campaign[]
@@ -678,6 +743,8 @@ model Organization {
   lands            Land[]
   plantationSites  PlantationSite[]
   masterProjects   MasterProject[]
+  speciesImages    SpeciesImage[]
+  fieldOfficers    FieldOfficer[]
   impactMetricDefinitions ImpactMetricDefinition[]
 
   @@map("organizations")
@@ -715,6 +782,7 @@ enum TreeStatus {
   PLANTED
   GROWING
   MATURE
+  DEAD
 }
 
 // ══════════════════════════════════════════════════════════
@@ -802,6 +870,8 @@ model Farmer {
 
 model FieldOfficer {
   id           String       @id @default(cuid())
+  orgId        String?
+  organization Organization? @relation(fields: [orgId], references: [id])
   name         String
   email        String       @unique
   mobile       String       @unique
@@ -811,8 +881,10 @@ model FieldOfficer {
   district     String?
   state        String?
   active       Boolean      @default(true)
+  lastLoginAt  DateTime?
   farmers      Farmer[]
   inspections  SiteInspection[]
+  treeImages   TreeImage[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 

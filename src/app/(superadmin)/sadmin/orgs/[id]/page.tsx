@@ -73,6 +73,7 @@ function EditOrgPage({ params }: { params: { id: string } }) {
             payment_display_name:    d.org.payment_display_name     || '',
             payment_success_message: d.org.payment_success_message  || '',
             individual_donation_message: d.org.individual_donation_message || '',
+            main_tree_target_percent: String(d.org.main_tree_target_percent ?? 80),
             payment_banks:           d.org.payment_banks || [],
           });
           setRazorpaySecretSet(!!d.org.razorpay_key_secret_set);
@@ -95,6 +96,7 @@ function EditOrgPage({ params }: { params: { id: string } }) {
         // Never send NaN/blank-derived garbage — fall back to sane defaults
         // so a single-field edit never gets blocked by an unrelated blank field.
         tree_price: parseInt(form.tree_price) || 500,
+        main_tree_target_percent: Math.min(100, Math.max(0, parseInt(form.main_tree_target_percent) || 80)),
         primary_color: form.primary_color || '#2d5a1b',
         // Secrets are write-only — only send if the admin actually typed something
         ...(razorpaySecretInput ? { razorpay_key_secret: razorpaySecretInput } : {}),
@@ -353,6 +355,16 @@ function EditOrgPage({ params }: { params: { id: string } }) {
                 placeholder='e.g. "the BNZ Impact Tree Plantation Programme" — shown on certificates for donations not tied to any specific campaign'/>
               <p className="text-gray-500 text-[11px] mt-1">
                 Individual donations are never attributed to a real campaign — this text fills the same spot on their certificate instead.
+              </p>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Main Tree Target % (Species Allocation)</label>
+              <input type="number" min={0} max={100} value={form.main_tree_target_percent} onChange={f('main_tree_target_percent')} className={inp}
+                placeholder="80"/>
+              <p className="text-gray-500 text-[11px] mt-1">
+                When admin uses "Auto by Category Ratio" to link sponsored trees, this % targets Main-category species
+                (e.g. Mango) and the remainder targets Side-category species (e.g. Bamboo). Set categories per species
+                under Admin → Species Images.
               </p>
             </div>
           </div>

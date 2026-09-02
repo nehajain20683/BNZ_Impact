@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TreePine } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 
 export default function RegisterPage() {
   const org = useOrgConfig();
@@ -41,8 +42,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             {org.logoUrl ? (
-              <img src={org.logoUrl} alt={org.name}
-                className="w-10 h-10 rounded-xl object-contain"/>
+              <OrgLogo src={org.logoUrl} alt={org.name} size="lg" className="rounded-xl"/>
             ) : (
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: primaryColor }}>

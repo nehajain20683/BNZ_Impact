@@ -19,6 +19,7 @@ export async function GET(req: Request) {
       include: {
         lands:     true,
         documents: { take: 20, orderBy: { createdAt: 'desc' } },
+        assignedOfficer: { select: { id: true, name: true, mobile: true, designation: true } },
       },
     });
 

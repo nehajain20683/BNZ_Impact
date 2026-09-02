@@ -34,7 +34,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         campaign: { select: { name: true, slug: true } },
         trees: {
           select: {
-            id: true, treeTagId: true, species: true, status: true,
+            id: true, treeTagId: true, species: true, status: true, assignmentId: true,
             plantedDate: true, imageUrl: true, geoLatitude: true, geoLongitude: true,
             plantationSite: { select: { id: true, siteName: true, district: true, state: true } },
           },
@@ -52,6 +52,12 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
     const statusBreakdown: Record<string, number> = {};
     for (const t of allTrees) statusBreakdown[t.status] = (statusBreakdown[t.status] || 0) + 1;
+
+    // Matches the same Linked vs Not Yet Linked split shown on the donor's
+    // own dashboard — a tree is "linked" once it has an actual farmer's
+    // parcel assigned via "Link Sponsored Trees", not just a status value.
+    const linkedTreeCount = allTrees.filter((t: any) => t.assignmentId).length;
+    const unlinkedTreeCount = allTrees.length - linkedTreeCount;
 
     // Distinct plantation sites this user's trees are actually at
     const siteMap = new Map<string, any>();
@@ -81,7 +87,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         completedDonations: completed.length,
         pendingDonations: donations.filter(d => d.paymentStatus === 'PENDING').length,
         failedDonations: donations.filter(d => d.paymentStatus === 'FAILED').length,
-        campaignsSupported, statusBreakdown,
+        campaignsSupported, statusBreakdown, linkedTreeCount, unlinkedTreeCount,
         sitesCount: sites.length,
         co2OffsetKg: totalTrees * 22,
         firstDonationAt, lastDonationAt,

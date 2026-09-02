@@ -45,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       'org_80g_number', 'payment_banks', 'campaign_config', 'custom_domain',
       'plan', 'active', 'privacy_policy_text', 'terms_text', 'refund_policy_text',
       'razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret',
-      'payment_display_name', 'payment_success_message', 'individual_donation_message',
+      'payment_display_name', 'payment_success_message', 'individual_donation_message', 'main_tree_target_percent',
     ];
     const data: any = {};
     for (const k of allowed) {

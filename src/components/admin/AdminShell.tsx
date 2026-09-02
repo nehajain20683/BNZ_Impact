@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import AdminNav from './AdminNav';
 import OrgSwitcher from './OrgSwitcher';
+import { OrgLogo } from '@/components/OrgLogo';
 
 interface OrgConfig {
   name:          string;
@@ -122,8 +123,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           {!collapsed ? (
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
               {orgConfig.logoUrl ? (
-                <img src={orgConfig.logoUrl} alt={orgConfig.name}
-                  className="w-8 h-8 rounded-lg object-contain flex-shrink-0"/>
+                <OrgLogo src={orgConfig.logoUrl} alt={orgConfig.name} size="sm"/>
               ) : (
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                   style={{ backgroundColor: orgConfig.primaryColor }}>
@@ -146,7 +146,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           ) : (
             <button onClick={() => setCollapsed(false)} className="mx-auto">
               {orgConfig.logoUrl ? (
-                <img src={orgConfig.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain"/>
+                <OrgLogo src={orgConfig.logoUrl} alt="" size="xs"/>
               ) : (
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
                   style={{ backgroundColor: orgConfig.primaryColor }}>

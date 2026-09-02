@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { OrgLogo } from '@/components/OrgLogo';
 import {
   Shield, User, Landmark, MapPin, Users, TreePine,
   UserCheck, FileCheck, ChevronRight, ChevronLeft,
@@ -397,7 +398,7 @@ function FarmerRegisterForm() {
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             {org.logoUrl
-              ? <img src={org.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white/20 p-0.5"/>
+              ? <OrgLogo src={org.logoUrl} alt="" size="sm" badge/>
               : <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-sm">{(org.name||'G').charAt(0)}</div>
             }
             <div>

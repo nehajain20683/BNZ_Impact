@@ -8,7 +8,10 @@ import { Download, TreePine } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { computeDonorImpactMetrics } from '@/lib/impact-metrics';
 import ImpactStatCard from '@/components/dashboard/ImpactStatCard';
+import ImpactMap from '@/components/dashboard/ImpactMap';
 import MyTreesSection from '@/components/dashboard/MyTreesSection';
+import DonationsTable from '@/components/dashboard/DonationsTable';
+import DonorCharts from '@/components/dashboard/DonorCharts';
 
 const STATUS_STYLES: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
@@ -40,6 +43,41 @@ export default async function DashboardPage() {
   const totalAmount = completedDonations.reduce((s, d) => s + d.amount, 0);
   const co2 = totalTrees * 22;
 
+  // How many of this donor's trees have actually been matched to a real
+  // farmer's planted land ("Link Sponsored Trees") vs are still waiting —
+  // shown as its own clear split, not left implicit in a status dropdown.
+  const linkedTreeCount = await prisma.tree.count({
+    where: { donation: { userId: user.id, paymentStatus: 'COMPLETED' }, assignmentId: { not: null } },
+  });
+  const unlinkedTreeCount = totalTrees - linkedTreeCount;
+
+  // Chart data — year-wise planting trend and species mix. Lightweight
+  // select (just two small fields) since a donor could have hundreds of
+  // trees; aggregation happens here in JS rather than loading full rows.
+  const treeChartRows = await prisma.tree.findMany({
+    where: { donation: { userId: user.id, paymentStatus: 'COMPLETED' } },
+    select: { plantedDate: true, species: true },
+  });
+
+  const yearCounts: Record<string, number> = {};
+  const speciesCounts: Record<string, number> = {};
+  for (const t of treeChartRows) {
+    if (t.plantedDate) {
+      const year = new Date(t.plantedDate).getFullYear().toString();
+      yearCounts[year] = (yearCounts[year] || 0) + 1;
+    }
+    const sp = t.species || 'Unspecified';
+    speciesCounts[sp] = (speciesCounts[sp] || 0) + 1;
+  }
+  const yearlyPlantingData = Object.entries(yearCounts)
+    .map(([year, count]) => ({ year, count }))
+    .sort((a, b) => a.year.localeCompare(b.year));
+
+  const speciesEntries = Object.entries(speciesCounts).sort((a, b) => b[1] - a[1]);
+  const topSpecies = speciesEntries.slice(0, 6).map(([species, count]) => ({ species, count }));
+  const otherSpeciesCount = speciesEntries.slice(6).reduce((s, [, c]) => s + c, 0);
+  const speciesData = otherSpeciesCount > 0 ? [...topSpecies, { species: 'Other', count: otherSpeciesCount }] : topSpecies;
+
   // Group trees by plantation site (for proportional impact-metric attribution
   // and for the site filter dropdown) — aggregate query, never loads full tree rows.
   const treeSiteGroups = await prisma.tree.groupBy({
@@ -53,8 +91,50 @@ export default async function DashboardPage() {
   }
   const siteIds = Object.keys(treeCountsBySite);
   const sites = siteIds.length
-    ? await prisma.plantationSite.findMany({ where: { id: { in: siteIds } }, select: { id: true, siteName: true } })
+    ? await prisma.plantationSite.findMany({
+        where: { id: { in: siteIds } },
+        select: { id: true, siteName: true, gpsLatitude: true, gpsLongitude: true, district: true, state: true },
+      })
     : [];
+
+  // A site can have many farmers' lands within it, each in a different
+  // exact spot. Rather than showing every farmer at the site (most of
+  // whom may have nothing to do with this donor's specific trees), this
+  // scopes down to only the exact parcel(s) this donor's own trees have
+  // actually been linked to via "Link Sponsored Trees" (Tree.assignmentId)
+  // — the real, precise answer to "where are MY trees", not a general
+  // view of the whole site's community.
+  const linkedAssignmentIds = await prisma.tree.findMany({
+    where: { donation: { userId: user.id, paymentStatus: 'COMPLETED' }, assignmentId: { not: null } },
+    select: { assignmentId: true },
+    distinct: ['assignmentId'],
+  }).then(rows => rows.map(r => r.assignmentId).filter(Boolean) as string[]);
+
+  const landPins = linkedAssignmentIds.length
+    ? await prisma.landAssignment.findMany({
+        where: { id: { in: linkedAssignmentIds } },
+        select: {
+          id: true, siteId: true,
+          farmer: { select: { fullName: true } },
+          land: { select: { gpsLatitude: true, gpsLongitude: true, village: true, district: true } },
+        },
+      })
+    : [];
+
+  // How many of THIS donor's own trees are on each specific parcel — not
+  // the parcel's total tree count, which could include other donors' trees
+  // too and would overstate this donor's actual contribution there.
+  const donorTreesByAssignment = linkedAssignmentIds.length
+    ? await prisma.tree.groupBy({
+        by: ['assignmentId'],
+        where: { donation: { userId: user.id, paymentStatus: 'COMPLETED' }, assignmentId: { in: linkedAssignmentIds } },
+        _count: { _all: true },
+      })
+    : [];
+  const donorTreeCountByAssignment: Record<string, number> = {};
+  for (const g of donorTreesByAssignment) {
+    if (g.assignmentId) donorTreeCountByAssignment[g.assignmentId] = g._count._all;
+  }
 
   const impactMetrics = await computeDonorImpactMetrics((user as any).orgId, treeCountsBySite);
 
@@ -161,59 +241,26 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          <div className="bg-white border border-sage-100 rounded-2xl overflow-hidden mb-8">
-            <div className="p-6 border-b border-sage-100">
-              <h2 className="font-display text-xl text-sage-900">My Donations</h2>
-            </div>
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <table className="w-full text-sm table-responsive min-w-[650px]">
-                <thead className="bg-sage-50 text-sage-600">
-                  <tr>
-                    {['Receipt', 'Date', 'Campaign', 'Trees', 'Amount', 'Status', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {user.donations.map((d) => (
-                    <tr key={d.id} className="border-t border-forest-50 hover:bg-sage-50/50">
-                      <td className="px-4 py-3 font-mono text-sage-600 text-xs">{d.receiptNumber ? `#${d.receiptNumber}` : '—'}</td>
-                      <td className="px-4 py-3 text-sage-700">{new Date(d.createdAt).toLocaleDateString('en-IN')}</td>
-                      <td className="px-4 py-3 text-sage-800 font-medium">{d.campaign.name}</td>
-                      <td className="px-4 py-3"><span className="bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full font-semibold">{d.numberOfTrees}</span></td>
-                      <td className="px-4 py-3 font-semibold text-sage-900">{formatCurrency(d.amount)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[d.paymentStatus] || 'bg-gray-100 text-gray-600'}`}>
-                          {d.paymentStatus}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {d.paymentStatus === 'COMPLETED' ? (
-                          <div className="flex gap-2">
-                            <a href={`/api/receipts/${d.id}/pdf`} target="_blank" className="text-xs text-sage-600 hover:text-sage-800 flex items-center gap-1">
-                              <Download className="w-3 h-3" /> Receipt
-                            </a>
-                            <a href={`/api/certificates/${d.id}/pdf`} target="_blank" className="text-xs text-sage-600 hover:text-sage-800 flex items-center gap-1">
-                              <Download className="w-3 h-3" /> Cert
-                            </a>
-                          </div>
-                        ) : d.paymentStatus === 'PENDING' ? (
-                          <Link href={`/donate`} className="text-xs text-amber-600 hover:text-amber-800">Retry payment</Link>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {user.donations.length === 0 && (
-                    <tr><td colSpan={7} className="text-center py-12 text-sage-400">No donations yet. <Link href="/donate" className="text-sage-600 underline">Donate now</Link></td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DonorCharts yearlyPlantingData={yearlyPlantingData} speciesData={speciesData}/>
 
-          <MyTreesSection donations={donationGroups} sites={sites} />
+          <DonationsTable donations={user.donations} />
+
+          <MyTreesSection donations={donationGroups} sites={sites} linkedTreeCount={linkedTreeCount} unlinkedTreeCount={unlinkedTreeCount} />
+
+          <div className="mt-6">
+            <ImpactMap
+              pins={landPins
+                .filter((p: any) => p.land?.gpsLatitude != null && p.land?.gpsLongitude != null)
+                .map((p: any) => {
+                  const site = sites.find((s: any) => s.id === p.siteId);
+                  return {
+                    lat: p.land.gpsLatitude, lng: p.land.gpsLongitude,
+                    farmerName: p.farmer?.fullName, village: p.land.village, district: p.land.district,
+                    siteName: site?.siteName, treesPlanted: donorTreeCountByAssignment[p.id] || 0,
+                  };
+                })}
+            />
+          </div>
         </div>
       </div>
     </div>

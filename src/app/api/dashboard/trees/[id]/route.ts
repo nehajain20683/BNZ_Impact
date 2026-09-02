@@ -19,18 +19,27 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const tree = await (prisma as any).tree.findFirst({
     where: { id: params.id, donation: { userId: user.id } }, // ownership check — only the donor's own tree
     include: {
-      donation: { select: { campaign: { select: { name: true, subtitle: true } }, dedicationName: true, createdAt: true } },
+      donation: { select: { orgId: true, campaign: { select: { name: true, subtitle: true } }, dedicationName: true, createdAt: true } },
       plantationSite: { select: { id: true, siteName: true, district: true, state: true, currentPhase: true } },
       assignment: {
         include: {
           farmer: { select: { id: true, fullName: true, village: true, district: true, state: true } },
-          land: { select: { id: true, village: true, taluka: true, district: true, gpsLatitude: true, gpsLongitude: true } },
+          land: { select: { id: true, village: true, taluka: true, district: true, gpsLatitude: true, gpsLongitude: true, photos: true, kmlFileName: true } },
         },
       },
     },
   });
 
   if (!tree) return NextResponse.json({ error: 'Tree not found' }, { status: 404 });
+
+  // A real, admin-uploaded photo for this species, if the org has set one —
+  // never a hardcoded/external stock image, since those can't be verified
+  // to accurately represent what's actually being planted.
+  const speciesImage = tree.species
+    ? await (prisma as any).speciesImage.findFirst({
+        where: { orgId: tree.donation.orgId, species: { equals: tree.species, mode: 'insensitive' } },
+      }).catch(() => null)
+    : null;
 
   // Only officially published monitoring reaches the donor — same rule as
   // the main donor dashboard and the admin farmer detail impact summary.
@@ -42,6 +51,14 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       }).catch(() => [])
     : [];
 
+  // Officer-captured photos of this specific tree, most recent first — the
+  // real evidence, distinct from the generic species stock photo.
+  const capturedImages = await prisma.treeImage.findMany({
+    where: { treeId: tree.id },
+    select: { id: true, imageUrl: true, capturedAt: true, latitude: true, longitude: true },
+    orderBy: { capturedAt: 'desc' },
+  }).catch(() => []);
+
   return NextResponse.json({
     tree: {
       id: tree.id, treeTagId: tree.treeTagId, species: tree.species, status: tree.status,
@@ -49,6 +66,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       geoLatitude: tree.geoLatitude, geoLongitude: tree.geoLongitude,
       expectedCO2: tree.expectedCO2,
     },
+    speciesImageUrl: speciesImage?.imageUrl || null,
+    capturedImages,
     campaign: tree.donation.campaign,
     dedicationName: tree.donation.dedicationName,
     donatedAt: tree.donation.createdAt,

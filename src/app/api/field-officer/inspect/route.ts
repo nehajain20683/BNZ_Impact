@@ -24,6 +24,22 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const data = schema.parse(await req.json());
+
+    // Previously trusted officerId completely from the request body with no
+    // verification at all — anyone who obtained a valid ID string could
+    // submit inspections as that officer. Now confirms it's a real, active
+    // account, and (since Farmer.orgId scoping applies throughout this app)
+    // that the officer and the farmer being inspected belong to the same
+    // organisation, so an officer from one tenant can never touch another's data.
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: data.officerId } });
+    if (!officer || !officer.active)
+      return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
+
+    const farmer = await prisma.farmer.findUnique({ where: { id: data.farmerId }, select: { orgId: true } });
+    if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
+    if (officer.orgId && officer.orgId !== farmer.orgId)
+      return NextResponse.json({ error: 'This farmer does not belong to your organisation' }, { status: 403 });
+
     const inspection = await prisma.siteInspection.create({
       data: {
         farmerId:            data.farmerId,
@@ -44,16 +60,18 @@ export async function POST(req: Request) {
       },
     });
 
-    if (data.status === 'COMPLETED') {
-      await prisma.farmer.update({
-        where: { id: data.farmerId },
-        data:  { status: 'INSPECTION_COMPLETED' },
-      });
-    } else {
-      await prisma.farmer.update({
-        where: { id: data.farmerId },
-        data:  { status: 'INSPECTION_PENDING' },
-      });
+    // Inspection status belongs to the LAND being inspected, not the farmer
+    // as a person — matches the FarmerStatus/LandStatus split elsewhere in
+    // this app. (This previously wrote 'INSPECTION_COMPLETED'/'INSPECTION_
+    // PENDING' onto Farmer.status, which no longer accepts those values at
+    // all since that split — this call would have thrown a Prisma
+    // validation error on every single use.) Only applies when a specific
+    // land was actually inspected; with no landId there's nothing to update.
+    if (data.landId) {
+      await prisma.land.update({
+        where: { id: data.landId },
+        data: { status: (data.status === 'COMPLETED' ? 'INSPECTION_COMPLETED' : 'INSPECTION_PENDING') as any },
+      }).catch(() => {});
     }
 
     await prisma.auditLog.create({

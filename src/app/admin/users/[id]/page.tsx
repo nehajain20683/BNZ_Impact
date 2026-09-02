@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, User, Mail, Phone, MapPin, Shield, Calendar,
   DollarSign, TreePine, Sprout, CheckCircle, Clock, XCircle, Lock, Unlock,
+  Search, Link2,
 } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
 
@@ -30,6 +31,51 @@ export default function AdminUserDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'donations'|'trees'|'sites'>('donations');
+
+  // Trees tab — separate paginated/filtered state, fetched from the new
+  // dedicated endpoint (mirrors the donor dashboard's own trees API).
+  const [treeList, setTreeList] = useState<any[]>([]);
+  const [treePage, setTreePage] = useState(1);
+  const [treeTotalPages, setTreeTotalPages] = useState(1);
+  const [treeTotal, setTreeTotal] = useState(0);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [treeLoaded, setTreeLoaded] = useState(false);
+  const [treeFilters, setTreeFilters] = useState({ status: '', siteId: '', search: '', sort: 'newest', linked: '' });
+
+  async function loadTrees(page: number, reset = false, overrideFilters?: typeof treeFilters) {
+    const f = overrideFilters || treeFilters;
+    setTreeLoading(true);
+    const qs = new URLSearchParams({ page: String(page), pageSize: '24', sort: f.sort });
+    if (f.status) qs.set('status', f.status);
+    if (f.siteId) qs.set('siteId', f.siteId);
+    if (f.search) qs.set('search', f.search);
+    if (f.linked) qs.set('linked', f.linked);
+    const res = await fetch(`/api/admin/users/${id}/trees?${qs}`);
+    const d = await res.json();
+    setTreeList(reset || page === 1 ? (d.trees || []) : [...treeList, ...(d.trees || [])]);
+    setTreeTotalPages(d.totalPages || 1);
+    setTreeTotal(d.total || 0);
+    setTreePage(page);
+    setTreeLoading(false);
+    setTreeLoaded(true);
+  }
+
+  function openTreesTab() {
+    setTab('trees');
+    if (!treeLoaded) loadTrees(1, true);
+  }
+
+  function applyTreeFilters() {
+    loadTrees(1, true);
+  }
+
+  function jumpToLinkedTrees(linked: 'true' | 'false') {
+    const next = { ...treeFilters, linked, status: '' };
+    setTreeFilters(next);
+    setTab('trees');
+    setTreeLoaded(true);
+    loadTrees(1, true, next);
+  }
 
   useEffect(() => {
     fetch(`/api/admin/users/${id}`)
@@ -96,6 +142,32 @@ export default function AdminUserDetailPage() {
           ))}
         </div>
 
+        {/* Linked vs Not Yet Linked — jumps straight into the Trees tab, pre-filtered */}
+        {summary.totalTrees > 0 && (
+          <div className="grid grid-cols-2 gap-4">
+            <button onClick={() => jumpToLinkedTrees('true')}
+              className="flex items-center gap-3 bg-green-50 hover:bg-green-100 border border-green-100 rounded-2xl p-4 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Link2 className="w-4 h-4 text-green-700"/>
+              </div>
+              <div>
+                <div className="font-bold text-green-900 text-lg leading-none">{summary.linkedTreeCount}</div>
+                <div className="text-green-600 text-xs mt-0.5">Linked to a Farmer's Land</div>
+              </div>
+            </button>
+            <button onClick={() => jumpToLinkedTrees('false')}
+              className="flex items-center gap-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-2xl p-4 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-4 h-4 text-amber-700"/>
+              </div>
+              <div>
+                <div className="font-bold text-amber-900 text-lg leading-none">{summary.unlinkedTreeCount}</div>
+                <div className="text-amber-600 text-xs mt-0.5">Not Yet Linked</div>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Donation status + campaigns */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-5">
@@ -134,10 +206,10 @@ export default function AdminUserDetailPage() {
           <div className="flex border-b border-gray-100">
             {[
               { id: 'donations', label: `Donations (${donations.length})` },
-              { id: 'trees', label: `Trees (${trees.length})` },
+              { id: 'trees', label: `Trees (${summary.totalTrees})` },
               { id: 'sites', label: `Plantation Sites (${sites.length})` },
             ].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id as any)}
+              <button key={t.id} onClick={() => t.id === 'trees' ? openTreesTab() : setTab(t.id as any)}
                 className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${
                   tab === t.id ? 'border-[var(--admin-primary)] text-[var(--admin-primary)]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 {t.label}
@@ -169,20 +241,84 @@ export default function AdminUserDetailPage() {
             )}
 
             {tab === 'trees' && (
-              trees.length === 0 ? <p className="text-gray-400 text-sm text-center py-8">No trees yet.</p> : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {trees.map((t: any) => (
-                    <div key={t.id} className="bg-gray-50 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-xs text-gray-500">{t.treeTagId || 'Tag pending'}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${TREE_STATUS_COLOR[t.status] || 'bg-gray-100 text-gray-600'}`}>{t.status}</span>
-                      </div>
-                      <div className="text-sm font-semibold text-gray-800">{t.species || 'Species TBA'}</div>
-                      {t.plantationSite && <div className="text-xs text-gray-400 mt-0.5">{t.plantationSite.siteName}</div>}
-                    </div>
-                  ))}
+              <div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"/>
+                    <input value={treeFilters.search} onChange={e => setTreeFilters(p => ({ ...p, search: e.target.value }))}
+                      onKeyDown={e => e.key === 'Enter' && applyTreeFilters()}
+                      placeholder="Search tag ID…" className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/30"/>
+                  </div>
+                  <select value={treeFilters.linked} onChange={e => setTreeFilters(p => ({ ...p, linked: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-xl">
+                    <option value="">Linked or Not</option>
+                    <option value="true">Linked only</option>
+                    <option value="false">Not yet linked</option>
+                  </select>
+                  <select value={treeFilters.status} onChange={e => setTreeFilters(p => ({ ...p, status: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-xl">
+                    <option value="">All Statuses</option>
+                    {['PENDING','PLANTED','GROWING','MATURE'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select value={treeFilters.siteId} onChange={e => setTreeFilters(p => ({ ...p, siteId: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-xl">
+                    <option value="">All Sites</option>
+                    {sites.map((s: any) => <option key={s.id} value={s.id}>{s.siteName}</option>)}
+                  </select>
+                  <select value={treeFilters.sort} onChange={e => setTreeFilters(p => ({ ...p, sort: e.target.value }))}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-xl">
+                    <option value="newest">Newest planted</option>
+                    <option value="oldest">Oldest planted</option>
+                  </select>
+                  <button onClick={applyTreeFilters} className="px-4 py-2 text-sm font-semibold bg-[var(--admin-primary)] text-white rounded-xl">
+                    Apply
+                  </button>
                 </div>
-              )
+
+                {treeLoading && treeList.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-8">Loading…</p>
+                ) : treeList.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-8">No trees match these filters.</p>
+                ) : (
+                  <>
+                    <p className="text-gray-400 text-xs mb-3">{treeTotal} tree{treeTotal === 1 ? '' : 's'} found</p>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {treeList.map((t: any) => (
+                        <div key={t.id} className="bg-gray-50 rounded-xl p-3 flex gap-3">
+                          <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {t.latestPhoto ? (
+                              <img src={t.latestPhoto} alt="" className="w-full h-full object-cover"/>
+                            ) : (
+                              <TreePine className="w-6 h-6 text-gray-400"/>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-mono text-xs text-gray-500 truncate">{t.treeTagId || 'Tag pending'}</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${TREE_STATUS_COLOR[t.status] || 'bg-gray-100 text-gray-600'}`}>{t.status}</span>
+                            </div>
+                            <div className="text-sm font-semibold text-gray-800 truncate">{t.species || 'Species TBA'}</div>
+                            {t.plantationSite && <div className="text-xs text-gray-400 truncate">{t.plantationSite.siteName}</div>}
+                            {t.farmerName ? (
+                              <div className="flex items-center gap-1 text-[10px] text-green-700 font-semibold mt-0.5">
+                                <Link2 className="w-2.5 h-2.5"/> {t.farmerName}
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-amber-600 font-semibold mt-0.5">Not yet linked</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {treePage < treeTotalPages && (
+                      <button onClick={() => loadTrees(treePage + 1)} disabled={treeLoading}
+                        className="w-full mt-4 text-gray-600 hover:text-gray-800 text-sm font-semibold py-2.5 border border-gray-200 rounded-xl disabled:opacity-50">
+                        {treeLoading ? 'Loading…' : 'Load more trees'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
 
             {tab === 'sites' && (
