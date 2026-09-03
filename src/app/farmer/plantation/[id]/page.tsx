@@ -107,7 +107,7 @@ export default function PlantationDetailPage() {
             <h2 className="font-bold text-gray-900 mb-3">Assigned Land</h2>
             <div className="grid grid-cols-2 gap-2 text-xs mb-3">
               {[
-                { label: 'Survey Number', value: land.surveyNumber },
+                { label: 'Survey Number', value: land.surveyGutNumber },
                 { label: 'Area', value: land.areaAcres ? `${land.areaAcres} acres` : null },
                 { label: 'Village', value: land.village },
                 { label: 'District', value: land.district },

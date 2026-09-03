@@ -67,7 +67,7 @@ function FarmerRegisterForm() {
   // Step 2 — Personal
   const [personal, setPersonal] = useState({
     fullName:'', fatherName:'', dob:'', gender:'',
-    aadhaarNumber:'', panNumber:'', occupation:'', alternateMobile:'', email:'',
+    aadhaarNumber:'', panNumber:'', occupation:'', farmingExperience:'', alternateMobile:'', email:'',
   });
 
   // Step 3 — Bank
@@ -78,7 +78,7 @@ function FarmerRegisterForm() {
   // Step 4 — Land
   const [land, setLand]         = useState({
     surveyGutNumber:'', khataNumber:'', areaAcres:'', areaOfferedAcres:'',
-    landType:'', village:'', taluka:'', district:'', state:'Maharashtra', pincode:'',
+    landType:'', currentLandUse:'', village:'', taluka:'', district:'', state:'Maharashtra', pincode:'',
     gpsLatitude:'', gpsLongitude:'', waterAvailability:'', securityStatus:'',
   });
 
@@ -87,6 +87,9 @@ function FarmerRegisterForm() {
 
   // Step 6 — Plantation
   const [species, setSpecies]   = useState<string[]>([]);
+  const [plantationPreference, setPlantationPreference] = useState('');
+  const [plantationTypeOtherText, setPlantationTypeOtherText] = useState('');
+  const [targetTreeCount, setTargetTreeCount] = useState('');
 
   // Step 7 — Nominee
   const [nominee, setNominee]   = useState({
@@ -122,7 +125,7 @@ function FarmerRegisterForm() {
           fullName: f.fullName === 'Pending' ? '' : (f.fullName || ''),
           fatherName: f.fatherName || '', dob: f.dateOfBirth ? f.dateOfBirth.slice(0,10) : '',
           gender: f.gender || '', aadhaarNumber: f.aadhaarNumber || '', panNumber: f.panNumber || '',
-          occupation: f.occupation || '', alternateMobile: f.alternateMobile || '', email: f.email || '',
+          occupation: f.occupation || '', farmingExperience: f.farmingExperience || '', alternateMobile: f.alternateMobile || '', email: f.email || '',
         });
         setBank({
           bankAccountName: f.bankAccountName || '', bankName: f.bankName || '',
@@ -296,11 +299,38 @@ function FarmerRegisterForm() {
       return;
     }
 
+    // Plantation preferences (species, type, estimated count) are all LAND
+    // fields, not farmer fields — same reasoning as ownership above. This
+    // was previously sent to /api/farmer/profile, which has no matching
+    // columns on the Farmer model at all; the request would have failed
+    // silently every time (caught by .catch(() => {}) below), meaning
+    // species preference has likely never actually saved during
+    // registration up to this point.
+    if (step === 6) {
+      if (currentLandId) {
+        await fetch('/api/farmer/land', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            landId: currentLandId, farmerId,
+            speciesPreference: species, plantationPreference: plantationPreference || undefined,
+            plantationTypeOtherText: plantationPreference === 'OTHER' ? plantationTypeOtherText : undefined,
+            targetTreeCount: targetTreeCount || undefined,
+          }),
+        }).catch(() => {});
+      }
+      await fetch('/api/farmer/profile', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ farmerId, registrationStep: step }),
+      }).catch(() => {});
+      setLoading(false);
+      setStep(s => Math.min(8, s + 1) as Step);
+      return;
+    }
+
     const payload: any = { farmerId, registrationStep: step };
 
     if (step === 2) Object.assign(payload, personal);
     if (step === 3) Object.assign(payload, bank);
-    if (step === 6) Object.assign(payload, { speciesPreference: species });
     if (step === 7) Object.assign(payload, {
       ...nominee,
       nomineeDob: nominee.nomineeDob || null,
@@ -615,7 +645,6 @@ function FarmerRegisterForm() {
               </div>
               {[
                 { k:'fatherName',     en:"Father's Name",  hi:'पिता का नाम' },
-                { k:'occupation',     en:'Occupation',     hi:'व्यवसाय' },
                 { k:'alternateMobile',en:'Alternate Mobile',hi:'वैकल्पिक मोबाइल', type:'tel' },
                 { k:'email',          en:'Email',          hi:'ईमेल', type:'email' },
                 { k:'aadhaarNumber',   en:'Aadhaar Number', hi:'आधार नंबर' },
@@ -637,6 +666,23 @@ function FarmerRegisterForm() {
                   <option value="OTHER">Other / अन्य</option>
                 </select>
               </div>
+              <div>
+                <BiLabel en="Occupation" hi="व्यवसाय"/>
+                <select value={personal.occupation} onChange={e => setPersonal(p => ({ ...p, occupation: e.target.value }))} className={inp}>
+                  <option value="">Select / चुनें</option>
+                  <option value="Farmer">Farmer / किसान</option>
+                  <option value="Landowner">Landowner (non-farming) / भूमि स्वामी</option>
+                  <option value="Both">Both / दोनों</option>
+                  <option value="Other">Other / अन्य</option>
+                </select>
+              </div>
+              {personal.occupation === 'Farmer' || personal.occupation === 'Both' ? (
+                <div>
+                  <BiLabel en="Farming Experience (years)" hi="कृषि अनुभव (वर्ष)"/>
+                  <input type="number" min="0" value={personal.farmingExperience}
+                    onChange={e => setPersonal(p => ({ ...p, farmingExperience: e.target.value }))} className={inp}/>
+                </div>
+              ) : null}
               <div>
                 <BiLabel en="Date of Birth" hi="जन्म तिथि"/>
                 <input type="date" value={personal.dob}
@@ -689,6 +735,15 @@ function FarmerRegisterForm() {
                   <option value="">Select / चुनें</option>
                   {['AGRICULTURAL','PRIVATE','WASTELAND','AGROFORESTRY','ORCHARD'].map(t => (
                     <option key={t} value={t}>{t.replace('_',' ')}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <BiLabel en="Current Land Use" hi="भूमि का वर्तमान उपयोग"/>
+                <select value={land.currentLandUse} onChange={e => setLand(l => ({ ...l, currentLandUse: e.target.value }))} className={inp}>
+                  <option value="">Select / चुनें</option>
+                  {['Fallow / परती', 'Under Cultivation / कृषि योग्य', 'Grazing Land / चारागाह', 'Barren / बंजर', 'Orchard / बाग़', 'Other / अन्य'].map(t => (
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
@@ -761,7 +816,38 @@ function FarmerRegisterForm() {
           {/* ── STEP 6: Plantation ── */}
           {step === 6 && (
             <div className="space-y-4">
-              <h2 className="font-display text-xl text-gray-900">Plantation / वृक्षारोपण</h2>
+              <h2 className="font-display text-xl text-gray-900">Plantation / वृक्षारोपण विवरण</h2>
+
+              <BiLabel en="Proposed Plantation Type" hi="प्रस्तावित वृक्षारोपण प्रकार"/>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: 'AGROFORESTRY',   en: 'Agroforestry',    hi: 'कृषि वानिकी' },
+                  { v: 'MIYAWAKI',       en: 'Miyawaki Forest', hi: 'मियावाकी वन' },
+                  { v: 'NATIVE_FOREST',  en: 'Native Forest',   hi: 'देशी वन' },
+                  { v: 'FRUIT_TREES',    en: 'Fruit Plantation',hi: 'फल वृक्षारोपण' },
+                  { v: 'BAMBOO',         en: 'Bamboo',          hi: 'बांस' },
+                  { v: 'MIXED_SPECIES',  en: 'Mixed Plantation',hi: 'मिश्रित वृक्षारोपण' },
+                  { v: 'OTHER',          en: 'Other',           hi: 'अन्य' },
+                ].map(o => (
+                  <button key={o.v} type="button" onClick={() => setPlantationPreference(o.v)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs border-2 text-left transition-colors ${plantationPreference === o.v ? 'text-white border-current' : 'border-gray-200 text-gray-600'}`}
+                    style={plantationPreference === o.v ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}>
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${plantationPreference === o.v ? 'border-white bg-white/30' : 'border-gray-300'}`}/>
+                    <span>{o.en} <span className="opacity-70">/ {o.hi}</span></span>
+                  </button>
+                ))}
+              </div>
+              {plantationPreference === 'OTHER' && (
+                <input value={plantationTypeOtherText} onChange={e => setPlantationTypeOtherText(e.target.value)}
+                  placeholder="Please describe / कृपया वर्णन करें" className={inp}/>
+              )}
+
+              <div>
+                <BiLabel en="Estimated Number of Trees" hi="प्रस्तावित वृक्षों की संख्या"/>
+                <input type="number" value={targetTreeCount} onChange={e => setTargetTreeCount(e.target.value)}
+                  placeholder="e.g. 500" className={inp}/>
+              </div>
+
               <BiLabel en="Species Preference (Optional)" hi="पसंदीदा प्रजातियाँ"/>
               <div className="flex flex-wrap gap-2">
                 {['Neem / नीम','Mango / आम','Bamboo / बांस','Peepal / पीपल','Teak / सागवान','Mixed / मिश्रित','Others / अन्य'].map(s => (

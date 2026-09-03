@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, DollarSign, Users, TreePine,
   BarChart2, FileText, Settings, Activity,
-  Zap, ChevronRight, Shield, Megaphone, Leaf, Image as ImageIcon
+  Zap, ChevronRight, Shield, Megaphone, Leaf, Image as ImageIcon, PenTool
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -28,6 +28,7 @@ const NAV = [
       { href: '/admin/documents',         label: 'Documents',         icon: FileText },
       { href: '/admin/species-images',    label: 'Species Images',    icon: Leaf },
       { href: '/admin/field-officers',    label: 'Field Officers',    icon: Users },
+      { href: '/admin/signatories',       label: 'Signatories',       icon: PenTool },
       { href: '/admin/impact-metrics',    label: 'Impact Metrics',    icon: Leaf },
     ],
   },

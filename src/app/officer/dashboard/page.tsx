@@ -4,9 +4,10 @@
 // (Phase 2) will hang off each farmer's plantation from here.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Users, MapPin, TreePine, AlertTriangle } from 'lucide-react';
+import { LogOut, Users, MapPin, TreePine, AlertTriangle, QrCode, PenTool } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { OrgLogo } from '@/components/OrgLogo';
+import { QRScanner } from '@/components/QRScanner';
 
 const FARMER_STATUS_LABEL: Record<string, string> = {
   REGISTERED: 'Registered', DOCUMENTS_PENDING: 'Documents Pending',
@@ -17,6 +18,17 @@ export default function FieldOfficerDashboard() {
   const org = useOrgConfig();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanError, setScanError] = useState('');
+
+  async function handleScan(tag: string) {
+    setShowScanner(false);
+    const officerId = localStorage.getItem('officerId');
+    const res = await fetch(`/api/field-officer/lookup-tag?tag=${encodeURIComponent(tag)}&officerId=${officerId}`);
+    const result = await res.json();
+    if (!res.ok) { setScanError(result.error || 'Tree not found'); setTimeout(() => setScanError(''), 4000); return; }
+    router.push(`/officer/farmer/${result.farmerId}?scannedTree=${result.treeId}`);
+  }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,6 +64,9 @@ export default function FieldOfficerDashboard() {
             <div className="font-bold text-sm">{officer.name}</div>
             <div className="text-white/70 text-xs">{officer.designation || 'Field Officer'} · {officer.district || org.name}</div>
           </div>
+          <a href="/officer/signature" aria-label="My Signature" className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
+            <PenTool className="w-4 h-4"/>
+          </a>
           <button onClick={logout} aria-label="Sign Out" className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
             <LogOut className="w-4 h-4"/>
           </button>
@@ -71,6 +86,14 @@ export default function FieldOfficerDashboard() {
             <div className="text-sage-400 text-xs">Land Parcels</div>
           </div>
         </div>
+
+        <button onClick={() => setShowScanner(true)}
+          className="w-full flex items-center justify-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold py-3.5 rounded-2xl text-sm mb-5">
+          <QrCode className="w-4 h-4"/> Scan Tree Tag
+        </button>
+        {scanError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 mb-5">{scanError}</div>
+        )}
 
         <h2 className="font-display text-lg text-sage-950 mb-3">My Assigned Farmers</h2>
         {farmers.length === 0 ? (
@@ -119,6 +142,10 @@ export default function FieldOfficerDashboard() {
           </div>
         )}
       </div>
+
+      {showScanner && (
+        <QRScanner title="Scan Tree Tag" onClose={() => setShowScanner(false)} onScan={handleScan}/>
+      )}
     </div>
   );
 }

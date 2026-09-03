@@ -63,7 +63,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     },
     land: assignment.land ? {
       id: assignment.land.id,
-      surveyNumber: assignment.land.surveyGutNumber || assignment.land.surveyNumber,
+      surveyNumber: assignment.land.surveyGutNumber,
       areaAcres: assignment.land.areaAcres,
       gpsLatitude: assignment.land.gpsLatitude, gpsLongitude: assignment.land.gpsLongitude,
       polygonGeoJson: assignment.land.polygonGeoJson,

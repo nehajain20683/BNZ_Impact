@@ -34,7 +34,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   // when, instead of a blank "Start" button every time. Not everything
   // gets captured in a single visit, so this also frames the next action
   // as continuing/updating a record rather than only ever starting fresh.
-  const [latestInspection, latestMonitoring] = await Promise.all([
+  function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+
+  const [latestInspection, latestMonitoring, todayCheckIn] = await Promise.all([
     prisma.siteInspection.findFirst({
       where: { farmerId: farmer.id },
       orderBy: { createdAt: 'desc' },
@@ -48,7 +50,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       orderBy: { visitDate: 'desc' },
       select: { visitDate: true, survivalPct: true, _count: { select: { treeSamples: true } } },
     }),
+    prisma.farmCheckIn.findFirst({
+      where: { farmerId: farmer.id, officerId, checkedInAt: { gte: startOfDay(new Date()) } },
+      orderBy: { checkedInAt: 'desc' },
+    }),
   ]);
 
-  return NextResponse.json({ farmer, trees, latestInspection, latestMonitoring });
+  return NextResponse.json({ farmer, trees, latestInspection, latestMonitoring, checkedInToday: !!todayCheckIn });
 }

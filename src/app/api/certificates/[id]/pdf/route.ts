@@ -18,6 +18,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   // Use the chapter stored at time of donation — no hardcoded fallback
   const chapter = (donation as any).donorChapter || org.name;
 
+  const donationOrgId = (donation as any).orgId;
+  const signatory = donationOrgId
+    ? await prisma.orgSignatory.findFirst({ where: { orgId: donationOrgId, isPrimary: true } })
+    : null;
+
   const html = generateCertificatePDF({
     donorName:      donation.donorName,
     numberOfTrees:  donation.numberOfTrees,
@@ -29,6 +34,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     receiptNumber:  donation.receiptNumber!,
     chapter,
     org: { name: org.name, logoUrl: org.logoUrl, org80gNumber: org.org80gNumber },
+    signatory: signatory ? { name: signatory.name, designation: signatory.designation, signatureImage: signatory.signatureImage } : null,
   });
 
   return new NextResponse(html, {

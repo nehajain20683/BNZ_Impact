@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       where: { status, farmer: { orgId } },
       include: {
         farmer: { select: { id: true, fullName: true, mobile: true } },
-        land: { select: { id: true, surveyGutNumber: true, surveyNumber: true } },
+        land: { select: { id: true, surveyGutNumber: true } },
       },
       orderBy: { submittedAt: 'desc' },
       take: 200,

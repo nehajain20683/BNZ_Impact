@@ -22,8 +22,8 @@ function TreeCard({ tree }: { tree: any }) {
   return (
     <a href={`/dashboard/tree/${tree.id}`} className="block bg-white border border-sage-100 rounded-2xl p-4 hover:shadow-md hover:border-sage-200 transition-all">
       <div className="w-full h-24 bg-sage-50 rounded-xl flex items-center justify-center mb-4 relative">
-        {tree.imageUrl
-          ? <img src={tree.imageUrl} alt="tree" className="w-full h-full object-cover rounded-xl" />
+        {(tree.images?.[0]?.imageUrl || tree.imageUrl)
+          ? <img src={tree.images?.[0]?.imageUrl || tree.imageUrl} alt="tree" className="w-full h-full object-cover rounded-xl" />
           : <TreePine className="w-10 h-10 text-sage-400" />}
         <span className={`absolute top-1.5 right-1.5 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${linked ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
           {linked ? <Link2 className="w-2.5 h-2.5"/> : <Clock className="w-2.5 h-2.5"/>}
@@ -37,6 +37,9 @@ function TreeCard({ tree }: { tree: any }) {
       </div>
       {tree.plantedDate && (
         <div className="text-xs text-sage-500 mt-2">Planted {new Date(tree.plantedDate).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</div>
+      )}
+      {tree.lastUpdatedAt && (
+        <div className="text-[11px] text-sage-400 mt-0.5">Last updated {new Date(tree.lastUpdatedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</div>
       )}
       {tree.plantationSite && (
         <div className="text-xs text-sage-500 mt-1">{tree.plantationSite.siteName}{tree.plantationSite.district ? ` · ${tree.plantationSite.district}` : ''}</div>

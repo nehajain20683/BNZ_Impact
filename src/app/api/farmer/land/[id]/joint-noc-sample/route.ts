@@ -20,7 +20,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
   const html = generateJointOwnerNOC({
     ownerName: '', // left blank — the co-owner fills this in by hand
-    surveyNumber: land.surveyGutNumber || land.surveyNumber || undefined,
+    surveyNumber: land.surveyGutNumber || undefined,
     village: land.village || undefined,
     taluka: land.taluka || undefined,
     district: land.district || undefined,

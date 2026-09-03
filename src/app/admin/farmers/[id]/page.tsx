@@ -17,6 +17,11 @@ const AGREEMENT_TYPES = [
 ];
 
 const inp = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
+const ISSUE_LABELS: Record<string, string> = {
+  ANIMAL_DAMAGE: 'Animal Damage', FLOOD: 'Flood', FIRE: 'Fire',
+  PEST_ATTACK: 'Pest Attack', MISSING_TREES: 'Missing Trees',
+  WRONG_SPECIES: 'Wrong Species Planted', OTHER: 'Other Issue',
+};
 
 export default function AdminFarmerDetailPage() {
   const params = useParams();
@@ -30,12 +35,18 @@ export default function AdminFarmerDetailPage() {
   const [inspections, setInspections] = useState<any[]>([]);
   const [inspectionsLoaded, setInspectionsLoaded] = useState(false);
   const [monitoringVisits, setMonitoringVisits] = useState<any[]>([]);
+  const [issues, setIssues] = useState<any[]>([]);
+  const [checkIns, setCheckIns] = useState<any[]>([]);
 
   async function loadInspections() {
     const res = await fetch(`/api/field-officer/inspect?farmerId=${farmerId}`).then(r => r.json()).catch(() => ({ inspections: [] }));
     setInspections(res.inspections || []);
     const monRes = await fetch(`/api/admin/farmers/${farmerId}/monitoring`).then(r => r.json()).catch(() => ({ visits: [] }));
     setMonitoringVisits(monRes.visits || []);
+    const issueRes = await fetch(`/api/field-officer/issue?farmerId=${farmerId}`).then(r => r.json()).catch(() => ({ issues: [] }));
+    setIssues(issueRes.issues || []);
+    const checkInRes = await fetch(`/api/admin/farmers/${farmerId}/check-ins`).then(r => r.json()).catch(() => ({ checkIns: [] }));
+    setCheckIns(checkInRes.checkIns || []);
     setInspectionsLoaded(true);
   }
   const [generating, setGenerating] = useState<string|null>(null);
@@ -44,6 +55,20 @@ export default function AdminFarmerDetailPage() {
   const [editOfficer, setEditOfficer] = useState(false);
   const [officerList, setOfficerList] = useState<any[]>([]);
   const [officerSaving, setOfficerSaving] = useState(false);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+
+  async function togglePublicVisibility(next: boolean) {
+    setVisibilitySaving(true);
+    const res = await fetch(`/api/admin/farmers/${farmerId}/visibility`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publiclyVisible: next }),
+    });
+    const data = await res.json();
+    setVisibilitySaving(false);
+    if (!res.ok) { showToast(data.error || 'Failed to update'); return; }
+    showToast(next ? 'Now visible on public pages ✓' : 'Hidden from public pages');
+    load();
+  }
 
   async function openOfficerEdit() {
     setEditOfficer(true);
@@ -153,9 +178,10 @@ export default function AdminFarmerDetailPage() {
 
   async function generateDocument(agreementType: string) {
     setGenerating(agreementType);
+    const landId = genForm.landId || farmer.lands?.[0]?.id;
     const res  = await fetch('/api/admin/agreements', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ farmerId, agreementType, templateData: genForm }),
+      body: JSON.stringify({ farmerId, agreementType, landId, templateData: genForm }),
     });
     const data = await res.json();
     setGenerating(null);
@@ -179,40 +205,6 @@ export default function AdminFarmerDetailPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading…</div>;
   if (!farmer)  return <div className="min-h-screen flex items-center justify-center text-gray-500">Farmer not found</div>;
 
-  function DocRow({ d }: { d: any }) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-medium text-gray-900 text-sm">{d.docType?.replace(/_/g,' ')}</div>
-            <div className="text-gray-400 text-xs">{d.fileName} · {new Date(d.createdAt).toLocaleDateString('en-IN')}</div>
-          </div>
-          <div className="flex gap-2 items-center">
-            <span className={`text-xs font-bold px-2 py-1 rounded-full ${d.status==='VERIFIED'?'bg-green-100 text-green-700':d.status==='REJECTED'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-700'}`}>
-              {d.status}
-            </span>
-            {d.fileUrl && <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--admin-primary)] text-xs hover:underline">View</a>}
-          </div>
-        </div>
-        {d.status === 'REJECTED' && d.rejectionReason && (
-          <div className="text-red-600 text-xs mt-2 bg-red-50 rounded-lg px-2.5 py-1.5">Reason: {d.rejectionReason}</div>
-        )}
-        {d.status === 'PENDING' && (
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => verifyDocument(d.id)}
-              className="flex-1 text-xs font-semibold bg-green-50 hover:bg-green-100 text-green-700 rounded-lg py-1.5">
-              Verify
-            </button>
-            <button onClick={() => rejectDocument(d.id)}
-              className="flex-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg py-1.5">
-              Reject
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -232,6 +224,24 @@ export default function AdminFarmerDetailPage() {
               </h3>
               <button onClick={() => { setShowGenModal(null); setGenForm({}); }}><X className="w-5 h-5 text-gray-400"/></button>
             </div>
+
+            {/* Which land this document is for — a farmer can have
+                multiple land parcels, each independently verified.
+                Generating a document without this always silently used
+                whichever land was created first, regardless of which one
+                the document was actually meant to describe. */}
+            {farmer.lands?.length > 0 && (
+              <div className="mb-4">
+                <label className="text-xs font-medium text-gray-500 block mb-1">Which land parcel is this for?</label>
+                <select value={genForm.landId || farmer.lands[0]?.id || ''} onChange={e=>setGenForm((f:any)=>({...f,landId:e.target.value}))} className={inp}>
+                  {farmer.lands.map((l: any) => (
+                    <option key={l.id} value={l.id}>
+                      {l.surveyGutNumber || 'Land'} — {l.village || 'No village set'} ({(l.areaAcres || '—')} acres){l.verified ? ' ✓ Approved' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Type-specific extra fields */}
             {showGenModal === 'PAYMENT_RECEIPT' && (
@@ -391,6 +401,22 @@ export default function AdminFarmerDetailPage() {
                 <p className="text-gray-400 text-sm mt-1">No field officer assigned yet.</p>
               )}
             </div>
+
+            <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Public Visibility</h3>
+                  <p className="text-gray-400 text-xs mt-1 max-w-md">
+                    When enabled, this farmer's name, village, and photo appear on public pages —
+                    "Meet the Farmers" and the plantation site story page. Off by default, even once verified.
+                  </p>
+                </div>
+                <button onClick={() => togglePublicVisibility(!farmer.publiclyVisible)} disabled={visibilitySaving}
+                  className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${farmer.publiclyVisible ? 'bg-green-500' : 'bg-gray-200'}`}>
+                  <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${farmer.publiclyVisible ? 'translate-x-6' : 'translate-x-1'}`}/>
+                </button>
+              </div>
+            </div>
             {[
               { title:'Personal Information', fields:[
                 ['Farmer ID', farmer.farmerIdGenerated||'—'],['GIS ID', farmer.gisId||'—'],
@@ -399,7 +425,7 @@ export default function AdminFarmerDetailPage() {
                 ['Gender', farmer.gender||'—'],['Aadhaar', farmer.aadhaarNumber?'••••••••'+farmer.aadhaarNumber.slice(-4):'—'],
                 ['PAN', farmer.panNumber||'—'],['Mobile', farmer.mobile],['Alt. Mobile', farmer.alternateMobile||'—'],
                 ['Email', farmer.email||'—'],['Occupation', farmer.occupation||'—'],
-                ['Is Farmer', farmer.isFarmer?'Yes':'No'],['Farming Experience', farmer.farmingExperience||'—'],
+                ['Farming Experience (yrs)', farmer.farmingExperience||'—'],
                 ['Registered On', new Date(farmer.createdAt).toLocaleDateString('en-IN')],
                 ['Registration Step', `${farmer.registrationStep||1}/8`],
               ]},
@@ -443,7 +469,7 @@ export default function AdminFarmerDetailPage() {
               return (
               <div key={land.id} className="bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-3">
-                  <div className="font-semibold text-gray-900">Survey: {land.surveyGutNumber||land.surveyNumber||'—'}</div>
+                  <div className="font-semibold text-gray-900">Survey: {land.surveyGutNumber||'—'}</div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-2 py-1 rounded-full font-bold ${land.verified?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}`}>
                       {(land.status || 'DOCUMENTS_PENDING').replace(/_/g,' ')}
@@ -461,8 +487,9 @@ export default function AdminFarmerDetailPage() {
                 )}
                 <div className="grid grid-cols-3 gap-3 text-xs">
                   {[['Area', `${land.areaAcres||'—'} ac`],['Offered', `${land.areaOfferedAcres||'—'} ${land.areaOfferedUnit||'ac'}`],
-                    ['Type', land.landType||'—'],['Village', land.village||'—'],['District', land.district||'—'],
+                    ['Type', land.landType||'—'],['Current Use', land.currentLandUse||'—'],['Village', land.village||'—'],['District', land.district||'—'],
                     ['Ownership', land.ownershipType||'sole'],['GPS', land.gpsLatitude?`${land.gpsLatitude?.toFixed(4)},${land.gpsLongitude?.toFixed(4)}`:'—'],
+                    ['Plantation Type', land.plantationPreference ? land.plantationPreference.replace(/_/g,' ') + (land.plantationPreference === 'OTHER' && land.plantationTypeOtherText ? ` (${land.plantationTypeOtherText})` : '') : '—'],
                     ['Species', land.speciesPreference?.join(', ')||'—'],['Target Trees', land.targetTreeCount||'—'],
                   ].map(([l,v]) => (
                     <div key={l as string}><span className="text-gray-400">{l}: </span><span className="font-medium text-gray-800">{v}</span></div>
@@ -513,7 +540,7 @@ export default function AdminFarmerDetailPage() {
               <div className="space-y-3">
                 {(farmer.documents || []).filter((d: any) => !d.landId).length > 0
                   ? (farmer.documents || []).filter((d: any) => !d.landId).map((d: any) => (
-                    <DocRow key={d.id} d={d}/>
+                    <DocRow key={d.id} d={d} onVerify={verifyDocument} onReject={rejectDocument}/>
                   ))
                   : <p className="text-gray-400 text-sm py-4 text-center">No identity documents uploaded yet</p>}
               </div>
@@ -529,12 +556,12 @@ export default function AdminFarmerDetailPage() {
                     return (
                       <div key={land.id} className="bg-gray-50 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold text-gray-700">Survey: {land.surveyGutNumber || land.surveyNumber || '—'}</span>
+                          <span className="text-xs font-semibold text-gray-700">Survey: {land.surveyGutNumber || '—'}</span>
                           {land.verified && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Approved</span>}
                         </div>
                         <div className="space-y-3">
                           {landDocs.length > 0
-                            ? landDocs.map((d: any) => <DocRow key={d.id} d={d}/>)
+                            ? landDocs.map((d: any) => <DocRow key={d.id} d={d} onVerify={verifyDocument} onReject={rejectDocument}/>)
                             : <p className="text-gray-400 text-xs py-2 text-center">No documents for this land yet</p>}
                         </div>
                       </div>
@@ -631,7 +658,7 @@ export default function AdminFarmerDetailPage() {
                     </div>
                     <div className="text-gray-400 text-xs mb-2">
                       {insp.inspectedAt ? new Date(insp.inspectedAt).toLocaleString('en-IN') : 'Not yet visited'}
-                      {insp.land?.surveyNumber ? ` · Land ${insp.land.surveyNumber}` : ''}
+                      {insp.land?.surveyGutNumber ? ` · Land ${insp.land.surveyGutNumber}` : ''}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {[
@@ -707,6 +734,84 @@ export default function AdminFarmerDetailPage() {
           </div>
         )}
 
+        {activeTab === 'inspections' && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 mt-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Issues Reported</h3>
+            {issues.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No issues reported for this farmer.</p>
+            ) : (
+              <div className="space-y-3">
+                {issues.map((iss: any) => (
+                  <div key={iss.id} className={`border rounded-xl p-4 ${
+                    iss.severity === 'CRITICAL' ? 'border-red-200 bg-red-50/50' :
+                    iss.severity === 'HIGH' ? 'border-orange-200 bg-orange-50/50' : 'border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-gray-800 text-sm">{ISSUE_LABELS[iss.issueType] || iss.issueType}</div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          iss.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                          iss.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                          iss.severity === 'MEDIUM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {iss.severity}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          iss.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
+                          iss.status === 'ACKNOWLEDGED' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {iss.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-gray-400 text-xs mb-2">
+                      {new Date(iss.createdAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                      {' · '}Reported by {iss.reportedBy?.name || 'Officer'}
+                      {iss.tree?.treeTagId ? ` · ${iss.tree.treeTagId}` : ''}
+                    </div>
+                    {iss.description && <p className="text-gray-600 text-xs italic mb-2">"{iss.description}"</p>}
+                    {iss.photos?.length > 0 && (
+                      <div className="flex gap-1.5 overflow-x-auto mb-2">
+                        {iss.photos.map((p: string, i: number) => (
+                          <img key={i} src={p} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0"/>
+                        ))}
+                      </div>
+                    )}
+                    {iss.gpsLat && (
+                      <a href={`https://www.google.com/maps?q=${iss.gpsLat},${iss.gpsLng}`} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] text-[var(--admin-primary)] font-semibold inline-block">View GPS location →</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'inspections' && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 mt-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Check-in History</h3>
+            {checkIns.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No check-ins recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {checkIns.map((ci: any) => (
+                  <div key={ci.id} className="flex items-center gap-3 border border-gray-100 rounded-xl p-3">
+                    {ci.arrivalPhoto && <img src={ci.arrivalPhoto} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0"/>}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-700">{ci.officer?.name || 'Officer'}</div>
+                      <div className="text-gray-400 text-xs">{new Date(ci.checkedInAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
+                    </div>
+                    {ci.distanceMeters != null && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        ci.withinGeofence ? 'bg-green-100 text-green-700' : ci.overridden ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                        {ci.withinGeofence ? `✓ ${ci.distanceMeters}m` : ci.overridden ? `⚠ ${ci.distanceMeters}m (override)` : `✗ ${ci.distanceMeters}m`}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── AUDIT LOG TAB ── */}
         {activeTab === 'logs' && (
           <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -733,6 +838,72 @@ export default function AdminFarmerDetailPage() {
         )}
 
       </div>
+    </div>
+  );
+}
+
+// Top-level, not nested inside the parent — a component defined inside
+// another component's render body gets recreated (and remounted) on every
+// parent re-render, which would silently reset this component's own
+// parsing/result state mid-action. Handlers passed in as props instead of
+// closing over the parent's scope directly.
+function DocRow({ d, onVerify, onReject }: { d: any; onVerify: (id: string) => void; onReject: (id: string) => void }) {
+  const [parsing, setParsing] = useState(false);
+  const [parseResult, setParseResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const looksLikeKml = /\.(kml|kmz)$/i.test(d.fileName || '');
+
+  async function parseBoundary() {
+    setParsing(true);
+    setParseResult(null);
+    const res = await fetch(`/api/admin/lands/${d.landId}/parse-kml`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: d.id }),
+    });
+    const data = await res.json();
+    setParsing(false);
+    setParseResult(res.ok
+      ? { ok: true, msg: `Boundary saved — ${data.pointCount} points` }
+      : { ok: false, msg: data.error || 'Failed to parse' });
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-medium text-gray-900 text-sm">{d.docType?.replace(/_/g,' ')}</div>
+          <div className="text-gray-400 text-xs">{d.fileName} · {new Date(d.createdAt).toLocaleDateString('en-IN')}</div>
+          {parseResult && (
+            <div className={`text-xs mt-1 font-medium ${parseResult.ok ? 'text-green-600' : 'text-red-500'}`}>{parseResult.msg}</div>
+          )}
+        </div>
+        <div className="flex gap-2 items-center">
+          <span className={`text-xs font-bold px-2 py-1 rounded-full ${d.status==='VERIFIED'?'bg-green-100 text-green-700':d.status==='REJECTED'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-700'}`}>
+            {d.status}
+          </span>
+          {d.fileUrl && <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--admin-primary)] text-xs hover:underline">View</a>}
+        </div>
+      </div>
+      {d.status === 'REJECTED' && d.rejectionReason && (
+        <div className="text-red-600 text-xs mt-2 bg-red-50 rounded-lg px-2.5 py-1.5">Reason: {d.rejectionReason}</div>
+      )}
+      {d.status === 'VERIFIED' && looksLikeKml && d.landId && (
+        <button onClick={parseBoundary} disabled={parsing}
+          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg py-1.5 mt-3 disabled:opacity-60">
+          {parsing ? 'Parsing…' : '🗺️ Parse Boundary'}
+        </button>
+      )}
+      {d.status === 'PENDING' && (
+        <div className="flex gap-2 mt-3">
+          <button onClick={() => onVerify(d.id)}
+            className="flex-1 text-xs font-semibold bg-green-50 hover:bg-green-100 text-green-700 rounded-lg py-1.5">
+            Verify
+          </button>
+          <button onClick={() => onReject(d.id)}
+            className="flex-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 rounded-lg py-1.5">
+            Reject
+          </button>
+        </div>
+      )}
     </div>
   );
 }

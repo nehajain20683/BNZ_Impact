@@ -17,6 +17,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const org = ((donation as any).orgId && await getOrgConfig((donation as any).orgId))
     || await resolveTenantFromRequest(req);
 
+  const donationOrgId = (donation as any).orgId;
+  const signatory = donationOrgId
+    ? await prisma.orgSignatory.findFirst({ where: { orgId: donationOrgId, isPrimary: true } })
+    : null;
+
   const html = generateReceiptPDF({
     receiptNumber: donation.receiptNumber!,
     donorName: donation.donorName,
@@ -29,6 +34,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     paymentGatewayId: donation.paymentGatewayId || undefined,
     date: donation.createdAt,
     org: { name: org.name, logoUrl: org.logoUrl, org80gNumber: org.org80gNumber },
+    signatory: signatory ? { name: signatory.name, designation: signatory.designation, signatureImage: signatory.signatureImage } : null,
   });
 
   // Return HTML that auto-prints as PDF

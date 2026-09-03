@@ -14,7 +14,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
         landAssignments: {
           include: {
             farmer: { select: { id: true, fullName: true, mobile: true, farmerIdGenerated: true, village: true } },
-            land:   { select: { id: true, surveyGutNumber: true, areaAcres: true, village: true, district: true, gpsLatitude: true, gpsLongitude: true, photos: true, kmlFileName: true } },
+            land:   { select: { id: true, surveyGutNumber: true, areaAcres: true, village: true, district: true, gpsLatitude: true, gpsLongitude: true, photos: true, kmlFileName: true, polygonGeoJson: true } },
             stageHistory: { orderBy: { date: 'desc' }, take: 1 },
             // Real count of Tree rows actually linked via "Link Sponsored
             // Trees" — was missing entirely here, so the card always

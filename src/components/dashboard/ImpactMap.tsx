@@ -20,6 +20,7 @@ type LandPin = {
   district?: string | null;
   siteName?: string | null;
   treesPlanted?: number | null;
+  polygonGeoJson?: { type: 'Polygon'; coordinates: number[][][] } | null;
 };
 
 let leafletLoadingPromise: Promise<void> | null = null;
@@ -75,19 +76,33 @@ export default function ImpactMap({ pins }: { pins: LandPin[] }) {
           iconAnchor: [8, 8],
         });
 
+        const popupHtml = (pin: LandPin) => `
+          <div style="font-family:sans-serif;min-width:150px">
+            ${pin.farmerName ? `<div style="font-weight:700;font-size:13px;margin-bottom:2px">${pin.farmerName}'s Land</div>` : ''}
+            ${pin.siteName ? `<div style="font-size:11px;color:#888">${pin.siteName}</div>` : ''}
+            <div style="font-size:11px;color:#666">${[pin.village, pin.district].filter(Boolean).join(', ') || ''}</div>
+            ${pin.treesPlanted ? `<div style="font-size:12px;color:${primaryColor};font-weight:600;margin-top:4px">${pin.treesPlanted} of your trees here</div>` : ''}
+          </div>
+        `;
+
         const bounds: [number, number][] = [];
         for (const pin of pins) {
           bounds.push([pin.lat, pin.lng]);
-          L.marker([pin.lat, pin.lng], { icon: markerIcon })
-            .addTo(map)
-            .bindPopup(`
-              <div style="font-family:sans-serif;min-width:150px">
-                ${pin.farmerName ? `<div style="font-weight:700;font-size:13px;margin-bottom:2px">${pin.farmerName}'s Land</div>` : ''}
-                ${pin.siteName ? `<div style="font-size:11px;color:#888">${pin.siteName}</div>` : ''}
-                <div style="font-size:11px;color:#666">${[pin.village, pin.district].filter(Boolean).join(', ') || ''}</div>
-                ${pin.treesPlanted ? `<div style="font-size:12px;color:${primaryColor};font-weight:600;margin-top:4px">${pin.treesPlanted} of your trees here</div>` : ''}
-              </div>
-            `);
+
+          // Real parcel shape when a KML boundary has been parsed for this
+          // land — falls back to a plain point marker otherwise, same as
+          // before. GeoJSON stores [lon, lat]; Leaflet wants [lat, lon].
+          if (pin.polygonGeoJson?.coordinates?.[0]?.length >= 3) {
+            const latLngs = pin.polygonGeoJson.coordinates[0].map(([lon, lat]) => [lat, lon]);
+            L.polygon(latLngs, {
+              color: primaryColor, weight: 2, fillColor: primaryColor, fillOpacity: 0.25,
+            }).addTo(map).bindPopup(popupHtml(pin));
+            latLngs.forEach(([lat, lng]) => bounds.push([lat, lng]));
+          } else {
+            L.marker([pin.lat, pin.lng], { icon: markerIcon })
+              .addTo(map)
+              .bindPopup(popupHtml(pin));
+          }
         }
 
         if (bounds.length === 1) {

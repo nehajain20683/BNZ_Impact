@@ -67,7 +67,10 @@ export function LandGallery({
       {list.length === 0 ? (
         <p className={s.empty}>No land photos uploaded yet.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${
+          list.length === 1 ? 'grid-cols-1 max-w-xs' :
+          list.length === 2 ? 'grid-cols-2' :
+          'grid-cols-2 sm:grid-cols-3'}`}>
           {list.map((url, i) => (
             <div key={i}>
               <button onClick={() => setLightboxIndex(i)}

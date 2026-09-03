@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const dateFilter = since ? { gte: since } : undefined;
 
-    const [treeImages, inspections, monitoringVisits, assignedFarmerCount] = await Promise.all([
+    const [treeImages, inspections, monitoringVisits, issueReports, assignedFarmerCount] = await Promise.all([
       prisma.treeImage.findMany({
         where: { capturedById: officer.id, ...(dateFilter ? { capturedAt: dateFilter } : {}) },
         select: { id: true, capturedAt: true, treeTag: true },
@@ -46,13 +46,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       }),
       prisma.siteInspection.findMany({
         where: { officerId: officer.id, ...(dateFilter ? { createdAt: dateFilter } : {}) },
-        select: { id: true, farmerId: true, inspectedAt: true, status: true },
+        select: { id: true, farmerId: true, inspectedAt: true, status: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.monitoringVisit.findMany({
         where: { officerId: officer.id, ...(dateFilter ? { visitDate: dateFilter } : {}) },
         select: { id: true, farmerId: true, visitDate: true, survivalPct: true, _count: { select: { treeSamples: true } } },
         orderBy: { visitDate: 'desc' },
+      }),
+      prisma.fieldIssue.findMany({
+        where: { reportedById: officer.id, ...(dateFilter ? { createdAt: dateFilter } : {}) },
+        select: { id: true, issueType: true, severity: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
       }),
       prisma.farmer.count({ where: { assignedOfficerId: officer.id } }),
     ]);
@@ -74,6 +79,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       ...treeImages.map(t => ({ type: 'photo' as const, at: t.capturedAt, label: `Photographed ${t.treeTag || 'a tree'}` })),
       ...inspections.map(i => ({ type: 'inspection' as const, at: i.inspectedAt || i.createdAt, label: 'Farm visit / land verification' })),
       ...monitoringVisits.map(m => ({ type: 'monitoring' as const, at: m.visitDate, label: `Health check — ${m._count.treeSamples} trees` })),
+      ...issueReports.map(iss => ({ type: 'issue' as const, at: iss.createdAt, label: `Reported ${iss.issueType.replace(/_/g, ' ').toLowerCase()} (${iss.severity})` })),
     ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 30);
 
     return NextResponse.json({
@@ -86,8 +92,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         avgSurvivalPct,
         treesHealthChecked: treesChecked,
         inspectionsCompleted: inspections.filter(i => i.status === 'COMPLETED').length,
-        // Honest gaps — no data source exists for these yet.
-        issuesReported: null,
+        issuesReported: issueReports.length,
+        // Hours Active still has no real data source — no attendance/
+        // session-tracking system exists yet, so this stays honest rather
+        // than fabricated, same reasoning as before.
         hoursActive: null,
       },
       activity,

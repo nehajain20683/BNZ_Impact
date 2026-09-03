@@ -74,6 +74,28 @@ export default function TreeStoryPage() {
           <div><div className="text-sage-400 text-xs">CO₂ (est./yr)</div><div className="font-semibold text-sage-900">{tree.expectedCO2 || 22} kg</div></div>
         </div>
 
+        {/* Clear tree image — the hero above has a dark overlay for the
+            title text to sit on top of; this shows the same photo at full
+            clarity, its own dedicated section rather than a backdrop. */}
+        {heroImage && (
+          <div className="bg-white rounded-2xl shadow-sm border border-sage-100 overflow-hidden">
+            <img src={heroImage} alt={tree.species || 'Tree'} className="w-full h-[32rem] object-cover"/>
+          </div>
+        )}
+
+        {/* This tree's own QR code — matches the one printed and attached
+            to its physical tag in the field, scannable the same way an
+            officer would. */}
+        {tree.treeTagId && (
+          <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-5 text-center">
+            <h3 className="font-display text-lg text-sage-950 mb-3">This Tree's QR Code</h3>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tree.treeTagId)}`}
+              alt={tree.treeTagId} className="mx-auto mb-2"/>
+            <div className="font-mono text-sage-500 text-sm">{tree.treeTagId}</div>
+          </div>
+        )}
+
         {/* Where it's growing */}
         {site && (
           <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-5">

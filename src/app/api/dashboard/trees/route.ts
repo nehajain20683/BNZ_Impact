@@ -41,7 +41,10 @@ export async function GET(req: Request) {
   const [trees, total] = await Promise.all([
     prisma.tree.findMany({
       where,
-      include: { plantationSite: { select: { id: true, siteName: true, district: true, state: true } } },
+      include: {
+        plantationSite: { select: { id: true, siteName: true, district: true, state: true } },
+        images: { select: { imageUrl: true, capturedAt: true }, orderBy: { capturedAt: 'desc' }, take: 1 },
+      },
       orderBy: { plantedDate: sort },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -50,7 +53,8 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({
-    trees, total, page, pageSize,
+    trees: trees.map(t => ({ ...t, lastUpdatedAt: t.images[0]?.capturedAt || t.updatedAt })),
+    total, page, pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   });
 }

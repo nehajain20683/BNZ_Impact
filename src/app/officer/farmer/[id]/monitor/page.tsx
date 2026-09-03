@@ -39,6 +39,21 @@ export default function TreeMonitoringPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [creatingReplacement, setCreatingReplacement] = useState(false);
+  const [replacementTag, setReplacementTag] = useState<string | null>(null);
+
+  async function createReplacement() {
+    if (!selectedTree) return;
+    setCreatingReplacement(true);
+    const officerId = localStorage.getItem('officerId');
+    const res = await fetch(`/api/field-officer/tree/${selectedTree.id}/replace`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ officerId }),
+    });
+    const result = await res.json();
+    setCreatingReplacement(false);
+    if (res.ok) setReplacementTag(result.replacement.treeTagId);
+  }
 
   useEffect(() => {
     const officerId = localStorage.getItem('officerId');
@@ -58,6 +73,7 @@ export default function TreeMonitoringPage() {
   function openTree(tree: any) {
     setSelectedTree(tree);
     setJustSaved(false);
+    setReplacementTag(null);
     const latest = tree.monitoringSamples?.[0];
     // Pre-fills with the last recorded values — this is explicitly an
     // update/re-check, not a blank form each time, since the same tree can
@@ -156,6 +172,22 @@ export default function TreeMonitoringPage() {
             <div className="bg-white rounded-2xl border border-sage-100 p-6 text-center">
               <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2"/>
               <p className="text-sage-700 font-semibold text-sm">Recorded ✓</p>
+
+              {health === 'DEAD' && (
+                replacementTag ? (
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-3 mt-4 text-left">
+                    <div className="text-green-700 text-xs font-semibold">Replacement tag created</div>
+                    <div className="font-mono text-green-800 text-sm mt-0.5">{replacementTag}</div>
+                    <div className="text-green-600 text-[11px] mt-1">Attach this new tag when the replacement is planted, then capture its photo as usual.</div>
+                  </div>
+                ) : (
+                  <button onClick={createReplacement} disabled={creatingReplacement}
+                    className="w-full flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl text-sm mt-4 disabled:opacity-60">
+                    {creatingReplacement ? 'Creating…' : '🏷️ Create Replacement Tag'}
+                  </button>
+                )
+              )}
+
               <div className="flex gap-2 mt-4">
                 <button onClick={backToList} className="flex-1 border border-sage-200 text-sage-600 font-semibold py-2.5 rounded-xl text-sm">
                   Back to List

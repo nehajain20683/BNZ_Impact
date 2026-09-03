@@ -47,8 +47,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // Load org config for this tenant
   useEffect(() => {
-    if (status === 'unauthenticated') { router.push('/auth/login'); return; }
+    // Checked in this order deliberately: 'loading' is NextAuth's real
+    // initial state while the session is being resolved client-side.
+    // Checking 'unauthenticated' first risked a false redirect back to
+    // login if the session hook ever reported that transiently before
+    // settling — swapping the order removes that race entirely, since a
+    // still-loading session is never treated as a confirmed logout.
     if (status === 'loading') return;
+    if (status === 'unauthenticated') { router.push('/auth/login'); return; }
     if (!isAllowed) { router.push('/'); return; }
 
     fetch('/api/admin/org-config')

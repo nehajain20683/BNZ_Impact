@@ -299,6 +299,9 @@ export default function AdminUserDetailPage() {
                             </div>
                             <div className="text-sm font-semibold text-gray-800 truncate">{t.species || 'Species TBA'}</div>
                             {t.plantationSite && <div className="text-xs text-gray-400 truncate">{t.plantationSite.siteName}</div>}
+                            {t.photoCapturedAt && (
+                              <div className="text-[10px] text-gray-400">Last updated {new Date(t.photoCapturedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</div>
+                            )}
                             {t.farmerName ? (
                               <div className="flex items-center gap-1 text-[10px] text-green-700 font-semibold mt-0.5">
                                 <Link2 className="w-2.5 h-2.5"/> {t.farmerName}

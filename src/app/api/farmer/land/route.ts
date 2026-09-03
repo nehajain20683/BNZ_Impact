@@ -43,6 +43,7 @@ export async function POST(req: Request) {
         areaAcres:        landData.areaAcres        ? parseFloat(landData.areaAcres)        : null,
         areaOfferedAcres: landData.areaOfferedAcres ? parseFloat(landData.areaOfferedAcres) : null,
         landType:         landData.landType         || null,
+        currentLandUse:   landData.currentLandUse   || null,
         village:          landData.village          || null,
         taluka:           landData.taluka           || null,
         district:         landData.district         || null,
@@ -94,6 +95,7 @@ export async function PATCH(req: Request) {
         areaAcres:        landData.areaAcres        ? parseFloat(landData.areaAcres)        : existing.areaAcres,
         areaOfferedAcres: landData.areaOfferedAcres ? parseFloat(landData.areaOfferedAcres) : existing.areaOfferedAcres,
         landType:         landData.landType         ?? existing.landType,
+        currentLandUse:   landData.currentLandUse   ?? existing.currentLandUse,
         village:          landData.village          ?? existing.village,
         taluka:           landData.taluka           ?? existing.taluka,
         district:         landData.district         ?? existing.district,
@@ -106,6 +108,9 @@ export async function PATCH(req: Request) {
         photos,
         kmlFileName:      kmlFileName ?? existing.kmlFileName,
         speciesPreference: Array.isArray(landData.speciesPreference) ? landData.speciesPreference : existing.speciesPreference,
+        plantationPreference: landData.plantationPreference ?? existing.plantationPreference,
+        plantationTypeOtherText: landData.plantationTypeOtherText ?? existing.plantationTypeOtherText,
+        targetTreeCount:  landData.targetTreeCount  ? parseInt(landData.targetTreeCount)  : existing.targetTreeCount,
         ownershipType:    landData.ownershipType    ?? existing.ownershipType,
         jointOwnerCount:  landData.jointOwnerCount  !== undefined
           ? (landData.jointOwnerCount ? parseInt(landData.jointOwnerCount) : null)

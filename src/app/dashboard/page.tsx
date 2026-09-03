@@ -116,7 +116,7 @@ export default async function DashboardPage() {
         select: {
           id: true, siteId: true,
           farmer: { select: { fullName: true } },
-          land: { select: { gpsLatitude: true, gpsLongitude: true, village: true, district: true } },
+          land: { select: { gpsLatitude: true, gpsLongitude: true, village: true, district: true, polygonGeoJson: true } },
         },
       })
     : [];
@@ -257,6 +257,7 @@ export default async function DashboardPage() {
                     lat: p.land.gpsLatitude, lng: p.land.gpsLongitude,
                     farmerName: p.farmer?.fullName, village: p.land.village, district: p.land.district,
                     siteName: site?.siteName, treesPlanted: donorTreeCountByAssignment[p.id] || 0,
+                    polygonGeoJson: p.land.polygonGeoJson,
                   };
                 })}
             />

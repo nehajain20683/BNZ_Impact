@@ -2,6 +2,24 @@
 
 type DocOrg = { name: string; logoUrl?: string | null; email?: string | null };
 const DEFAULT_DOC_ORG: DocOrg = { name: 'BNZ Impact', logoUrl: null, email: null };
+type DocSignatory = { name: string; designation: string; signatureImage: string } | null | undefined;
+
+// Renders a single signature block — image if a real signatory/officer
+// signature is on file, otherwise the original blank line for a physical
+// signature, so documents keep working exactly as before for anyone who
+// hasn't set one up yet.
+function signatureBlock(label: string, sub: string, printedName: string, signature?: DocSignatory) {
+  return `
+      <div>
+        <div style="${headingStyle}">${label}</div>
+        <div style="margin-top:${signature ? '4px' : '40px'};border-top:1px solid #333;padding-top:8px">
+          ${signature ? `<img src="${signature.signatureImage}" alt="" style="height:34px;display:block;margin-bottom:2px"/>` : ''}
+          <div style="font-size:12px"><strong>${signature?.name || printedName}</strong></div>
+          <div style="font-size:11px;color:#666">${signature?.designation || sub}</div>
+          <div style="font-size:11px;color:#666">Date: ___________</div>
+        </div>
+      </div>`;
+}
 
 function logoHeader(org: DocOrg = DEFAULT_DOC_ORG) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #2d5a1b;padding-bottom:12px;margin-bottom:20px">
@@ -31,7 +49,7 @@ export function generateParticipationAgreement(data: {
   farmerName: string; fatherName?: string; mobile: string;
   aadhaar?: string; village?: string; taluka?: string; district?: string; state?: string;
   surveyNumber?: string; areaAcres?: number; farmerId?: string;
-  date?: string; org?: DocOrg;
+  date?: string; org?: DocOrg; orgSignatory?: DocSignatory;
 }) {
   const org = data.org || DEFAULT_DOC_ORG;
   const date = data.date || new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' });
@@ -102,14 +120,7 @@ export function generateParticipationAgreement(data: {
           <div style="font-size:11px;color:#666">Date: ___________</div>
         </div>
       </div>
-      <div>
-        <div style="${headingStyle}">PROJECT AUTHORITY</div>
-        <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
-          <div style="font-size:12px"><strong>${org.name}</strong></div>
-          <div style="font-size:11px;color:#666">Authorised Signatory</div>
-          <div style="font-size:11px;color:#666">Date: ___________</div>
-        </div>
-      </div>
+      ${signatureBlock('PROJECT AUTHORITY', 'Authorised Signatory', org.name, data.orgSignatory)}
     </div>
   </div>`;
 }
@@ -173,6 +184,7 @@ export function generatePaymentReceipt(data: {
   paymentType: string; amount: number; amountWords?: string;
   paymentMode: string; utrNumber?: string; bankName?: string;
   paymentDate: string; period?: string; notes?: string; org?: DocOrg;
+  preparedBySignature?: DocSignatory; orgSignatory?: DocSignatory;
 }) {
   const org = data.org || DEFAULT_DOC_ORG;
   return `<div style="${baseStyle}">
@@ -221,14 +233,15 @@ export function generatePaymentReceipt(data: {
     ${data.notes ? `<div style="${sectionStyle}"><div style="${headingStyle}">D. NOTES</div><p style="font-size:13px">${data.notes}</p></div>` : ''}
 
     <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
-      ${['LANDOWNER ACKNOWLEDGEMENT','PREPARED BY','AUTHORISED BY'].map(label=>`
       <div>
-        <div style="${headingStyle}">${label}</div>
+        <div style="${headingStyle}">LANDOWNER ACKNOWLEDGEMENT</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
-          <div style="font-size:11px;color:#666">${label==='LANDOWNER ACKNOWLEDGEMENT'?data.farmerName:''}</div>
+          <div style="font-size:11px;color:#666">${data.farmerName}</div>
           <div style="font-size:11px;color:#666">Date: ___________</div>
         </div>
-      </div>`).join('')}
+      </div>
+      ${signatureBlock('PREPARED BY', '', '', data.preparedBySignature)}
+      ${signatureBlock('AUTHORISED BY', org.name, org.name, data.orgSignatory)}
     </div>
   </div>`;
 }
@@ -239,6 +252,7 @@ export function generateSaplingReceipt(data: {
   surveyNumber?: string; date: string; projectName?: string;
   species: Array<{ name: string; qty: number; condition?: string }>;
   totalSaplings: number; fieldOfficer?: string; org?: DocOrg;
+  fieldOfficerSignature?: DocSignatory; orgSignatory?: DocSignatory;
 }) {
   const org = data.org || DEFAULT_DOC_ORG;
   return `<div style="${baseStyle}">
@@ -274,15 +288,16 @@ export function generateSaplingReceipt(data: {
     </div>
 
     <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
-      ${[['FARMER','Signature / Thumb Impression',data.farmerName],['FIELD OFFICER','Name & Signature',data.fieldOfficer||''],['AUTHORISED BY',org.name,'']].map(([label,sub,name])=>`
       <div>
-        <div style="${headingStyle}">${label}</div>
+        <div style="${headingStyle}">FARMER</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
-          <div style="font-size:11px;color:#666">${name}</div>
-          <div style="font-size:11px;color:#888">${sub}</div>
+          <div style="font-size:11px;color:#666">${data.farmerName}</div>
+          <div style="font-size:11px;color:#888">Signature / Thumb Impression</div>
           <div style="font-size:11px;color:#666">Date: ___________</div>
         </div>
-      </div>`).join('')}
+      </div>
+      ${signatureBlock('FIELD OFFICER', 'Name & Signature', data.fieldOfficer || '', data.fieldOfficerSignature)}
+      ${signatureBlock('AUTHORISED BY', org.name, org.name, data.orgSignatory)}
     </div>
   </div>`;
 }
@@ -295,6 +310,7 @@ export function generatePlantationCertificate(data: {
   species: Array<{ name: string; qty: number }>;
   totalTrees: number; plantationType?: string; fieldOfficer?: string;
   gpsCoords?: string; projectName?: string; date?: string; org?: DocOrg;
+  fieldOfficerSignature?: DocSignatory; orgSignatory?: DocSignatory;
 }) {
   const org = data.org || DEFAULT_DOC_ORG;
   const date = data.date || new Date().toLocaleDateString('en-IN');
@@ -328,14 +344,15 @@ export function generatePlantationCertificate(data: {
     </div>
 
     <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
-      ${[['LANDOWNER',data.farmerName],['FIELD OFFICER',data.fieldOfficer||''],['PROJECT AUTHORITY',org.name]].map(([label,name])=>`
       <div>
-        <div style="${headingStyle}">${label}</div>
+        <div style="${headingStyle}">LANDOWNER</div>
         <div style="margin-top:40px;border-top:1px solid #333;padding-top:8px">
-          <div style="font-size:11px;color:#666">${name}</div>
+          <div style="font-size:11px;color:#666">${data.farmerName}</div>
           <div style="font-size:11px;color:#666">Date: ___________</div>
         </div>
-      </div>`).join('')}
+      </div>
+      ${signatureBlock('FIELD OFFICER', '', data.fieldOfficer || '', data.fieldOfficerSignature)}
+      ${signatureBlock('PROJECT AUTHORITY', '', org.name, data.orgSignatory)}
     </div>
   </div>`;
 }

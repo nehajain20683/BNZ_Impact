@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageHeader from '@/components/admin/PageHeader';
-import { ArrowLeft, TreePine, MapPin, Sprout, Stethoscope, ClipboardCheck, Camera, HelpCircle } from 'lucide-react';
+import { ArrowLeft, TreePine, MapPin, Sprout, Stethoscope, ClipboardCheck, Camera, HelpCircle, AlertTriangle } from 'lucide-react';
 
 const PERIODS = [
   { id: 'today', label: 'Today' },
@@ -12,7 +12,7 @@ const PERIODS = [
   { id: 'all',   label: 'All Time' },
 ];
 
-const ACTIVITY_ICON: Record<string, any> = { photo: Camera, inspection: ClipboardCheck, monitoring: Stethoscope };
+const ACTIVITY_ICON: Record<string, any> = { photo: Camera, inspection: ClipboardCheck, monitoring: Stethoscope, issue: AlertTriangle };
 
 export default function FieldOfficerMetricsPage() {
   const { id } = useParams() as { id: string };
@@ -60,6 +60,7 @@ export default function FieldOfficerMetricsPage() {
             { label: 'Trees Health-Checked', value: metrics.treesHealthChecked, icon: Stethoscope, color: 'text-teal-600 bg-teal-50' },
             { label: 'Avg. Survival Verified', value: metrics.avgSurvivalPct != null ? `${metrics.avgSurvivalPct}%` : '—', icon: Sprout, color: 'text-green-600 bg-green-50' },
             { label: 'Land Verifications Completed', value: metrics.inspectionsCompleted, icon: ClipboardCheck, color: 'text-purple-600 bg-purple-50' },
+            { label: 'Issues Reported', value: metrics.issuesReported, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
             { label: 'Trees Assigned Overall', value: metrics.assignedFarmerCount, icon: TreePine, color: 'text-amber-600 bg-amber-50' },
           ].map(s => (
             <div key={s.label} className="bg-white border border-gray-200 rounded-2xl p-4">
@@ -69,11 +70,12 @@ export default function FieldOfficerMetricsPage() {
             </div>
           ))}
 
-          {/* Deliberately shown, not hidden — these two are genuinely not
-              tracked anywhere in the app yet (no issue-reporting module, no
-              attendance/session system), so a supervisor sees an honest gap
-              instead of an indistinguishable fake zero. */}
-          {['Issues Reported', 'Hours Active'].map(label => (
+          {/* Deliberately shown, not hidden — Hours Active genuinely has no
+              data source yet (no attendance/session-tracking system
+              exists), so a supervisor sees an honest gap instead of an
+              indistinguishable fake zero. Issues Reported moved to a real
+              tracked metric above now that Issue Reporting exists. */}
+          {['Hours Active'].map(label => (
             <div key={label} className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-gray-400 bg-gray-100"><HelpCircle className="w-4 h-4"/></div>
               <div className="font-bold text-gray-400 text-lg">Not tracked</div>

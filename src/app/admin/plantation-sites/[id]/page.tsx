@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { LandGallery } from '@/components/LandGallery';
+import PublicSitesMap from '@/components/PublicSitesMap';
 import { ArrowLeft, Plus, Search, TreePine, MapPin, Users, Leaf, CheckCircle,
-         Activity, BarChart2, FileText, X, Edit, ChevronDown, Camera } from 'lucide-react';
+         Activity, BarChart2, FileText, X, Edit, ChevronDown, Camera, QrCode } from 'lucide-react';
 
 const PHASES = ['PLANNING','LAND_PREPARATION','PIT_DIGGING','PLANTATION','GAP_FILLING','MONITORING','COMPLETED'];
 const ACTIVITY_TYPES = ['PIT_DIGGING','SAPLING_DELIVERY','PLANTATION','IRRIGATION','FERTILIZER',
@@ -359,6 +360,17 @@ export default function PlantationSiteDetailPage() {
 
   const [speciesFixTarget, setSpeciesFixTarget] = useState<any>(null);
   const [treePhotosTarget, setTreePhotosTarget] = useState<any>(null);
+  const [qrTarget, setQrTarget] = useState<any>(null);
+  const [qrTrees, setQrTrees] = useState<any[]>([]);
+  const [qrLoading, setQrLoading] = useState(false);
+
+  async function openQrCodes(assignment: any) {
+    setQrTarget(assignment);
+    setQrLoading(true);
+    const res = await fetch(`/api/admin/land-assignments/${assignment.id}/tree-tags`).then(r => r.json()).catch(() => ({ trees: [] }));
+    setQrTrees(res.trees || []);
+    setQrLoading(false);
+  }
   const [treePhotos, setTreePhotos] = useState<any[]>([]);
   const [treePhotosLoading, setTreePhotosLoading] = useState(false);
 
@@ -749,6 +761,46 @@ export default function PlantationSiteDetailPage() {
         </div>
       )}
 
+      {/* QR Codes Modal — one printable QR per tree tag, using a free public
+          QR image API (no client-side generation library needed) so each
+          physical tag can carry a scannable code matching this exact
+          treeTagId — what the officer's scanner then looks up directly. */}
+      {qrTarget && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-xl max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0 print:hidden">
+              <div>
+                <h3 className="font-bold text-gray-900">Tree QR Codes</h3>
+                <p className="text-gray-400 text-xs mt-0.5">{qrTarget.farmer?.fullName}'s land — {qrTrees.length} tags</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => window.print()} className="text-xs font-semibold text-[var(--admin-primary)] hover:underline">Print</button>
+                <button onClick={() => setQrTarget(null)}><X className="w-5 h-5 text-gray-400"/></button>
+              </div>
+            </div>
+            <div className="px-6 py-4 overflow-y-auto flex-1">
+              {qrLoading ? (
+                <p className="text-gray-400 text-sm">Loading…</p>
+              ) : qrTrees.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-8">No tagged trees on this land yet.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 print:grid-cols-4">
+                  {qrTrees.map((t: any) => (
+                    <div key={t.id} className="border border-gray-200 rounded-xl p-3 text-center break-inside-avoid">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(t.treeTagId)}`}
+                        alt={t.treeTagId} className="w-full aspect-square object-contain mx-auto mb-2"/>
+                      <div className="font-mono text-[11px] text-gray-700 break-all">{t.treeTagId}</div>
+                      {t.species && <div className="text-[10px] text-gray-400">{t.species}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Update Plantation Data Modal — explicit, correctable, traceable */}
       {dataEditTarget && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -1062,6 +1114,18 @@ export default function PlantationSiteDetailPage() {
             {dash.farmerProgress?.length > 0 && site.landAssignments?.some((a: any) => a.land?.gpsLatitude || a.land?.photos?.length > 0) && (
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">📍 GIS Coverage — Assigned Land Parcels</h3>
+                <div className="mb-4">
+                  <PublicSitesMap
+                    primaryColor="#2563eb"
+                    sites={site.landAssignments
+                      .filter((a: any) => a.land?.gpsLatitude != null)
+                      .map((a: any) => ({
+                        id: a.id, siteName: a.farmer?.fullName || 'Farmer', lat: a.land.gpsLatitude, lng: a.land.gpsLongitude,
+                        district: a.land.district, treesPlanted: a._count?.trees,
+                        polygons: a.land.polygonGeoJson?.coordinates?.[0]?.length >= 3 ? [a.land.polygonGeoJson] : [],
+                      }))}
+                  />
+                </div>
                 <div className="space-y-4">
                   {site.landAssignments?.filter((a: any) => a.land?.gpsLatitude || a.land?.photos?.length > 0).map((a: any) => (
                     <LandGallery key={a.id} variant="admin" label={a.farmer?.fullName}
@@ -1168,6 +1232,12 @@ export default function PlantationSiteDetailPage() {
                     <button onClick={() => openTreePhotos(a)}
                       className="flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-medium">
                       <Camera className="w-3.5 h-3.5"/> View Tree Photos
+                    </button>
+                  )}
+                  {a._count?.trees > 0 && (
+                    <button onClick={() => openQrCodes(a)}
+                      className="flex items-center gap-1.5 text-xs bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-100 font-medium">
+                      <QrCode className="w-3.5 h-3.5"/> Print Tree QR Codes
                     </button>
                   )}
                   <button onClick={() => openDataEdit(a)}

@@ -218,9 +218,20 @@ model Tree {
   donation       Donation        @relation(fields: [donationId], references: [id])
   plantationSite PlantationSite? @relation(fields: [siteId], references: [id])
   monitoringSamples MonitoringTreeSample[]
+  fieldIssues    FieldIssue[]
   assignmentId   String?
   assignment     LandAssignment? @relation(fields: [assignmentId], references: [id])
   images         TreeImage[]
+
+  // Replacement tagging — when a tree dies, a new Tree row is created
+  // rather than recycling this one, so the dead tree's own history (photos,
+  // monitoring samples, cause of death) stays intact and queryable on its
+  // own record instead of being overwritten. The new tree carries the same
+  // donationId/assignmentId (the original donor's sponsorship continues
+  // onto the replacement, not a separate one), just a fresh tag and status.
+  replacesTreeId String? @unique
+  replacesTree   Tree?   @relation("TreeReplacement", fields: [replacesTreeId], references: [id])
+  replacedBy     Tree?   @relation("TreeReplacement")
 
   @@map("trees")
 }
@@ -378,6 +389,7 @@ model PlantationSite {
   landAssignments   LandAssignment[]
   activities        PlantationActivity[]
   monitoringVisits  MonitoringVisit[]
+  fieldIssues       FieldIssue[]
   carbonMonitoring  CarbonMonitoring[]
   siteDocuments     SiteDocument[]
   timelineEvents    TimelineEvent[]
@@ -494,7 +506,7 @@ model PlantationActivity {
   siteId       String
   site         PlantationSite @relation(fields: [siteId], references: [id])
   date         DateTime
-  activityType String   // PIT_DIGGING | SAPLING_DELIVERY | PLANTATION | IRRIGATION | FERTILIZER | WEEDING | GAP_FILLING | MONITORING | SURVIVAL_SURVEY
+  activityType String   // PIT_DIGGING | SAPLING_DELIVERY | PLANTATION | IRRIGATION | FERTILIZER | WEEDING | GAP_FILLING | MONITORING | SURVIVAL_SURVEY | ISSUE
   description  String?
   team         String?
   workers      Int?
@@ -734,6 +746,12 @@ model Organization {
   // by category ratio" in Link Sponsored Trees. Configurable per org since
   // different programs may target a different split.
   main_tree_target_percent Int @default(80)
+  // Radius (meters) within which a field officer's GPS must fall for a
+  // farm check-in to count as geofence-verified. 200m default — generous
+  // enough to absorb ordinary rural GPS drift without being so wide it
+  // stops meaning anything. Officers can still proceed if outside this,
+  // but it's explicitly recorded as an override, visible to admin.
+  geofence_radius_meters Int @default(200)
 
 
   users            User[]
@@ -745,6 +763,7 @@ model Organization {
   masterProjects   MasterProject[]
   speciesImages    SpeciesImage[]
   fieldOfficers    FieldOfficer[]
+  signatories      OrgSignatory[]
   impactMetricDefinitions ImpactMetricDefinition[]
 
   @@map("organizations")
@@ -803,6 +822,12 @@ model Farmer {
   orgId        String?
   organization Organization? @relation(fields: [orgId], references: [id])
   fullName         String
+  photo            String?        @db.Text // farmer's own photo, base64 — same storage pattern as everything else in this app
+  // Opt-in only, defaults false — a verified farmer is NOT shown on public
+  // pages (Meet the Farmers, site story) until an admin explicitly enables
+  // this, deliberately the safer default rather than showing everyone's
+  // name/village/photo publicly by default just because they're verified.
+  publiclyVisible  Boolean        @default(false)
   fatherName       String?
   dateOfBirth      DateTime?
   gender           Gender?
@@ -849,6 +874,8 @@ model Farmer {
   landAssignments  LandAssignment[]
   payments         FarmerPayment[]
   inspections      SiteInspection[]
+  fieldIssues      FieldIssue[]
+  checkIns         FarmCheckIn[]
   auditLogs        AuditLog[]
   carbonCredits    CarbonCredit[]
   agreements       FarmerAgreement[]
@@ -873,6 +900,7 @@ model FieldOfficer {
   orgId        String?
   organization Organization? @relation(fields: [orgId], references: [id])
   name         String
+  signatureImage String?    @db.Text // captured once on their own device (drawn or uploaded), reused on every document they'd otherwise sign in person — sapling receipts, plantation certificates, farmer payment receipts
   email        String       @unique
   mobile       String       @unique
   password     String
@@ -885,10 +913,36 @@ model FieldOfficer {
   farmers      Farmer[]
   inspections  SiteInspection[]
   treeImages   TreeImage[]
+  fieldIssues  FieldIssue[]
+  checkIns     FarmCheckIn[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   @@map("field_officers")
+}
+
+// Authorized signatories for an org — the people whose signature stands in
+// for "the organization" on generated documents (certificates, receipts,
+// agreements). Super Admin manages these; document generation picks the
+// one marked isPrimary for whichever slot currently just says "Authorised
+// Signatory" / "Authorised By" / "Project Authority" with a blank line and
+// nothing else. Kept as its own list (not a single field on Organization)
+// since more than one person may legitimately sign different documents
+// over time, and history matters — a document shouldn't silently change
+// whose name appears on it if the signatory list is edited later.
+model OrgSignatory {
+  id             String   @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id])
+  name           String
+  designation    String   // e.g. "Managing Trustee", "Program Director"
+  signatureImage String   @db.Text
+  isPrimary      Boolean  @default(false) // used by default wherever a document needs one signatory and doesn't ask which
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("org_signatories")
 }
 
 model Land {
@@ -902,18 +956,22 @@ model Land {
   organization     Organization? @relation(fields: [orgId], references: [id])
   // Survey details
   surveyGutNumber  String?              // combined Survey/Gut number
-  surveyNumber     String?              // kept for backward compat
-  gutNumber        String?              // kept for backward compat
   khataNumber      String?
   areaAcres        Float?
   areaHectares     Float?
   areaOfferedAcres Float?               // area proposed for project
   areaOfferedUnit  String?              // acres or hectares
   landType         LandType?
+  currentLandUse   String?              // what the land is used for today — fallow, cultivated, grazing, barren, etc. Distinct from landType, which is a registry classification.
   // Location
   gpsLatitude      Float?
   gpsLongitude     Float?
-  polygonGeoJson   Json?         // GeoJSON polygon boundary
+  // Real boundary geometry, extracted from an uploaded KML/KMZ file (a
+  // FarmerDocument with docType OTHER) — a standard GeoJSON Polygon,
+  // [[[lon, lat], [lon, lat], ...]]. Null until someone actually parses an
+  // uploaded file into it; gpsLatitude/gpsLongitude above remain the single
+  // point used everywhere else until this exists for a given parcel.
+  polygonGeoJson   Json?
   kmlFileName      String?       // original filename of the uploaded KML/KMZ boundary file
   // Land + KML preview photos — the actual root cause of the repeated
   // "Invalid prisma.land.update()" errors. Both the create and edit routes
@@ -942,11 +1000,13 @@ model Land {
   status           LandStatus    @default(DOCUMENTS_PENDING)
   // Plantation
   plantationPreference  PlantationType?
+  plantationTypeOtherText String?       // free-text description when plantationPreference is OTHER
   speciesPreference     String[]
   targetTreeCount  Int?
   plantationStartDate DateTime?
   // Relations
   documents        FarmerDocument[]
+  farmerAgreements FarmerAgreement[]
   plantations      Plantation[]
   landAssignments  LandAssignment[]
   inspections      SiteInspection[]
@@ -1004,6 +1064,69 @@ model SiteInspection {
   updatedAt       DateTime         @updatedAt
 
   @@map("site_inspections")
+}
+
+// A Field Officer's one-tap report of a real problem seen in the field —
+// animal damage, flood, fire, pest attack, missing trees, wrong species
+// planted. Deliberately separate from SiteInspection (a scheduled land
+// verification) and MonitoringVisit (routine health checks) — an issue
+// report is an unscheduled, urgent flag that needs admin attention, not a
+// routine record.
+model FieldIssue {
+  id           String   @id @default(cuid())
+  siteId       String
+  site         PlantationSite @relation(fields: [siteId], references: [id])
+  farmerId     String?
+  farmer       Farmer?  @relation(fields: [farmerId], references: [id])
+  treeId       String?  // optional — some issues (e.g. wrong species) point at one specific tree
+  tree         Tree?    @relation(fields: [treeId], references: [id])
+  reportedById String
+  reportedBy   FieldOfficer @relation(fields: [reportedById], references: [id])
+  issueType    String   // ANIMAL_DAMAGE | FLOOD | FIRE | PEST_ATTACK | MISSING_TREES | WRONG_SPECIES | OTHER
+  severity     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  description  String?  @db.Text
+  photos       String[]
+  gpsLat       Float?
+  gpsLng       Float?
+  status       String   @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  resolutionNotes String? @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([farmerId])
+  @@index([status])
+  @@map("field_issues")
+}
+
+// One check-in per officer+farmer+day — the "Farm Visit" spec module's
+// arrival step: GPS + arrival photo + distance from the farmer's
+// registered land, gating the routine actions (Farm Visit inspection,
+// Health Monitoring, Quick Visit) until it's done. Deliberately NOT a hard
+// block when outside the geofence radius — the farmer's registered GPS can
+// itself be imprecise, so an override is allowed but is explicitly
+// recorded as such, giving admin full visibility into which check-ins were
+// GPS-verified vs manually overridden, rather than silently blocking
+// genuinely correct field work over bad reference data.
+model FarmCheckIn {
+  id             String   @id @default(cuid())
+  farmerId       String
+  farmer         Farmer   @relation(fields: [farmerId], references: [id])
+  officerId      String
+  officer        FieldOfficer @relation(fields: [officerId], references: [id])
+  checkedInAt    DateTime @default(now())
+  gpsLat         Float?
+  gpsLng         Float?
+  distanceMeters Int?     // distance from the farmer's registered land GPS, if both points are known
+  withinGeofence Boolean  @default(false)
+  overridden     Boolean  @default(false) // true if the officer proceeded despite being outside the geofence
+  arrivalPhoto   String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([farmerId])
+  @@index([officerId])
+  @@map("farm_check_ins")
 }
 
 model Plantation {
@@ -1085,6 +1208,12 @@ model FarmerAgreement {
   id              String   @id @default(cuid())
   farmerId        String
   farmer          Farmer   @relation(fields: [farmerId], references: [id])
+  // Which specific land parcel this document describes — a farmer can
+  // have several, and every one of these document types (participation
+  // agreement, sapling receipt, plantation certificate...) describes one
+  // particular parcel's details, not the farmer in the abstract.
+  landId          String?
+  land            Land?    @relation(fields: [landId], references: [id])
   agreementType   String   // PARTICIPATION_AGREEMENT | PLANTATION_CERTIFICATE | SAPLING_RECEIPT | PAYMENT_RECEIPT | NOC
   title           String
   generatedHtml   String?  @db.Text  // admin-generated HTML content
@@ -1146,6 +1275,7 @@ enum PlantationType {
   FRUIT_TREES
   BAMBOO
   MIXED_SPECIES
+  OTHER
 }
 
 enum DocumentType {

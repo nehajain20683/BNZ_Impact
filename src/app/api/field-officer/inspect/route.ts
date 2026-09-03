@@ -97,7 +97,7 @@ export async function GET(req: Request) {
     include: {
       farmer:  { select: { fullName: true, mobile: true, village: true, district: true } },
       officer: { select: { name: true, mobile: true } },
-      land:    { select: { surveyNumber: true, areaAcres: true, district: true } },
+      land:    { select: { surveyGutNumber: true, areaAcres: true, district: true } },
     },
     orderBy: { createdAt: 'desc' },
   });

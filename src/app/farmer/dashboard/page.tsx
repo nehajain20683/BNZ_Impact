@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { OrgLogo } from '@/components/OrgLogo';
 import { LandGallery } from '@/components/LandGallery';
+import { getLandOwnerTerm } from '@/lib/land-owner-term';
 import {
   User, MapPin, FileText, Home, LogOut,
   TreePine, Plus, CheckCircle, Clock, Image, ChevronRight, Bell,
-  Pencil, Check, X, Loader2, Lock
+  Pencil, Check, X, Loader2, Lock, Camera
 } from 'lucide-react';
 import EditableSection from '@/components/farmer/EditableSection';
 import { FARMER_LOCK_STATUS, isAtOrBeyondStage } from '@/lib/farmer-constants';
+import { compressImage } from '@/lib/image-compress';
 
 const SPECIES_OPTIONS = ['Neem / नीम','Mango / आम','Bamboo / बांस','Peepal / पीपल','Teak / सागवान','Mixed / मिश्रित','Others / अन्य'];
 
@@ -98,6 +100,23 @@ export default function FarmerDashboard() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingDocsCount, setPendingDocsCount] = useState(0);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const farmerId = localStorage.getItem('farmerId');
+    if (!farmerId) return;
+    setUploadingPhoto(true);
+    const compressed = await compressImage(file);
+    await fetch('/api/farmer/profile', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmerId, photo: compressed }),
+    }).catch(() => {});
+    setUploadingPhoto(false);
+    loadAll();
+  }
 
   async function loadAll() {
     const farmerId = localStorage.getItem('farmerId');
@@ -174,6 +193,7 @@ export default function FarmerDashboard() {
   // separate from any individual land's own approval status.
   const profileLocked = isAtOrBeyondStage(farmer?.status, FARMER_LOCK_STATUS);
   const profileLockedMessage = 'Your registration is complete. Contact your administrator to update this information.';
+  const ownerTerm = getLandOwnerTerm(farmer?.occupation, lands?.[0]?.plantationPreference);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,7 +230,7 @@ export default function FarmerDashboard() {
         <div className="text-white px-4 py-3" style={{ backgroundColor: primaryColor + 'dd' }}>
           <div className="max-w-xl mx-auto flex items-center justify-between text-xs">
             <div>
-              <span className="text-white/70">Farmer ID: </span>
+              <span className="text-white/70">{ownerTerm.en} ID: </span>
               <span className="font-mono font-bold">{farmer.farmerIdGenerated || '—'}</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -314,16 +334,25 @@ export default function FarmerDashboard() {
             {/* Profile card — identity + quick summary */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                <label className="relative w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg cursor-pointer flex-shrink-0 overflow-hidden group"
                   style={{ backgroundColor: primaryColor }}>
-                  {farmer?.fullName?.charAt(0) || '?'}
-                </div>
+                  {farmer?.photo ? (
+                    <img src={farmer.photo} alt="" className="w-full h-full object-cover"/>
+                  ) : (
+                    farmer?.fullName?.charAt(0) || '?'
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <Camera className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity"/>
+                  </div>
+                  {uploadingPhoto && <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[9px] text-white">…</div>}
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploadingPhoto}/>
+                </label>
                 <div>
                   <h2 className="font-bold text-gray-900">{farmer?.fullName || 'Pending'}</h2>
                   <p className="text-gray-400 text-xs">{farmer?.mobile}</p>
                 </div>
                 <div className="ml-auto text-right">
-                  <div className="text-[10px] text-gray-400">Farmer ID</div>
+                  <div className="text-[10px] text-gray-400">{ownerTerm.en} ID</div>
                   <div className="text-xs font-semibold text-gray-700">{farmer?.farmerIdGenerated || '—'}</div>
                 </div>
               </div>
@@ -354,7 +383,7 @@ export default function FarmerDashboard() {
                 { key:'alternateMobile', label:'Alternate Mobile', value: farmer?.alternateMobile, type:'tel' },
                 { key:'email',       label:'Email',         value: farmer?.email, type:'email' },
                 { key:'gisId',       label:'GIS ID',        value: farmer?.gisId, locked: true },
-                { key:'farmerIdGenerated', label:'Farmer ID', value: farmer?.farmerIdGenerated, locked: true },
+                { key:'farmerIdGenerated', label: `${ownerTerm.en} ID`, value: farmer?.farmerIdGenerated, locked: true },
                 { key:'createdAt',   label:'Registered On', value: farmer?.createdAt ? new Date(farmer.createdAt).toLocaleDateString('en-IN') : null, locked: true },
                 { key:'status',      label:'Status',        value: farmer?.status?.replace(/_/g,' '), locked: true },
               ]}

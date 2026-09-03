@@ -73,8 +73,8 @@ export async function PATCH(req: Request) {
 
     // Build update object - only include fields that are in the schema
     const allowed = [
-      'fullName', 'fatherName', 'gender', 'occupation',
-      'alternateMobile', 'email',
+      'fullName', 'fatherName', 'gender', 'occupation', 'farmingExperience',
+      'alternateMobile', 'email', 'photo',
       'aadhaarNumber', 'panNumber',
       'bankAccountName', 'bankName', 'accountNumber', 'ifscCode',
       'nomineeName', 'nomineeRelation', 'nomineeMobile',

@@ -86,7 +86,7 @@ export default function AdminCommunityUpdatesPage() {
                     <span className="text-gray-400 text-xs">{new Date(u.submittedAt).toLocaleDateString('en-IN')}</span>
                   </div>
                   <div className="text-gray-500 text-xs">{u.farmer?.fullName} · {u.farmer?.mobile}</div>
-                  {u.land && <div className="text-gray-400 text-xs">Survey {u.land.surveyGutNumber || u.land.surveyNumber}</div>}
+                  {u.land && <div className="text-gray-400 text-xs">Survey {u.land.surveyGutNumber}</div>}
                   {u.notes && <p className="text-gray-600 text-xs mt-2">{u.notes}</p>}
                   <div className="flex items-center gap-3 mt-2 text-gray-400 text-[11px]">
                     {u.gpsLatitude && (

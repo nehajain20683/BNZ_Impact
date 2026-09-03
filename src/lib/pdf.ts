@@ -39,6 +39,7 @@ export function generateReceiptPDF(data: {
   paymentGatewayId?: string;
   date: Date;
   org?: PdfOrgBranding;
+  signatory?: { name: string; designation: string; signatureImage: string } | null;
 }): string {
   const org     = data.org || DEFAULT_ORG;
   const dateStr = data.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -120,7 +121,10 @@ export function generateReceiptPDF(data: {
     </div>
     <!-- Footer -->
     <div class="footer-bar">
-      <div class="footer-text">Authorised Signatory · ${org.name}<br/>This is a computer-generated receipt.</div>
+      <div class="footer-text">
+        ${data.signatory ? `<img src="${data.signatory.signatureImage}" alt="" style="height:30px;display:block;margin-bottom:2px"/>` : ''}
+        ${data.signatory ? `${data.signatory.name} · ${data.signatory.designation}` : 'Authorised Signatory'} · ${org.name}<br/>This is a computer-generated receipt.
+      </div>
     </div>
   </div>
 </div>
@@ -141,6 +145,7 @@ export function generateCertificatePDF(data: {
   receiptNumber: string;
   chapter?: string;
   org?: PdfOrgBranding;
+  signatory?: { name: string; designation: string; signatureImage: string } | null;
 }): string {
   const org     = data.org || DEFAULT_ORG;
   const dateStr = data.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -439,7 +444,8 @@ export function generateCertificatePDF(data: {
       <div class="footer-item">
         <div class="seal-left" style="margin:0 auto 3px">🌳</div>
         <span class="footer-label">Authorised By</span>
-        <span class="footer-value">${org.name}</span>
+        ${data.signatory ? `<img src="${data.signatory.signatureImage}" alt="" style="height:24px;display:block;margin:2px auto"/>` : ''}
+        <span class="footer-value">${data.signatory ? `${data.signatory.name}, ${data.signatory.designation}` : org.name}</span>
       </div>
     </div>
 

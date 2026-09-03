@@ -57,7 +57,12 @@ export default function FarmVisitPage() {
       if (farmerData.error) { setData({ error: farmerData.error }); setLoading(false); return; }
       setData(farmerData);
       setHistory(inspectData.inspections || []);
-      if (farmerData.farmer?.lands?.length === 1) setLandId(farmerData.farmer.lands[0].id);
+      // Pre-selects the first land even when there are several — a blank
+      // "Select a parcel…" default meant an officer could submit the whole
+      // visit without ever picking one, silently losing which land it was
+      // for. The dropdown is still there to change it; it just never
+      // starts empty.
+      if (farmerData.farmer?.lands?.length >= 1) setLandId(farmerData.farmer.lands[0].id);
       setLoading(false);
     });
 
