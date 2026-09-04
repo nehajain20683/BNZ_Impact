@@ -62,11 +62,15 @@ export default function PublicSitesMap({ sites, primaryColor }: { sites: SitePin
       const map = L.map(containerRef.current, { scrollWheelZoom: false });
       mapRef.current = map;
 
-      // CartoDB Positron — a free, key-free, deliberately minimal light
-      // basemap (thin gray roads, pale land, no clutter), much closer to a
-      // portfolio-dashboard feel than default OpenStreetMap's busy styling.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19,
+      // Plain OpenStreetMap tiles — matches the donor dashboard's own map.
+      // Previously used CartoDB's "light" basemap for a cleaner look, but
+      // that now requires an API key it didn't need when this was first
+      // built — CARTO changed their free-tier policy at some point. OSM's
+      // standard tile server remains genuinely free with no key required,
+      // just a fair-use request-rate policy for large-scale traffic, so
+      // it's the safer default for a page with unpredictable public load.
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
       }).addTo(map);
 
       const bounds: [number, number][] = [];

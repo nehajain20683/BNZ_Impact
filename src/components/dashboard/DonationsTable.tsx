@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Download, ChevronDown } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { formatCurrency } from '@/lib/utils';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -15,6 +16,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function DonationsTable({ donations }: { donations: any[] }) {
+  const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? donations : donations.slice(0, 3);
 
@@ -41,7 +44,7 @@ export default function DonationsTable({ donations }: { donations: any[] }) {
                 <td className="px-4 py-3 font-mono text-sage-600 text-xs">{d.receiptNumber ? `#${d.receiptNumber}` : '—'}</td>
                 <td className="px-4 py-3 text-sage-700">{new Date(d.createdAt).toLocaleDateString('en-IN')}</td>
                 <td className="px-4 py-3 text-sage-800 font-medium">{d.campaign.name}</td>
-                <td className="px-4 py-3"><span className="bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full font-semibold">{d.numberOfTrees}</span></td>
+                <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}>{d.numberOfTrees}</span></td>
                 <td className="px-4 py-3 font-semibold text-sage-900">{formatCurrency(d.amount)}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[d.paymentStatus] || 'bg-gray-100 text-gray-600'}`}>
@@ -74,7 +77,8 @@ export default function DonationsTable({ donations }: { donations: any[] }) {
       </div>
       {donations.length > 3 && (
         <button onClick={() => setExpanded(e => !e)}
-          className="w-full flex items-center justify-center gap-1.5 text-sage-600 hover:text-sage-800 text-sm font-semibold py-3 border-t border-sage-100">
+          className="w-full flex items-center justify-center gap-1.5 hover:opacity-80 text-sm font-semibold py-3 border-t border-sage-100"
+          style={{ color: primaryColor }}>
           {expanded ? 'Show fewer' : `Show all ${donations.length} donations`}
           <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}/>
         </button>

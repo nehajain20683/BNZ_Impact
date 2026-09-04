@@ -8,6 +8,7 @@ const inputCls = "w-full border border-sage-200 rounded-xl px-4 py-3 text-sm foc
 
 export default function ContactPage() {
   const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [form, setForm]     = useState({ name:'', mobile:'', email:'', subject:'', message:'' });
   const [loading, setLoading] = useState(false);
   const [sent, setSent]       = useState(false);
@@ -31,7 +32,7 @@ export default function ContactPage() {
            <div className="pt-16">
 
         {/* Hero */}
-        <section className="bg-forest-950 text-white py-16 px-4 text-center">
+        <section className="text-white py-16 px-4 text-center" style={{ backgroundColor: primaryColor }}>
           <p className="text-sage-400 text-sm tracking-widest uppercase mb-2">Get In Touch</p>
           <h1 className="font-display text-4xl mb-3">Contact Us</h1>
           <p className="text-sage-300 max-w-xl mx-auto">We'd love to hear from you. Reach out for any questions about tree sponsorship, partnerships, or the {org.loaded ? org.name : 'BNZ Impact'} programme.</p>
@@ -123,7 +124,8 @@ export default function ContactPage() {
                       className={inputCls + " resize-none"}/>
                   </div>
                   <button type="submit" disabled={loading}
-                    className="w-full bg-sage-700 hover:bg-sage-800 text-white font-bold py-3.5 rounded-xl disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
+                    className="w-full text-white font-bold py-3.5 rounded-xl disabled:opacity-60 flex items-center justify-center gap-2 transition-colors"
+                    style={{ backgroundColor: primaryColor }}>
                     <Send className="w-4 h-4"/>
                     {loading ? 'Sending...' : 'Send Message'}
                   </button>

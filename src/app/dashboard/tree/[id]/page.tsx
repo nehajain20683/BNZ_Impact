@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, TreePine, Calendar, User, Sprout, CheckCircle } from 'lucide-react';
 import { LandGallery } from '@/components/LandGallery';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Awaiting Planting', PLANTED: 'Planted', GROWING: 'Growing', MATURE: 'Mature',
 };
 
 export default function TreeStoryPage() {
+  const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [data, setData] = useState<any>(null);
@@ -50,7 +53,7 @@ export default function TreeStoryPage() {
   return (
     <div className="min-h-screen bg-cream-50 pb-16">
       {/* Hero */}
-      <div className="relative h-64 bg-sage-800">
+      <div className="relative h-64" style={{ backgroundColor: primaryColor }}>
         {heroImage && <img src={heroImage} alt="" className="w-full h-full object-cover opacity-70"/>}
         <div className="absolute inset-0 bg-gradient-to-t from-sage-950/80 to-sage-900/20"/>
         <button onClick={() => router.push('/dashboard')} className="absolute top-5 left-4 text-white/80 hover:text-white flex items-center gap-1.5 text-sm font-semibold">
@@ -115,12 +118,14 @@ export default function TreeStoryPage() {
             <div className="flex flex-wrap gap-2 mt-3">
               {mapUrl && (
                 <a href={mapUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-xs font-bold text-sage-700 border-2 border-sage-200 px-3 py-1.5 rounded-xl hover:border-sage-400">
+                  className="text-xs font-bold border-2 border-sage-200 px-3 py-1.5 rounded-xl hover:border-sage-400"
+                  style={{ color: primaryColor }}>
                   View on Map →
                 </a>
               )}
               <a href={`/sites/${site.id}`} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-bold text-white bg-sage-700 hover:bg-sage-800 px-3 py-1.5 rounded-xl">
+                className="text-xs font-bold text-white px-3 py-1.5 rounded-xl"
+                style={{ backgroundColor: primaryColor }}>
                 See the Full Story of This Grove →
               </a>
             </div>
@@ -135,7 +140,8 @@ export default function TreeStoryPage() {
               <h2 className="font-display text-lg text-sage-950">Meet the Farmer</h2>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-sage-100 flex items-center justify-center font-bold text-sage-700 text-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
+                style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}>
                 {farmer.fullName?.charAt(0) || '?'}
               </div>
               <div>

@@ -31,6 +31,7 @@ const TESTIMONIALS = [
 
 export default function HomePage() {
   const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [campaigns, setCampaigns] = useState<any[]>([]);
 
   useEffect(() => {
@@ -83,7 +84,8 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <Link href="/campaigns"
-                className="group flex items-center justify-center gap-3 bg-sage-700 hover:bg-sage-800 text-white font-bold text-lg px-8 py-4 rounded-2xl transition-all hover:shadow-xl hover:shadow-sage-200 hover:scale-[1.02]">
+                className="group flex items-center justify-center gap-3 text-white font-bold text-lg px-8 py-4 rounded-2xl transition-all hover:shadow-xl hover:scale-[1.02]"
+                style={{ backgroundColor: primaryColor }}>
                 Sponsor Trees
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform"/>
               </Link>
@@ -119,7 +121,7 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            <div className="bg-sage-800/90 backdrop-blur-md rounded-2xl px-6 py-4 text-center border border-sage-700">
+            <div className="backdrop-blur-md rounded-2xl px-6 py-4 text-center" style={{ backgroundColor: `${primaryColor}e6`, borderColor: `${primaryColor}cc`, borderWidth: 1 }}>
               <div className="text-sage-300 text-xs font-semibold uppercase tracking-widest mb-1">Next Plantation</div>
               <div className="text-white font-display text-lg">Mumbai · June 2026</div>
             </div>
@@ -270,9 +272,11 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {previewPackages.map((pkg: any) => (
               <div key={pkg.id || pkg.trees}
-                className={`relative rounded-2xl border-2 p-6 transition-all ${pkg.popular ? 'border-sage-600 bg-sage-800 shadow-xl' : 'border-sage-100 bg-white hover:border-sage-300 card-lift'}`}>
+                className={`relative rounded-2xl border-2 p-6 transition-all ${pkg.popular ? 'shadow-xl' : 'border-sage-100 bg-white hover:border-sage-300 card-lift'}`}
+                style={pkg.popular ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}>
                 {pkg.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-sage-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow"
+                    style={{ color: primaryColor }}>
                     Most Popular
                   </div>
                 )}
@@ -287,7 +291,8 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <Link href="/campaigns"
-                  className={`block text-center text-sm font-bold py-2.5 rounded-xl transition-colors ${pkg.popular ? 'bg-sage-500 text-white hover:bg-sage-400' : 'bg-sage-700 text-white hover:bg-sage-800'}`}>
+                  className={`block text-center text-sm font-bold py-2.5 rounded-xl transition-colors ${pkg.popular ? 'bg-white hover:bg-sage-50' : 'text-white'}`}
+                  style={pkg.popular ? { color: primaryColor } : { backgroundColor: primaryColor }}>
                   Choose Campaign
                 </Link>
               </div>
@@ -356,7 +361,8 @@ export default function HomePage() {
           <p className="text-sage-500 mb-8">Questions about the initiative? We'd love to hear from you.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href={`mailto:${org.email || 'contact@bnzgreen.io'}`}
-              className="inline-flex items-center gap-2 bg-sage-700 text-white font-semibold px-6 py-3 rounded-xl hover:bg-sage-800 transition-colors">
+              className="inline-flex items-center gap-2 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+              style={{ backgroundColor: primaryColor }}>
               Email Us
             </a>
             <Link href="/csr"

@@ -11,6 +11,7 @@ declare global { interface Window { Razorpay: any; } }
 
 function DonateForm() {
   const org    = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const params = useSearchParams();
   const router = useRouter();
 
@@ -216,8 +217,9 @@ function DonateForm() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {campaignPackages.map((pkg: any)=>(
                     <button key={pkg.id || pkg.trees} onClick={()=>setSelectedTrees(pkg.trees)}
-                      className={`p-3 rounded-xl border-2 text-center transition-all relative ${selectedTrees===pkg.trees?'border-sage-600 bg-sage-50':'border-sage-100 hover:border-sage-300'}`}>
-                      {pkg.popular && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-sage-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">Popular</div>}
+                      className="p-3 rounded-xl border-2 text-center transition-all relative border-sage-100 hover:border-sage-300"
+                      style={selectedTrees===pkg.trees ? { borderColor: primaryColor, backgroundColor: `${primaryColor}0d` } : {}}>
+                      {pkg.popular && <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: primaryColor }}>Popular</div>}
                       <div className="font-bold text-sage-900 text-lg">{pkg.trees}</div>
                       <div className="text-sage-400 text-xs">trees</div>
                       <div className="font-semibold text-sage-700 text-sm mt-1">{formatCurrency(packagePrice(pkg.trees, campaign.treePrice || org.treePrice))}</div>
@@ -303,7 +305,7 @@ function DonateForm() {
 
           {/* ── SIDEBAR ── */}
           <div>
-            <div className="bg-sage-800 text-white rounded-2xl p-6 sticky top-24 shadow-xl">
+            <div className="text-white rounded-2xl p-6 sticky top-24 shadow-xl" style={{ backgroundColor: primaryColor }}>
               <div className="relative h-28 rounded-xl overflow-hidden mb-5">
                 {(donationType==='campaign' ? campaign.imageUrl : null) ? (
                   <Image src={campaign.imageUrl} alt="Campaign" fill className="object-cover"/>
@@ -337,7 +339,8 @@ function DonateForm() {
               {error && <div className="bg-red-900/40 border border-red-700 text-red-300 text-xs rounded-xl p-3 mb-4">{error}</div>}
 
               <button onClick={handlePay} disabled={loading}
-                className="w-full bg-sage-500 hover:bg-sage-400 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors text-lg">
+                className="w-full disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors text-lg"
+                style={{ backgroundColor: primaryColor }}>
                 {loading ? 'Processing...' : `Pay ${formatCurrency(amount)}`}
               </button>
               <p className="text-sage-500 text-xs text-center mt-2">Secured by Razorpay 🔒</p>

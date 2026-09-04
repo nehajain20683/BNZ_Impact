@@ -14,6 +14,7 @@ const CSR_BENEFITS = [
 
 export default function CSRPage() {
   const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [form, setForm] = useState({ company: '', contact: '', email: '', phone: '', requirement: '', budget: '' });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -98,7 +99,8 @@ export default function CSRPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="w-full bg-sage-600 hover:bg-forest-700 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors"
+                    className="w-full disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors"
+                    style={{ backgroundColor: primaryColor }}
                   >
                     {loading ? 'Submitting...' : 'Submit Inquiry'}
                   </button>
@@ -108,7 +110,7 @@ export default function CSRPage() {
 
             {/* Info panel */}
             <div className="space-y-6">
-              <div className="bg-sage-800 text-white rounded-2xl p-8">
+              <div className="text-white rounded-2xl p-8" style={{ backgroundColor: primaryColor }}>
                 <h3 className="font-display text-2xl mb-4 text-sage-300">Why corporates choose us</h3>
                 <ul className="space-y-3 text-sage-300 text-sm">
                   {[

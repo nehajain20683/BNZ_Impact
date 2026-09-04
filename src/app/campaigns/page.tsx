@@ -8,6 +8,8 @@ import { CAMPAIGN_PACKAGES as DEFAULT_PACKAGES, INDIVIDUAL_TREE_PRICE, packagePr
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 function CampaignCard({ c, treePrice }: { c: any; treePrice?: number | null }) {
+  const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const packages = Array.isArray(c.packages) && c.packages.length ? c.packages : DEFAULT_PACKAGES;
   const defaultPkg = packages.find((p: any) => p.popular) || packages[0];
   const [selected, setSelected] = useState(defaultPkg?.trees ?? 0);
@@ -57,7 +59,8 @@ function CampaignCard({ c, treePrice }: { c: any; treePrice?: number | null }) {
 
         <Link
           href={`/donate?campaign=${c.slug}&trees=${selectedPkg.trees}&amount=${selectedAmount}`}
-          className="flex items-center justify-center gap-2 bg-sage-700 hover:bg-sage-800 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
+          className="flex items-center justify-center gap-2 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+          style={{ backgroundColor: primaryColor }}>
           Sponsor {selectedPkg.trees} Trees — {formatCurrency(selectedAmount)} <ArrowRight className="w-4 h-4"/>
         </Link>
       </div>
@@ -123,13 +126,14 @@ export default function CampaignsPage() {
           </div>
         )}
 
-        <div className="bg-forest-950 text-white rounded-3xl p-8 text-center max-w-xl mx-auto">
+        <div className="text-white rounded-3xl p-8 text-center max-w-xl mx-auto" style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
           <div className="text-4xl mb-3">🌱</div>
           <h3 className="font-display text-2xl mb-2">Individual Tree</h3>
           <p className="text-sage-300 text-sm mb-4">Sponsor any number of trees starting from just {formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)} per tree.</p>
           <div className="text-4xl font-display font-bold text-sage-300 mb-4">{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}/tree</div>
           <Link href={`/donate?type=individual&trees=11&amount=${packagePrice(11, org.treePrice)}`}
-            className="inline-flex items-center gap-2 bg-sage-500 hover:bg-sage-400 text-white font-bold px-6 py-3 rounded-xl transition-colors">
+            className="inline-flex items-center gap-2 bg-white hover:bg-sage-50 font-bold px-6 py-3 rounded-xl transition-colors"
+            style={{ color: org.primaryColor || '#2d5a1b' }}>
             Sponsor Trees <ArrowRight className="w-4 h-4"/>
           </Link>
         </div>
