@@ -28,6 +28,7 @@ export default function TreeMonitoringPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [pageSize, setPageSize] = useState(20);
   const [selectedTree, setSelectedTree] = useState<any>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -280,7 +281,7 @@ export default function TreeMonitoringPage() {
       <div className="max-w-lg mx-auto px-4 py-5">
         <div className="relative mb-4">
           <Search className="w-4 h-4 text-sage-400 absolute left-3 top-1/2 -translate-y-1/2"/>
-          <input value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={e => { setSearch(e.target.value); setPageSize(20); }}
             placeholder="Search by tree tag…"
             className="w-full pl-9 pr-3 py-2.5 text-sm border border-sage-200 rounded-xl bg-white"/>
         </div>
@@ -288,8 +289,10 @@ export default function TreeMonitoringPage() {
         {filteredTrees.length === 0 ? (
           <p className="text-sage-400 text-sm text-center py-8">No trees match "{search}".</p>
         ) : (
+          <>
+          <p className="text-sage-400 text-xs mb-2">Showing {Math.min(pageSize, filteredTrees.length)} of {filteredTrees.length}</p>
           <div className="space-y-2">
-            {filteredTrees.map((t: any) => {
+            {filteredTrees.slice(0, pageSize).map((t: any) => {
               const latest = t.monitoringSamples?.[0];
               return (
                 <button key={t.id} onClick={() => openTree(t)}
@@ -316,6 +319,13 @@ export default function TreeMonitoringPage() {
               );
             })}
           </div>
+          {filteredTrees.length > pageSize && (
+            <button onClick={() => setPageSize(n => n + 20)}
+              className="w-full mt-3 text-sage-600 hover:text-sage-800 text-sm font-semibold py-2.5 border border-sage-200 rounded-xl bg-white">
+              Load {Math.min(20, filteredTrees.length - pageSize)} more
+            </button>
+          )}
+          </>
         )}
       </div>
     </div>

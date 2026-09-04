@@ -51,6 +51,44 @@ export async function GET(req: Request) {
       ].join('\n');
     }
 
+    if (type === 'plantation') {
+      const sites = await prisma.plantationSite.findMany({
+        where: { orgId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          siteName: true, district: true, state: true, currentPhase: true,
+          treesPlanted: true, plannedTrees: true, totalPlannedArea: true,
+          _count: { select: { landAssignments: true } },
+        },
+      });
+      csv = [
+        'Site Name,District,State,Phase,Trees Planted,Planned Trees,Area (acres),Farmers Assigned',
+        ...sites.map(s => [
+          s.siteName, s.district || '', s.state || '', s.currentPhase,
+          s.treesPlanted, s.plannedTrees || '', s.totalPlannedArea || '',
+          s._count.landAssignments,
+        ].map(v => `"${v}"`).join(',')),
+      ].join('\n');
+    }
+
+    if (type === 'carbon') {
+      const sites = await prisma.plantationSite.findMany({
+        where: { orgId, active: true },
+        select: { siteName: true, treesPlanted: true },
+      });
+      // Same per-tree constant used consistently across the app's other
+      // carbon estimates (public impact dashboard, CSR reports) — kept
+      // identical here so this export never quietly disagrees with a
+      // number the same org shows elsewhere.
+      csv = [
+        'Site Name,Trees Planted,Estimated CO2 Sequestered (kg/yr)',
+        ...sites.map(s => [
+          s.siteName, s.treesPlanted,
+          Math.round(s.treesPlanted * 0.022 * 0.87 * 25 * 1000),
+        ].map(v => `"${v}"`).join(',')),
+      ].join('\n');
+    }
+
     return new Response(csv, {
       headers: {
         'Content-Type':        'text/csv',

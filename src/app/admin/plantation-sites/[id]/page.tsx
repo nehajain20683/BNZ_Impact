@@ -1211,6 +1211,23 @@ export default function PlantationSiteDetailPage() {
                   <div><span className="text-gray-400">Surviving: </span><span className="font-medium text-green-600">{a.treesSurviving}</span></div>
                   <div><span className="text-gray-400">Date: </span><span className="font-medium">{a.plantationDate?new Date(a.plantationDate).toLocaleDateString('en-IN'):'—'}</span></div>
                 </div>
+                {/* Species mix — the actual result of a manual pick or the
+                    80/20 Main/Side auto-allocation, shown right here so it
+                    doesn't take opening "Link Sponsored Trees" every time
+                    just to see what's already been assigned. */}
+                {Array.isArray(a.speciesPlanted) && a.speciesPlanted.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(a.speciesPlanted as any[]).map((s: any, i: number) => (
+                      <span key={i} className="text-[10px] font-medium bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+                        {s.species}: {s.qty}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-[10px] text-amber-600 bg-amber-50 inline-block px-2 py-0.5 rounded-full font-medium">
+                    No species assigned yet
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button onClick={() => openTreeAssign(a)}
                     className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">

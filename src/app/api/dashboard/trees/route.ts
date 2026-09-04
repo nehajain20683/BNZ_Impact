@@ -45,7 +45,11 @@ export async function GET(req: Request) {
         plantationSite: { select: { id: true, siteName: true, district: true, state: true } },
         images: { select: { imageUrl: true, capturedAt: true }, orderBy: { capturedAt: 'desc' }, take: 1 },
       },
-      orderBy: { plantedDate: sort },
+      // Trees with a captured photo first — a donor opening this section
+      // wants to see the tree that's actually visible before a placeholder
+      // row for one that hasn't been photographed yet, regardless of which
+      // was planted first.
+      orderBy: [{ images: { _count: 'desc' } }, { plantedDate: sort }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, User, Mail, Phone, MapPin, Shield, Calendar,
   DollarSign, TreePine, Sprout, CheckCircle, Clock, XCircle, Lock, Unlock,
-  Search, Link2,
+  Search, Link2, FileText,
 } from 'lucide-react';
 import PageHeader from '@/components/admin/PageHeader';
 
@@ -92,10 +92,18 @@ export default function AdminUserDetailPage() {
   return (
     <div>
       <PageHeader title={user.name || 'Unnamed User'} subtitle={user.email}>
-        <button onClick={() => router.push('/admin/users')}
-          className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="w-4 h-4"/> Back to Users
-        </button>
+        <div className="flex items-center gap-3">
+          {summary.totalTrees > 0 && (
+            <a href={`/api/admin/users/${id}/csr-report`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-semibold bg-[var(--admin-primary)] text-white px-4 py-2 rounded-xl hover:opacity-90">
+              <FileText className="w-4 h-4"/> Generate CSR Report
+            </a>
+          )}
+          <button onClick={() => router.push('/admin/users')}
+            className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700">
+            <ArrowLeft className="w-4 h-4"/> Back to Users
+          </button>
+        </div>
       </PageHeader>
 
       <div className="p-6 max-w-6xl mx-auto space-y-6">

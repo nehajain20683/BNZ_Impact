@@ -27,6 +27,8 @@ function OfficerFarmerDetailInner() {
   const [showScanner, setShowScanner] = useState(false);
   const [treeSearch, setTreeSearch] = useState('');
   const [treeStatusFilter, setTreeStatusFilter] = useState('');
+  const [treePhotoFilter, setTreePhotoFilter] = useState('');
+  const [treePageSize, setTreePageSize] = useState(20);
   const [scanError, setScanError] = useState('');
 
   function handleScan(tag: string) {
@@ -278,13 +280,19 @@ function OfficerFarmerDetailInner() {
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-sage-400 absolute left-3 top-1/2 -translate-y-1/2"/>
-              <input value={treeSearch} onChange={e => setTreeSearch(e.target.value)}
+              <input value={treeSearch} onChange={e => { setTreeSearch(e.target.value); setTreePageSize(20); }}
                 placeholder="Search tag…" className="w-full pl-8 pr-3 py-2 text-xs border border-sage-200 rounded-xl"/>
             </div>
-            <select value={treeStatusFilter} onChange={e => setTreeStatusFilter(e.target.value)}
+            <select value={treeStatusFilter} onChange={e => { setTreeStatusFilter(e.target.value); setTreePageSize(20); }}
               className="text-xs border border-sage-200 rounded-xl px-2">
               <option value="">All Status</option>
               {['PENDING','PLANTED','GROWING','MATURE','DEAD'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={treePhotoFilter} onChange={e => { setTreePhotoFilter(e.target.value); setTreePageSize(20); }}
+              className="text-xs border border-sage-200 rounded-xl px-2">
+              <option value="">Any Photo Status</option>
+              <option value="has">Has Photo</option>
+              <option value="missing">No Photo Yet</option>
             </select>
           </div>
         )}
@@ -292,7 +300,8 @@ function OfficerFarmerDetailInner() {
         {(() => {
           const filteredTrees = trees.filter((t: any) =>
             (!treeSearch || (t.treeTagId || '').toLowerCase().includes(treeSearch.toLowerCase())) &&
-            (!treeStatusFilter || t.status === treeStatusFilter));
+            (!treeStatusFilter || t.status === treeStatusFilter) &&
+            (!treePhotoFilter || (treePhotoFilter === 'has' ? (t._count?.images || 0) > 0 : (t._count?.images || 0) === 0)));
 
           if (trees.length === 0) return (
           <div className="bg-white rounded-2xl border border-dashed border-sage-200 p-8 text-center">
@@ -303,9 +312,12 @@ function OfficerFarmerDetailInner() {
           if (filteredTrees.length === 0) return (
             <p className="text-sage-400 text-sm text-center py-6">No trees match these filters.</p>
           );
+          const pagedTrees = filteredTrees.slice(0, treePageSize);
           return (
+          <>
+          <p className="text-sage-400 text-xs mb-2">Showing {pagedTrees.length} of {filteredTrees.length}</p>
           <div className="grid sm:grid-cols-2 gap-3">
-            {filteredTrees.map((t: any) => {
+            {pagedTrees.map((t: any) => {
               const state = uploadState[t.id] || 'idle';
               const latestPhoto = t.images?.[0]?.imageUrl;
               return (
@@ -364,6 +376,13 @@ function OfficerFarmerDetailInner() {
               );
             })}
           </div>
+          {filteredTrees.length > treePageSize && (
+            <button onClick={() => setTreePageSize(n => n + 20)}
+              className="w-full mt-3 text-sage-600 hover:text-sage-800 text-sm font-semibold py-2.5 border border-sage-200 rounded-xl">
+              Load {Math.min(20, filteredTrees.length - treePageSize)} more
+            </button>
+          )}
+          </>
           );
         })()}
       </div>

@@ -1,0 +1,100 @@
+// src/lib/report-shell.ts
+// Shared visual language for every "explanatory" report (as opposed to a
+// raw CSV export) — one header/stat-card/table/signature system reused
+// across Donations, Land Owners, Plantation, Carbon, and BRSR reports,
+// rather than five near-duplicate HTML templates. Deliberately the same
+// visual style as the CSR Impact Report, so a reader who's seen one of
+// these recognizes the rest as the same family of document.
+import { PdfOrgBranding } from './pdf';
+
+export type DocSignatory = { name: string; designation: string; signatureImage: string } | null | undefined;
+
+export function reportHeader(kicker: string, title: string, subtitle: string, org: PdfOrgBranding, generatedOn: string): string {
+  const logo = org.logoUrl
+    ? `<img src="${org.logoUrl}" style="height:44px" alt="${org.name}"/>`
+    : `<div style="font-size:20px;font-weight:900;color:#1a3a1a">${org.name}</div>`;
+  return `
+    <div style="background:#1a3a1a;color:#fff;padding:36px 40px;border-radius:0 0 16px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+        ${logo}
+        <div style="text-align:right;font-size:11px;color:#c8dcc0">Generated ${generatedOn}</div>
+      </div>
+      <div style="font-size:12px;letter-spacing:2px;color:#9fc08f;font-weight:700;text-transform:uppercase">${kicker}</div>
+      <div style="font-size:28px;font-weight:900;margin-top:6px">${title}</div>
+      <div style="font-size:13px;color:#c8dcc0;margin-top:4px">${subtitle}</div>
+    </div>`;
+}
+
+export function statCards(stats: { value: string; label: string }[]): string {
+  return `
+    <div style="display:grid;grid-template-columns:repeat(${Math.min(stats.length, 4)},1fr);gap:12px;margin:28px 40px 0">
+      ${stats.map(s => `
+        <div style="background:#f2f7ee;border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#1a3a1a">${s.value}</div>
+          <div style="font-size:10.5px;color:#5a6b52;margin-top:2px">${s.label}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// A plain-language explanation of what the numbers mean — this is the
+// piece a raw CSV export never had, and the entire point of this system.
+export function narrative(text: string): string {
+  return `
+    <div style="margin:28px 40px 0;padding:18px 20px;background:#fbfbf8;border-left:3px solid #9fc08f;border-radius:0 8px 8px 0">
+      <p style="margin:0">${text}</p>
+    </div>`;
+}
+
+export function sectionTitle(text: string): string {
+  return `<div style="font-size:14px;font-weight:800;color:#1a3a1a;margin:28px 40px 10px">${text}</div>`;
+}
+
+export function dataTable(headers: string[], rows: (string | number)[][]): string {
+  if (rows.length === 0) return `<div style="margin:0 40px;color:#8a9782;font-size:12px">No data recorded for this section yet.</div>`;
+  return `
+    <div style="margin:0 40px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:#f2f7ee;text-align:left">
+          ${headers.map(h => `<th style="padding:8px 10px;border-bottom:1px solid #dde5d6">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>${r.map(c => `<td style="padding:8px 10px;border-bottom:1px solid #eee">${c}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+export function barList(items: { name: string; count: number; pct: number }[]): string {
+  return `
+    <div style="margin:0 40px">
+      ${items.slice(0, 10).map(it => `
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#3a4a34;margin-bottom:2px">
+            <span>${it.name}</span><span>${it.count} (${it.pct}%)</span>
+          </div>
+          <div style="height:6px;background:#eef2ea;border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${it.pct}%;background:#5f8a4c"></div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+export function footer(org: PdfOrgBranding, orgSignatory: DocSignatory, footNote: string, generatedOn: string): string {
+  return `
+    <div style="margin:40px 40px 0;padding-top:20px;border-top:1px solid #dde5d6;display:flex;justify-content:space-between;align-items:flex-end">
+      <div style="font-size:10.5px;color:#8a9782;max-width:480px">${footNote}</div>
+      ${orgSignatory ? `
+        <div style="text-align:center;flex-shrink:0;margin-left:20px">
+          <img src="${orgSignatory.signatureImage}" style="height:34px;display:block;margin:0 auto 2px"/>
+          <div style="font-size:11px;font-weight:700;color:#1a3a1a">${orgSignatory.name}</div>
+          <div style="font-size:10px;color:#8a9782">${orgSignatory.designation}</div>
+        </div>` : ''}
+    </div>
+    <div style="margin:24px 40px 40px;text-align:center;font-size:10px;color:#a5b09c">
+      ${org.name} · Generated by BNZ Impact · ${generatedOn}
+    </div>`;
+}
+
+export function wrapReport(bodyHtml: string): string {
+  return `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:820px;margin:0 auto;color:#1f2a1a;font-size:13px;line-height:1.5">${bodyHtml}</div>`;
+}
