@@ -6,9 +6,22 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 // The 123456 bypass exists purely to make local testing possible without a
-// real SMS provider wired up. It must never be reachable in production —
-// gating it here (not just hiding the UI hint) is what actually matters.
+// real SMS provider wired up. It must never be reachable in production for
+// a real user's number — gating it here (not just hiding the UI hint) is
+// what actually matters.
 const TEST_OTP = process.env.NODE_ENV !== 'production' ? '123456' : null;
+
+// A narrow, explicit exception to that rule: specific mobile numbers listed
+// in TEST_OTP_NUMBERS (comma-separated, same +91XXXXXXXXXX format used
+// everywhere else in this file) can still use 123456 even in production —
+// e.g. on a Vercel deployment with no SMS provider wired up yet. This is
+// opt-in per number, set via an env var only the team controls; it does
+// nothing for any number not explicitly listed, so a real farmer's account
+// is never affected by this existing.
+const TEST_OTP_ALLOWLIST = (process.env.TEST_OTP_NUMBERS || '')
+  .split(',')
+  .map(n => n.trim())
+  .filter(Boolean);
 
 function hashOTP(otp: string) {
   return crypto.createHash('sha256').update(otp).digest('hex');
@@ -98,7 +111,7 @@ export async function POST(req: Request) {
 
       if (!farmer) return NextResponse.json({ error: 'Mobile not registered. Please register first.' }, { status: 404 });
 
-      const isTestOtp = TEST_OTP !== null && otp === TEST_OTP;
+      const isTestOtp = otp === '123456' && (TEST_OTP !== null || TEST_OTP_ALLOWLIST.includes(mobile_formatted));
 
       if (!isTestOtp) {
         if (!farmer.otpHash || !farmer.otpExpiry)
