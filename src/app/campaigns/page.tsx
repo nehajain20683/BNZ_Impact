@@ -18,7 +18,7 @@ function CampaignCard({ c, treePrice }: { c: any; treePrice?: number | null }) {
 
   return (
     <div className="group bg-white border border-sage-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-sage-100 transition-all hover:-translate-y-1">
-      <div className="relative h-52 overflow-hidden">
+      <Link href={`/campaigns/${c.slug}`} className="block relative h-52 overflow-hidden">
         {c.imageUrl ? (
           <Image src={c.imageUrl} alt={c.name} fill className="object-cover group-hover:scale-105 transition-transform duration-700"/>
         ) : (
@@ -29,10 +29,10 @@ function CampaignCard({ c, treePrice }: { c: any; treePrice?: number | null }) {
           <h2 className="text-white font-display text-xl font-bold leading-tight">{c.name}</h2>
           <p className="text-white/75 text-xs mt-0.5">{c.subtitle}</p>
         </div>
-      </div>
+      </Link>
 
       <div className="p-5">
-        <p className="text-sage-600 text-xs leading-relaxed mb-4">{c.description}</p>
+        <Link href={`/campaigns/${c.slug}`} className="text-sage-600 text-xs leading-relaxed mb-4 block hover:text-sage-800">{c.description}</Link>
 
         <div className="space-y-2 mb-4">
           {packages.map((pkg: any) => {
@@ -126,16 +126,20 @@ export default function CampaignsPage() {
           </div>
         )}
 
-        <div className="text-white rounded-3xl p-8 text-center max-w-xl mx-auto" style={{ backgroundColor: org.primaryColor || '#2d5a1b' }}>
-          <div className="text-4xl mb-3">🌱</div>
-          <h3 className="font-display text-2xl mb-2">Individual Tree</h3>
-          <p className="text-sage-300 text-sm mb-4">Sponsor any number of trees starting from just {formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)} per tree.</p>
-          <div className="text-4xl font-display font-bold text-sage-300 mb-4">{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}/tree</div>
-          <Link href={`/donate?type=individual&trees=11&amount=${packagePrice(11, org.treePrice)}`}
-            className="inline-flex items-center gap-2 bg-white hover:bg-sage-50 font-bold px-6 py-3 rounded-xl transition-colors"
-            style={{ color: org.primaryColor || '#2d5a1b' }}>
-            Sponsor Trees <ArrowRight className="w-4 h-4"/>
-          </Link>
+        <div className="relative text-white rounded-3xl p-8 text-center max-w-xl mx-auto overflow-hidden">
+          <Image src="/images/banners/hands-planting-seedling.png" alt="" fill className="object-cover"/>
+          <div className="absolute inset-0 bg-black/50"/>
+          <div className="relative">
+            <div className="text-4xl mb-3">🌱</div>
+            <h3 className="font-display text-2xl mb-2">Individual Tree</h3>
+            <p className="text-white/85 text-sm mb-4">Sponsor any number of trees starting from just {formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)} per tree.</p>
+            <div className="text-4xl font-display font-bold text-white mb-4">{formatCurrency(org.treePrice || INDIVIDUAL_TREE_PRICE)}/tree</div>
+            <Link href={`/donate?type=individual&trees=11&amount=${packagePrice(11, org.treePrice)}`}
+              className="inline-flex items-center gap-2 bg-white hover:bg-sage-50 font-bold px-6 py-3 rounded-xl transition-colors"
+              style={{ color: org.primaryColor || '#2d5a1b' }}>
+              Sponsor Trees <ArrowRight className="w-4 h-4"/>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

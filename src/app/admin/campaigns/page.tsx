@@ -7,6 +7,15 @@ import { Plus, Trash2, Upload, X, Star } from 'lucide-react';
 const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 const emptyPkg = () => ({ id: `pkg-${Date.now()}`, trees: 11, badge: '', badgeEn: '', emoji: '🌳', popular: false, description: '' });
 
+// Same three perks the public detail page falls back to when a campaign
+// has no custom perks saved — kept as one shared source of truth so the
+// admin checklist and the public default never quietly drift apart.
+const DEFAULT_PERK_OPTIONS = [
+  { key: 'plantation', title: 'Tree(s) Plantation', description: 'A native tree is planted at a verified site by a field officer, GPS-tagged and photographed at the time of planting.', icon: 'plantation', enabled: true },
+  { key: 'certificate', title: 'e-Certificate of Plantation', description: 'A signed digital certificate with your name and the project details, available to download right after planting is confirmed.', icon: 'certificate', enabled: true },
+  { key: 'geotag', title: 'Geotag & Live Tracking', description: "Track your tree's exact location and growth photos any time, or scan the QR code printed on its certificate.", icon: 'geotag', enabled: true },
+];
+
 export default function AdminCampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -49,6 +58,18 @@ export default function AdminCampaignsPage() {
     setError('');
     const reader = new FileReader();
     reader.onload = () => setEditing((p: any) => ({ ...p, imageUrl: reader.result as string }));
+    reader.readAsDataURL(file);
+  }
+
+  function handleGalleryFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('Image must be a PNG, JPG, etc.'); return; }
+    if (file.size > 1024 * 1024) { setError('Image must be under 1MB. Please compress it and try again.'); return; }
+    setError('');
+    const reader = new FileReader();
+    reader.onload = () => setEditing((p: any) => ({ ...p, galleryImages: [...(p.galleryImages || []), reader.result as string] }));
     reader.readAsDataURL(file);
   }
 
@@ -231,6 +252,44 @@ export default function AdminCampaignsPage() {
                   )}
                 </div>
                 <p className="text-gray-400 text-xs mt-1">Under 1MB. Falls back to a solid color card if left blank.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Gallery Images</label>
+                <p className="text-gray-400 text-xs mb-2">Extra photos shown on the campaign's detail page — sample certificate, past plantings, etc.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(editing.galleryImages || []).map((img: string, i: number) => (
+                    <div key={i} className="relative w-16 h-16 rounded-lg border border-gray-200 overflow-hidden flex-shrink-0 group">
+                      <img src={img} alt="" className="w-full h-full object-cover"/>
+                      <button type="button"
+                        onClick={() => setEditing((p: any) => ({ ...p, galleryImages: p.galleryImages.filter((_: any, j: number) => j !== i) }))}
+                        className="absolute inset-0 bg-black/50 text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 flex items-center justify-center border border-dashed border-gray-300 hover:border-gray-400 rounded-lg cursor-pointer text-gray-400 flex-shrink-0">
+                    <Upload className="w-4 h-4"/>
+                    <input type="file" accept="image/*" onChange={handleGalleryFile} className="hidden"/>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">What You Get — Perks Shown on Detail Page</label>
+                <p className="text-gray-400 text-xs mb-2">Turn off anything this campaign doesn't actually offer, rather than leave it listed but untrue.</p>
+                <div className="space-y-2">
+                  {(editing.perks && editing.perks.length > 0 ? editing.perks : DEFAULT_PERK_OPTIONS).map((perk: any, i: number) => (
+                    <label key={perk.key} className="flex items-center gap-2.5 border border-gray-100 rounded-lg px-3 py-2 cursor-pointer">
+                      <input type="checkbox" checked={perk.enabled !== false}
+                        onChange={e => {
+                          const base = editing.perks && editing.perks.length > 0 ? editing.perks : DEFAULT_PERK_OPTIONS;
+                          const next = base.map((p: any, j: number) => j === i ? { ...p, enabled: e.target.checked } : p);
+                          setEditing((prev: any) => ({ ...prev, perks: next }));
+                        }}
+                        className="rounded"/>
+                      <span className="text-sm text-gray-700">{perk.title}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">

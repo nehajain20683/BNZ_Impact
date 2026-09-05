@@ -7,11 +7,14 @@ import { OrgLogo } from '@/components/OrgLogo';
 
 export default function Footer() {
   const org = useOrgConfig();
-  const primaryColor = org.primaryColor || '#0c1f0c';
 
   return (
-    <footer className="text-white/70 py-12 mt-auto" style={{ backgroundColor: primaryColor }}>
-      <div className="max-w-6xl mx-auto px-4">
+    <footer className="relative text-white/70 py-12 mt-auto overflow-hidden">
+      {/* A real photo, shown as itself — dark overlay only, no org-color
+          tint, kept high-opacity since footer text is dense and small. */}
+      <Image src="/images/banners/growing-seedlings.png" alt="" fill className="object-cover"/>
+      <div className="absolute inset-0 bg-black/75"/>
+      <div className="relative max-w-6xl mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
 
           {/* Brand */}
@@ -26,10 +29,10 @@ export default function Footer() {
               )}
               <div>
                 <div className="font-display text-white text-lg leading-tight">{org.name}</div>
-                <div className="text-white/50 text-xs">Afforestation · Carbon Credits · dMRV</div>
+                <div className="text-white/65 text-xs">Afforestation · Carbon Credits · dMRV</div>
               </div>
             </div>
-            <p className="text-white/50 text-sm leading-relaxed max-w-sm">
+            <p className="text-white/65 text-sm leading-relaxed max-w-sm">
               A verified digital platform for tree plantation, farmer onboarding, and carbon credit generation.
             </p>
           </div>
@@ -37,7 +40,7 @@ export default function Footer() {
           {/* Links */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3">Platform</h4>
-            <ul className="space-y-2 text-sm text-white/50">
+            <ul className="space-y-2 text-sm text-white/65">
               {[
                 ['/campaigns',  'Sponsor Trees'],
                 ['/farmer/register', 'Register Land'],
@@ -54,12 +57,12 @@ export default function Footer() {
           {/* Contact */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3">Contact</h4>
-            <ul className="space-y-2 text-sm text-white/50">
+            <ul className="space-y-2 text-sm text-white/65">
               {org.email && <li><a href={`mailto:${org.email}`} className="hover:text-white">{org.email}</a></li>}
               {org.phone && <li><a href={`tel:${org.phone}`} className="hover:text-white">{org.phone}</a></li>}
               {org.website && <li><a href={org.website} target="_blank" rel="noopener noreferrer" className="hover:text-white">{org.website}</a></li>}
             </ul>
-            <div className="mt-4 space-y-1 text-xs text-white/40">
+            <div className="mt-4 space-y-1 text-xs text-white/55">
               <Link href="/privacy-policy" className="block hover:text-white/70">Privacy Policy</Link>
               <Link href="/terms" className="block hover:text-white/70">Terms of Service</Link>
               <Link href="/refund-policy" className="block hover:text-white/70">Refund Policy</Link>
@@ -67,12 +70,15 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom bar */}
+        {/* Bottom bar — items-baseline on the "Powered by" row specifically,
+            since the plain "Powered by" text and the bold linked brand
+            name sit at slightly different visual heights under
+            items-center, which reads as misaligned even on one line. */}
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-white/40 text-xs">
+          <p className="text-white/55 text-xs">
             © {new Date().getFullYear()} {org.name}. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-white/40 text-xs">
+          <div className="flex items-baseline gap-1.5 text-white/55 text-xs whitespace-nowrap">
             <span>Powered by</span>
             <a href="https://www.bnzgreen.io" target="_blank" rel="noopener noreferrer"
               className="text-white/60 hover:text-white font-semibold">BNZ Green Technologies</a>

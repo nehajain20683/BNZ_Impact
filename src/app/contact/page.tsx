@@ -1,6 +1,7 @@
 'use client';
 // src/app/contact/page.tsx
 import { useState } from 'react';
+import Image from 'next/image';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 
@@ -31,11 +32,16 @@ export default function ContactPage() {
     <div className="min-h-screen bg-cream-50">
            <div className="pt-16">
 
-        {/* Hero */}
-        <section className="text-white py-16 px-4 text-center" style={{ backgroundColor: primaryColor }}>
-          <p className="text-sage-400 text-sm tracking-widest uppercase mb-2">Get In Touch</p>
-          <h1 className="font-display text-4xl mb-3">Contact Us</h1>
-          <p className="text-sage-300 max-w-xl mx-auto">We'd love to hear from you. Reach out for any questions about tree sponsorship, partnerships, or the {org.loaded ? org.name : 'BNZ Impact'} programme.</p>
+        {/* Hero — a real photo shown as itself, plain dark overlay only
+            for text contrast, no org-color tint over the image. */}
+        <section className="relative text-white py-16 px-4 text-center overflow-hidden">
+          <Image src="/images/banners/hands-holding-tree.png" alt="" fill className="object-cover" priority/>
+          <div className="absolute inset-0 bg-black/45"/>
+          <div className="relative">
+            <p className="text-white/80 text-sm tracking-widest uppercase mb-2">Get In Touch</p>
+            <h1 className="font-display text-4xl mb-3">Contact Us</h1>
+            <p className="text-white/85 max-w-xl mx-auto">We'd love to hear from you. Reach out for any questions about tree sponsorship, partnerships, or the {org.loaded ? org.name : 'BNZ Impact'} programme.</p>
+          </div>
         </section>
 
         <section className="py-16 px-4">

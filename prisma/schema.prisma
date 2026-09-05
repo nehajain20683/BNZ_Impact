@@ -121,9 +121,19 @@ model Campaign {
   treePrice   Float    @default(500)
   active      Boolean  @default(true)
   imageUrl    String?
+  // Additional gallery photos beyond the single primary imageUrl — shown
+  // as thumbnails on the campaign detail page. Same base64-upload pattern
+  // used for Land.photos elsewhere in this app.
+  galleryImages String[] @default([])
   goal        Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // "What you get" perks shown on the campaign detail page — admin-editable
+  // per campaign so an org can turn off a perk it doesn't actually offer
+  // (e.g. e-greeting cards) rather than the page silently claiming a
+  // feature that isn't real. Each item: { key, title, description, enabled }
+  perks Json?
 
   // Display/branding — previously hardcoded per-campaign in src/lib/utils.ts,
   // now editable per tenant via Admin → Campaigns.

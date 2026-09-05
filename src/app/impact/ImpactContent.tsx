@@ -2,6 +2,7 @@
 // src/app/impact/ImpactContent.tsx
 // Client component - fetches data via API, never at build time
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { TreePine, Users, Leaf, MapPin, Clock, ArrowRight, FileText } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { OrgLogo } from '@/components/OrgLogo';
@@ -40,12 +41,16 @@ export default function ImpactContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header — themed to the org's own brand color, not a fixed green */}
-      <div className="text-white" style={{ backgroundColor: primaryColor }}>
-        <div className="max-w-6xl mx-auto px-4 py-14 text-center">
+      {/* Header — a real photo, shown as itself rather than tinted to the
+          org's color. Just a neutral dark overlay underneath the text for
+          contrast, not a color wash over the whole image. */}
+      <div className="relative text-white overflow-hidden">
+        <Image src="/images/banners/crop-rows-sunset.png" alt="" fill className="object-cover" priority/>
+        <div className="absolute inset-0 bg-black/45"/>
+        <div className="relative max-w-6xl mx-auto px-4 py-14 text-center">
           {org.logoUrl && (
             <div className="flex justify-center mb-4">
-              <OrgLogo src={org.logoUrl} alt={org.name} size="lg"/>
+              <OrgLogo src={org.logoUrl} alt={org.name} size="lg" badge/>
             </div>
           )}
           <h1 className="font-display text-4xl mb-2">Our Impact</h1>

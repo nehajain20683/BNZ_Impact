@@ -1,5 +1,6 @@
 // src/app/about/page.tsx
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { resolveTenantFromRequest } from '@/lib/tenant';
@@ -229,13 +230,18 @@ export default async function AboutPage() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="py-14 px-4 bg-sage-700 text-center text-white">
-          <h2 className="font-display text-3xl mb-3">Join the Movement</h2>
-          <p className="text-sage-300 mb-6 max-w-xl mx-auto">Plant a tree today in the name of someone you love. Together, we build India's green legacy.</p>
-          <Link href="/campaigns" className="inline-block bg-white text-sage-800 font-bold px-8 py-3.5 rounded-full hover:bg-sage-50 transition-colors">
-            Sponsor Trees Now →
-          </Link>
+        {/* CTA — a real photo behind the text, dark overlay at 80% so the
+            image reads as texture rather than competing with the text. */}
+        <section className="relative py-14 px-4 text-center text-white overflow-hidden">
+          <Image src="/images/banners/tea-field-worker.png" alt="" fill className="object-cover"/>
+          <div className="absolute inset-0 bg-black/80"/>
+          <div className="relative">
+            <h2 className="font-display text-3xl mb-3">Join the Movement</h2>
+            <p className="text-sage-300 mb-6 max-w-xl mx-auto">Plant a tree today in the name of someone you love. Together, we build India's green legacy.</p>
+            <Link href="/campaigns" className="inline-block bg-white text-sage-800 font-bold px-8 py-3.5 rounded-full hover:bg-sage-50 transition-colors">
+              Sponsor Trees Now →
+            </Link>
+          </div>
         </section>
 
       </div>

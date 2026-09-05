@@ -14,7 +14,7 @@ async function requireAdmin() {
 
 const ALLOWED_FIELDS = [
   'name', 'subtitle', 'shortName', 'dedicationLabel', 'description',
-  'imageUrl', 'accentColor', 'accentBg', 'accentBorder',
+  'imageUrl', 'galleryImages', 'perks', 'accentColor', 'accentBg', 'accentBorder',
   'treePrice', 'goal', 'displayOrder', 'packages', 'active',
 ];
 

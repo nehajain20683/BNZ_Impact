@@ -49,6 +49,8 @@ export async function POST(req: Request) {
         dedicationLabel: body.dedicationLabel || null,
         description:     body.description || null,
         imageUrl:        body.imageUrl || null,
+        galleryImages:   Array.isArray(body.galleryImages) ? body.galleryImages : [],
+        perks:           Array.isArray(body.perks) ? body.perks : undefined,
         accentColor:     body.accentColor || '#2d5a1b',
         accentBg:        body.accentBg || '#f6faf3',
         accentBorder:    body.accentBorder || '#c9dcc0',
