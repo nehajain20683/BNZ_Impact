@@ -64,10 +64,18 @@ export default function ImpactMap({ pins }: { pins: LandPin[] }) {
         const map = L.map(containerRef.current, { scrollWheelZoom: false });
         mapRef.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors',
-          maxZoom: 18,
-        }).addTo(map);
+        // Same two-layer setup as the public sites map — free, no API key
+        // either way. Satellite is genuinely useful here for checking a
+        // parcel's real boundary against the terrain rather than a street
+        // schematic.
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+        });
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles &copy; Esri', maxZoom: 18,
+        });
+        streetLayer.addTo(map);
+        L.control.layers({ 'Street': streetLayer, 'Satellite': satelliteLayer }, undefined, { position: 'topright' }).addTo(map);
 
         const markerIcon = L.divIcon({
           className: '',
@@ -94,8 +102,12 @@ export default function ImpactMap({ pins }: { pins: LandPin[] }) {
           // before. GeoJSON stores [lon, lat]; Leaflet wants [lat, lon].
           if (pin.polygonGeoJson?.coordinates?.[0]?.length >= 3) {
             const latLngs = pin.polygonGeoJson.coordinates[0].map(([lon, lat]) => [lat, lon]);
+            // Fixed yellowish-orange, not the org's brand color — a
+            // polygon boundary needs to stay visible against satellite
+            // imagery regardless of what color an org picks, and green or
+            // brown org colors can blend into real vegetation/soil.
             L.polygon(latLngs, {
-              color: primaryColor, weight: 2, fillColor: primaryColor, fillOpacity: 0.25,
+              color: '#FFA000', weight: 3, fillColor: '#FFA000', fillOpacity: 0.15,
             }).addTo(map).bindPopup(popupHtml(pin));
             latLngs.forEach(([lat, lng]) => bounds.push([lat, lng]));
           } else {

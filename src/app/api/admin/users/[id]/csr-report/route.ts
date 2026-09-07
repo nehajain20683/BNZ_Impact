@@ -7,6 +7,7 @@ import { getActiveOrgId } from '@/lib/get-active-org';
 import { getOrgConfig } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { generateCSRImpactReport } from '@/lib/csr-report';
+import { estimateCO2Kg } from '@/lib/carbon';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -62,7 +63,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       ? Math.round(((statusedTrees.length - deadCount) / statusedTrees.length) * 100)
       : null;
 
-    const estimatedCO2Kg = plantedTrees.length * 0.022 * 0.87 * 25 * 1000; // kg, same per-tree constant used org-wide, scaled to kg
+    const estimatedCO2Kg = estimateCO2Kg(plantedTrees.length);
 
     // Campaigns
     const campaignMap: Record<string, { name: string; trees: number; amount: number }> = {};

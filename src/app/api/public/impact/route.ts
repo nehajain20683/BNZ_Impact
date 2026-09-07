@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { resolveTenantFromRequest } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
+import { estimateCO2Tonnes } from '@/lib/carbon';
 
 // Phases before real ground work starts are shown publicly as "Coming Soon"
 // rather than "Active" — a donor or visitor shouldn't see a site listed as
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
     ]);
 
     const treesPlanted    = siteAgg._sum.treesPlanted    || 0;
-    const estimatedCarbon = Math.round(treesPlanted * 0.022 * 0.87 * 25);
+    const estimatedCarbon = estimateCO2Tonnes(treesPlanted);
 
     // Species breakdown — real planted data, same source used for the
     // admin dashboard's own species chart, aggregated org-wide here rather

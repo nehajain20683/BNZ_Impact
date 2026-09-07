@@ -213,6 +213,14 @@ model Donation {
 model Tree {
   id          String     @id @default(cuid())
   donationId  String
+  // Direct orgId, added to close a risk flagged in the original dMRV
+  // audit — every tenant-scoping check on Tree previously had to join
+  // through donation.orgId or plantationSite.orgId, and a future query
+  // that forgot that join wouldn't error, it would silently leak across
+  // tenants. Nullable initially per the additive-migration discipline —
+  // existing rows need a backfill script (see scripts/backfill-tree-orgid.js),
+  // new trees get it populated directly at creation from this point on.
+  orgId       String?
   treeTagId   String?    @unique
   species     String?
   geoLatitude Float?
@@ -242,7 +250,10 @@ model Tree {
   replacesTreeId String? @unique
   replacesTree   Tree?   @relation("TreeReplacement", fields: [replacesTreeId], references: [id])
   replacedBy     Tree?   @relation("TreeReplacement")
+  organization   Organization? @relation(fields: [orgId], references: [id])
+  sampleTrees    SampleTree[]
 
+  @@index([orgId])
   @@map("trees")
 }
 
@@ -274,6 +285,7 @@ model TreeImage {
   storageKey   String?  // reserved for a future real-object-storage migration
   tenantId     String   // orgId — every image is tenant-scoped, never visible cross-tenant
   createdAt    DateTime @default(now())
+  evidenceAudit EvidenceAudit?
 
   @@index([treeId])
   @@index([treeTag])
@@ -406,6 +418,10 @@ model PlantationSite {
   speciesPlans      SpeciesPlan[]
   notifications     SiteNotification[]
   impactMetricValues ImpactMetricValue[]
+  projectDesignDocuments ProjectDesignDocument[]
+  baselineAssessments    BaselineAssessment[]
+  monitoringSchedule     MonitoringSchedule?
+  samplingPlans          SamplingPlan[]
 
   @@map("plantation_sites")
 }
@@ -775,6 +791,15 @@ model Organization {
   fieldOfficers    FieldOfficer[]
   signatories      OrgSignatory[]
   impactMetricDefinitions ImpactMetricDefinition[]
+  tenantEngineConfig TenantEngineConfig?
+  tenantModules      TenantModule[]
+  projectDesignDocuments ProjectDesignDocument[]
+  baselineAssessments    BaselineAssessment[]
+  methodologies          Methodology[]
+  tenantCarbonConfig     TenantCarbonConfig?
+  monitoringSchedules    MonitoringSchedule[]
+  trees                  Tree[]
+  samplingPlans          SamplingPlan[]
 
   @@map("organizations")
 }
@@ -1341,4 +1366,282 @@ enum CreditStatus {
   ISSUED
   SOLD
   RETIRED
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// dMRV Roadmap Phase 0B — Tenant Engine Configuration
+// Frozen architecture spec v1.0 (per external review + Revision 3).
+// Three layers, deliberately NOT a workflow graph engine:
+//   Layer 1 (engineType)     — what kind of tenant this is
+//   Layer 2 (TenantModule)   — which feature modules this tenant sees
+//   Layer 3 (requiredPhases) — which existing PlantationSite.currentPhase
+//                              values are mandatory for this tenant, vs
+//                              skippable. currentPhase itself is UNCHANGED
+//                              and stays exactly as-is — this only reads
+//                              it, never replaces it.
+// ─────────────────────────────────────────────────────────────────────────
+
+model TenantEngineConfig {
+  id            String   @id @default(cuid())
+  orgId         String   @unique
+  organization  Organization @relation(fields: [orgId], references: [id])
+  // CSR_PLANTATION | NGO_MONITORING | CARBON_DEVELOPER | GOVERNMENT | AGROFORESTRY
+  // Only CSR_PLANTATION has a confirmed real tenant as of this phase — the
+  // others exist so Super Admin has somewhere to put a tenant when one
+  // shows up, not because four more engine types are being built now.
+  engineType    String   @default("CSR_PLANTATION")
+  // Subset of the existing currentPhase enum values that this tenant
+  // cannot skip. Empty array = no phases are enforced as mandatory (the
+  // current, pre-this-phase behavior for every existing tenant).
+  requiredPhases String[] @default([])
+  // Phase 2 — how many days between required monitoring visits, org-wide
+  // default. A specific site can override this via MonitoringSchedule
+  // below; this is just the fallback when no override exists.
+  defaultMonitoringIntervalDays Int @default(30)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("tenant_engine_configs")
+}
+
+// Catalog of every feature module that can be toggled per tenant. A fixed,
+// admin-managed list — not something tenants create themselves.
+model EngineModule {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "PDD", "REGISTRY_SUBMISSION", "SATELLITE_MONITORING"
+  label       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  tenantModules TenantModule[]
+
+  @@map("engine_modules")
+}
+
+model TenantModule {
+  id         String   @id @default(cuid())
+  orgId      String
+  organization Organization @relation(fields: [orgId], references: [id])
+  moduleKey  String
+  module     EngineModule @relation(fields: [moduleKey], references: [key])
+  enabled    Boolean  @default(true)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orgId, moduleKey])
+  @@map("tenant_modules")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// dMRV Roadmap Phase 0C — Registry-Ready Schema (data model only, no UI)
+// Per Revision 2's explicit reasoning: build the data model now, since it's
+// cheap and unblocks anything that later references it, but the actual
+// authoring workflow (a PDD editor, baseline-capture forms, etc.) stays
+// gated pending confirmation a specific tenant has a real registry
+// submission planned. Every model here is additive; nothing existing is
+// touched. Every model is real-tenant scoped via orgId, learning from the
+// Tree.orgId gap flagged in the original audit.
+// ─────────────────────────────────────────────────────────────────────────
+
+model ProjectDesignDocument {
+  id            String   @id @default(cuid())
+  siteId        String
+  site          PlantationSite @relation(fields: [siteId], references: [id])
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id])
+  version       Int      @default(1)
+  registryType  String?  // VERRA_VCS | GOLD_STANDARD | ICR | INTERNAL_CSR
+  status        String   @default("DRAFT") // DRAFT | SUBMITTED | VALIDATION | CLARIFICATION | VERIFICATION | ISSUED
+  baselineScenario           String? @db.Text
+  additionalityJustification String? @db.Text
+  permanencePlan             String? @db.Text
+  creditingPeriodStart DateTime?
+  creditingPeriodEnd   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("project_design_documents")
+}
+
+model BaselineAssessment {
+  id         String   @id @default(cuid())
+  siteId     String
+  site       PlantationSite @relation(fields: [siteId], references: [id])
+  orgId      String
+  organization Organization @relation(fields: [orgId], references: [id])
+  assessedAt DateTime @default(now())
+  preExistingVegetation String? @db.Text
+  landUseHistory        String? @db.Text
+  soilCondition         String? @db.Text
+  baselinePhotos        String[] @default([])
+  createdAt  DateTime @default(now())
+
+  @@map("baseline_assessments")
+}
+
+model Methodology {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id])
+  name        String   // "ICR ARR", "Verra VM0047", "Internal CSR Estimate"
+  formulaType String   // references a code path in the future carbon service, not a stored formula string
+  createdAt   DateTime @default(now())
+
+  speciesEquations SpeciesEquation[]
+
+  @@map("methodologies")
+}
+
+model SpeciesEquation {
+  id                 String   @id @default(cuid())
+  species            String
+  woodDensity        Float?
+  allometricEquation String?  @db.Text
+  defaultSpacing     Float?
+  rotationAgeYears   Int?
+  methodologyId      String?
+  methodology        Methodology? @relation(fields: [methodologyId], references: [id])
+  createdAt          DateTime @default(now())
+
+  @@map("species_equations")
+}
+
+model TenantCarbonConfig {
+  id                   String   @id @default(cuid())
+  orgId                String   @unique
+  organization         Organization @relation(fields: [orgId], references: [id])
+  registryType         String?  // null = CSR-only, no registry ambition
+  defaultMethodologyId String?
+  requiresPDD          Boolean  @default(false) // lets a CSR-only tenant simply never see PDD complexity
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("tenant_carbon_configs")
+}
+
+// Deliberately does NOT duplicate TreeImage.gpsAccuracy or .capturedAt —
+// both already exist and are already server-sourced (not client-trusted).
+// Only the two genuinely new chain-of-custody fields live here.
+model EvidenceAudit {
+  id           String   @id @default(cuid())
+  treeImageId  String   @unique
+  treeImage    TreeImage @relation(fields: [treeImageId], references: [id])
+  deviceId     String?
+  contentHash  String?
+  createdAt    DateTime @default(now())
+
+  @@map("evidence_audits")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// dMRV Roadmap Phase 2 — Monitoring Scheduler
+// Deliberately just configuration (an interval), not a cached "next due
+// date" — due status is always computed live from the most recent real
+// MonitoringVisit.visitDate, since 4 separate code paths already create
+// visit records and keeping a denormalized due-date in sync across all
+// of them would be a real staleness risk for no real benefit. A site
+// with no row here uses the org's own defaultMonitoringIntervalDays.
+// ─────────────────────────────────────────────────────────────────────────
+
+model MonitoringSchedule {
+  id            String   @id @default(cuid())
+  siteId        String   @unique
+  site          PlantationSite @relation(fields: [siteId], references: [id])
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id])
+  intervalDays  Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("monitoring_schedules")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// dMRV Roadmap — Sampling Design Engine
+// Real engine per confirmed requirement: per-tree monitoring stays the
+// default and remains fully supported (nothing about it changes), but for
+// programs where 100% per-tree monitoring becomes operationally
+// impractical, this generates an actual statistically-reasoned sample —
+// not just a UI placeholder. Three real methods: RANDOM (simple random
+// sample across all trees), STRATIFIED (proportional-by-species, standard
+// forestry practice), PLOT_BASED (select representative land parcels —
+// LandAssignment already is a real geographic unit — and fully sample
+// every tree within the selected parcels, extrapolating to the rest).
+// A SamplePlot record is the generated plan; SampleTree rows are which
+// specific trees that plan actually includes.
+// ─────────────────────────────────────────────────────────────────────────
+
+model SamplingPlan {
+  id              String   @id @default(cuid())
+  siteId          String
+  site            PlantationSite @relation(fields: [siteId], references: [id])
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id])
+  method          String   // RANDOM | STRATIFIED | PLOT_BASED
+  targetPct       Float    // e.g. 10 = sample ~10% of the population
+  totalPopulation Int      // tree count the plan was generated against
+  sampleSize      Int      // actual number of trees included
+  generatedAt     DateTime @default(now())
+  createdById     String?
+
+  plots           SamplePlot[]
+  sampleTrees     SampleTree[]
+
+  @@map("sampling_plans")
+}
+
+model SamplePlot {
+  id            String   @id @default(cuid())
+  planId        String
+  plan          SamplingPlan @relation(fields: [planId], references: [id])
+  assignmentId  String?  // the LandAssignment (land parcel) this plot corresponds to, for PLOT_BASED plans
+  plotCode      String   // human-readable, e.g. "P-01"
+  stratum       String?  // species name, for STRATIFIED plans
+  treeCount     Int      // trees included from this plot/stratum
+  createdAt     DateTime @default(now())
+
+  @@map("sample_plots")
+}
+
+model SampleTree {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      SamplingPlan @relation(fields: [planId], references: [id])
+  treeId    String
+  tree      Tree     @relation(fields: [treeId], references: [id])
+  plotCode  String?
+  stratum   String?
+  createdAt DateTime @default(now())
+
+  @@unique([planId, treeId])
+  @@map("sample_trees")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Configurable Workflow Framework
+// Deliberately NOT a graph engine — an ordered, named list of steps per
+// engine type, decoupled from the hardcoded PlantationSite.currentPhase
+// enum so a second engine type (Corporate ESG) can have a genuinely
+// different step list without touching that enum or migrating any
+// existing site's phase data. For CSR_PLANTATION specifically, each step
+// maps back to the existing currentPhase value it corresponds to
+// (mapsToPhase), so the framework and the production enum stay in sync
+// without currentPhase itself ever being replaced.
+//
+// TenantEngineConfig.requiredPhases (Phase 0B) keeps working exactly as
+// it did — this framework is what SOURCES the options shown when
+// configuring it, not a replacement for how that choice is stored.
+// ─────────────────────────────────────────────────────────────────────────
+
+model WorkflowStepTemplate {
+  id          String   @id @default(cuid())
+  engineType  String   // CSR_PLANTATION | CORPORATE_ESG | ... matches TenantEngineConfig.engineType
+  stepKey     String   // machine key, e.g. "PLANNING", "BASELINE_ASSESSMENT"
+  stepLabel   String   // human label shown in UI
+  order       Int      // sequence position within this engine type
+  defaultRequired Boolean @default(true)
+  mapsToPhase String?  // for CSR_PLANTATION only — the PlantationSite.currentPhase value this step represents. Null for engine types with no such mapping.
+  createdAt   DateTime @default(now())
+
+  @@unique([engineType, stepKey])
+  @@map("workflow_step_templates")
 }

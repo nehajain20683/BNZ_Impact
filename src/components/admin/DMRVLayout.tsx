@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Activity, BarChart2, Shield, FileText, Leaf, Archive,
   GitBranch, Bell, CheckCircle2, LayoutDashboard, ChevronRight,
-  Zap
+  Zap, AlertTriangle
 } from 'lucide-react';
 
 const NAV = [
@@ -14,11 +14,12 @@ const NAV = [
   { href:'/admin/dmrv/monitor',   label:'Monitor',          icon: BarChart2 },
   { href:'/admin/dmrv/report',    label:'Report',           icon: FileText },
   { href:'/admin/dmrv/verify',    label:'Verify',           icon: Shield },
+  { href:'/admin/dmrv/field-reports', label:'Field Reports',icon: AlertTriangle },
   { href:'/admin/dmrv/carbon',    label:'Carbon Estimation',icon: Leaf },
   { href:'/admin/dmrv/evidence',  label:'Evidence Vault',   icon: Archive },
-  { href:'/admin/dmrv/audit',     label:'Audit Trail',      icon: GitBranch },
-  { href:'/admin/dmrv/alerts',    label:'AI Alerts',        icon: Bell },
-  { href:'/admin/dmrv/readiness', label:'dMRV Readiness',   icon: CheckCircle2 },
+  { href:'/admin/dmrv/audit',     label:'Audit Trail (coming soon)', icon: GitBranch },
+  { href:'/admin/dmrv/alerts',    label:'AI Alerts (coming soon)',   icon: Bell },
+  { href:'/admin/dmrv/readiness', label:'dMRV Readiness (mockup)',   icon: CheckCircle2 },
 ];
 
 export default function DMRVLayout({ children }: { children: React.ReactNode }) {

@@ -79,6 +79,21 @@ export function barList(items: { name: string; count: number; pct: number }[]): 
     </div>`;
 }
 
+// A labeled grid of evidence photos — each with a short caption line
+// underneath (site/farmer name, date, GPS), for registry-style photo
+// annexures where a bare image with no provenance caption isn't useful.
+export function photoGrid(items: { url: string; caption: string }[], columns: number = 3): string {
+  if (items.length === 0) return `<div style="margin:0 40px;color:#8a9782;font-size:12px">No photos available for this section.</div>`;
+  return `
+    <div style="margin:0 40px;display:grid;grid-template-columns:repeat(${columns},1fr);gap:12px">
+      ${items.map(it => `
+        <div>
+          <img src="${it.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px"/>
+          <div style="font-size:10px;color:#6b7a63;margin-top:3px;line-height:1.3">${it.caption}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
 export function footer(org: PdfOrgBranding, orgSignatory: DocSignatory, footNote: string, generatedOn: string): string {
   return `
     <div style="margin:40px 40px 0;padding-top:20px;border-top:1px solid #dde5d6;display:flex;justify-content:space-between;align-items:flex-end">

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { withSuperAdmin } from '@/components/superadmin/withSuperAdmin';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, AlertCircle, CheckCircle, Upload } from 'lucide-react';
+import EngineConfigPanel from '@/components/superadmin/EngineConfigPanel';
 
 const inp = "w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 placeholder-gray-600";
 const PLANS = ['STARTER', 'PRO', 'ENTERPRISE'];
@@ -437,6 +438,10 @@ function EditOrgPage({ params }: { params: { id: string } }) {
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <EngineConfigPanel orgId={params.id as string}/>
         </div>
 
         {/* Save button at bottom too */}

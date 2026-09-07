@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { LandGallery } from '@/components/LandGallery';
 import PublicSitesMap from '@/components/PublicSitesMap';
+import SamplingDesignPanel from '@/components/admin/SamplingDesignPanel';
+import RegistryReadinessPanel from '@/components/admin/RegistryReadinessPanel';
 import { ArrowLeft, Plus, Search, TreePine, MapPin, Users, Leaf, CheckCircle,
          Activity, BarChart2, FileText, X, Edit, ChevronDown, Camera, QrCode } from 'lucide-react';
 
@@ -1136,6 +1138,10 @@ export default function PlantationSiteDetailPage() {
                 </div>
               </div>
             )}
+
+            <SamplingDesignPanel siteId={id}/>
+
+            <RegistryReadinessPanel siteId={id}/>
 
             {/* Farmer progress table */}
             {dash.farmerProgress?.length > 0 && (

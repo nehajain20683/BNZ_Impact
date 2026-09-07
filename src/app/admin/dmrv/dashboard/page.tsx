@@ -3,6 +3,7 @@ import DMRVLayout from '@/components/admin/DMRVLayout';
 import { useState, useEffect } from 'react';
 import { Activity, TreePine, MapPin, TrendingUp, AlertTriangle,
          CheckCircle, Leaf, Shield, BarChart2, Zap, Radio } from 'lucide-react';
+import { estimateCO2Tonnes } from '@/lib/carbon';
 
 export default function DMRVDashboard() {
   const [data, setData]       = useState<any>(null);
@@ -17,7 +18,7 @@ export default function DMRVDashboard() {
 
   const s   = data?.stats || {};
   const pct = s.plannedTrees > 0 ? Math.round((s.treesPlanted / s.plannedTrees) * 100) : 0;
-  const estimatedCarbon = Math.round((s.treesPlanted||0) * 0.022 * 0.87 * 25);
+  const estimatedCarbon = estimateCO2Tonnes(s.treesPlanted);
 
   const KPI = [
     { label:'Active Sites',       value: s.siteCount||0,                              icon: MapPin,        color:'text-blue-400',    bg:'bg-blue-500/10',    border:'border-blue-500/20' },

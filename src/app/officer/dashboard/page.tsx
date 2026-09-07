@@ -123,16 +123,26 @@ export default function FieldOfficerDashboard() {
                     ))}
                   </div>
                 )}
-                {(f.needsVerification || f.needsHealthCheck) && (
+                {(f.needsVerification || f.monitoringDueStatus !== 'OK') && (
                   <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-sage-50">
                     {f.needsVerification && (
                       <span className="flex items-center gap-1 text-[10px] font-semibold bg-amber-50 text-amber-700 px-2 py-1 rounded-full">
                         <AlertTriangle className="w-2.5 h-2.5"/> Not verified
                       </span>
                     )}
-                    {f.needsHealthCheck && (
+                    {f.monitoringDueStatus === 'NEVER_VISITED' && (
                       <span className="flex items-center gap-1 text-[10px] font-semibold bg-amber-50 text-amber-700 px-2 py-1 rounded-full">
-                        <AlertTriangle className="w-2.5 h-2.5"/> No health check
+                        <AlertTriangle className="w-2.5 h-2.5"/> No health check yet
+                      </span>
+                    )}
+                    {f.monitoringDueStatus === 'OVERDUE' && (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold bg-red-50 text-red-700 px-2 py-1 rounded-full">
+                        <AlertTriangle className="w-2.5 h-2.5"/> Overdue — {f.daysSinceLastVisit}d since last visit
+                      </span>
+                    )}
+                    {f.monitoringDueStatus === 'DUE_SOON' && (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold bg-amber-50 text-amber-700 px-2 py-1 rounded-full">
+                        <AlertTriangle className="w-2.5 h-2.5"/> Due soon
                       </span>
                     )}
                   </div>

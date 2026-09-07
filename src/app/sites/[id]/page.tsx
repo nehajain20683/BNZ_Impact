@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, TreePine, Users, Sprout, CheckCircle, Calendar, Share2 } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import PublicSitesMap from '@/components/PublicSitesMap';
 
 export default function SiteStoryPage() {
   const org = useOrgConfig();
@@ -50,7 +51,7 @@ export default function SiteStoryPage() {
     );
   }
 
-  const { site, farmers, verifiedVisits, orgName } = data;
+  const { site, farmers, verifiedVisits, landParcels, orgName } = data;
   const progressPct = site.plannedTrees ? Math.min(100, Math.round((site.treesPlanted / site.plannedTrees) * 100)) : null;
   const mapUrl = site.gpsLatitude ? `https://www.google.com/maps?q=${site.gpsLatitude},${site.gpsLongitude}` : null;
 
@@ -141,6 +142,25 @@ export default function SiteStoryPage() {
             <Link href="/farmers" className="inline-block mt-4 text-xs font-bold text-sage-700 hover:underline">
               Meet more farmers across {orgName} →
             </Link>
+          </div>
+        )}
+
+        {/* Land parcel map — real GPS/boundary data for the same farmers
+            listed above, not a new privacy exposure since name+location
+            is already public in the section right above this one. */}
+        {landParcels?.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin className="w-4 h-4 text-sage-500"/>
+              <h2 className="font-display text-lg text-sage-950">Where This Grove Is Growing</h2>
+            </div>
+            <PublicSitesMap
+              primaryColor={primaryColor}
+              sites={landParcels.map((p: any) => ({
+                id: p.id, siteName: p.farmerName, lat: p.lat, lng: p.lng,
+                polygons: p.polygonGeoJson?.coordinates?.[0]?.length >= 3 ? [p.polygonGeoJson] : [],
+              }))}
+            />
           </div>
         )}
 

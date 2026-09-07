@@ -4,7 +4,7 @@
 // already on the Reports page; the CSV stays as the "give me the raw
 // rows" option, this is the "explain what happened" option.
 import { PdfOrgBranding } from './pdf';
-import { reportHeader, statCards, narrative, sectionTitle, dataTable, barList, footer, wrapReport, DocSignatory } from './report-shell';
+import { reportHeader, statCards, narrative, sectionTitle, dataTable, barList, photoGrid, footer, wrapReport, DocSignatory } from './report-shell';
 
 type Common = { org: PdfOrgBranding; orgSignatory?: DocSignatory; generatedOn: string };
 
@@ -162,6 +162,77 @@ export function generateBRSRExtract(d: Common & {
       d.sites.map(s => [s.name, s.district || '—', s.state || '—', s.gpsVerified ? 'Yes' : 'Pending'])) +
     footer(d.org, d.orgSignatory,
       `Figures cover Financial Year ${d.financialYear} (1 April – 31 March), matching standard Indian reporting periods. GPS coordinates, timestamps, and field officer identity for every tree referenced are retained and available for third-party audit on request. This extract does not itself constitute assurance — a company's statutory auditor or an independent assurance provider remains responsible for verifying figures before filing.`,
+      d.generatedOn)
+  );
+}
+
+// ─── 6. GIS Annexure ────────────────────────────────────────────────────
+export function generateGISAnnexure(d: Common & {
+  sites: {
+    name: string; district: string; state: string;
+    gpsLatitude: number | null; gpsLongitude: number | null;
+    areaAcres: number | null;
+    parcels: { farmerName: string; polygon: { type: 'Polygon'; coordinates: number[][][] } | null }[];
+  }[];
+}): string {
+  const totalParcels = d.sites.reduce((s, x) => s + x.parcels.length, 0);
+  const withBoundary = d.sites.reduce((s, x) => s + x.parcels.filter(p => p.polygon).length, 0);
+  const totalAcres = d.sites.reduce((s, x) => s + (x.areaAcres || 0), 0);
+
+  return wrapReport(
+    reportHeader('GIS Annexure', d.org.name, 'Site boundaries and coordinate reference', d.org, d.generatedOn) +
+    statCards([
+      { value: String(d.sites.length), label: 'Sites Included' },
+      { value: String(withBoundary), label: 'Parcels With Mapped Boundary' },
+      { value: String(totalParcels), label: 'Total Land Parcels' },
+      { value: Math.round(totalAcres).toLocaleString('en-IN'), label: 'Total Acres' },
+    ]) +
+    narrative(
+      `This annexure lists the GPS reference point and, where a KML boundary has been parsed, the polygon coordinate
+      count for each land parcel across ${d.sites.length} site${d.sites.length === 1 ? '' : 's'}. Coordinates use the
+      WGS84 (EPSG:4326) reference system in decimal degrees, consistent with standard registry GIS submission format.`
+    ) +
+    d.sites.map(s =>
+      sectionTitle(`${s.name} — ${[s.district, s.state].filter(Boolean).join(', ') || 'Location not recorded'}`) +
+      dataTable(['Land Owner', 'Reference Point (Lat, Lng)', 'Boundary Points', 'Status'],
+        s.parcels.length > 0 ? s.parcels.map(p => [
+          p.farmerName,
+          s.gpsLatitude != null ? `${s.gpsLatitude.toFixed(6)}, ${(s.gpsLongitude ?? 0).toFixed(6)}` : '—',
+          p.polygon ? String(p.polygon.coordinates[0].length) : '0',
+          p.polygon ? 'Boundary mapped' : 'GPS point only',
+        ]) : [])
+    ).join('') +
+    footer(d.org, d.orgSignatory,
+      'Boundary coordinates are derived from KML files uploaded and verified through the platform\'s document workflow, then parsed into GeoJSON polygons. A parcel listed as "GPS point only" has a single reference location on file but no surveyed boundary — its trees are still individually GPS-tagged regardless.',
+      d.generatedOn)
+  );
+}
+
+// ─── 7. Photo Evidence Annexure ────────────────────────────────────────
+export function generatePhotoAnnexure(d: Common & {
+  totalPhotosAvailable: number;
+  photos: { url: string; siteName: string; farmerName: string; capturedAt: Date | string; hasChainOfCustody: boolean }[];
+}): string {
+  const withHash = d.photos.filter(p => p.hasChainOfCustody).length;
+  return wrapReport(
+    reportHeader('Photo Evidence Annexure', d.org.name, 'Representative sample of field-captured evidence', d.org, d.generatedOn) +
+    statCards([
+      { value: d.totalPhotosAvailable.toLocaleString('en-IN'), label: 'Total Photos on File' },
+      { value: String(d.photos.length), label: 'Shown in This Annexure' },
+      { value: String(withHash), label: 'With Chain-of-Custody Hash' },
+    ]) +
+    narrative(
+      `Every photo referenced here was captured directly through the field officer mobile app at the time of the
+      site visit — GPS coordinates and capture timestamp are recorded server-side, not supplied by the uploader.
+      This annexure shows a representative sample of ${d.photos.length} out of ${d.totalPhotosAvailable.toLocaleString('en-IN')}
+      photos on file; the complete set is retained and available for third-party audit on request.`
+    ) +
+    photoGrid(d.photos.map(p => ({
+      url: p.url,
+      caption: `${p.siteName} · ${p.farmerName} · ${new Date(p.capturedAt).toLocaleDateString('en-IN')}${p.hasChainOfCustody ? ' · ✓ hash on file' : ''}`,
+    })), 3) +
+    footer(d.org, d.orgSignatory,
+      'Chain-of-custody hash availability reflects when a photo was captured relative to when that verification layer was introduced — its absence on an older photo doesn\'t indicate a problem with that photo, only that the check didn\'t exist yet at the time it was taken.',
       d.generatedOn)
   );
 }

@@ -6,9 +6,11 @@ import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import { getOrgConfig } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
+import { CO2_PER_TREE_KG } from '@/lib/carbon';
 import {
   generateFundraisingReport, generateLandOwnerReport,
   generatePlantationReport, generateCarbonReport, generateBRSRExtract,
+  generateGISAnnexure, generatePhotoAnnexure,
 } from '@/lib/org-reports';
 
 async function requireAdmin() {
@@ -17,7 +19,6 @@ async function requireAdmin() {
     throw new Error('Unauthorized');
 }
 
-const CO2_PER_TREE_KG = 0.022 * 0.87 * 25 * 1000; // same constant used org-wide, kept identical on purpose
 
 function currentFY(): { label: string; start: Date; end: Date } {
   const now = new Date();
@@ -168,6 +169,52 @@ export async function GET(req: Request) {
         co2TonnesPerYear: (treesPlanted * CO2_PER_TREE_KG) / 1000,
         landOwnersEngaged: farmerCount,
         sites: sites.map(s => ({ name: s.siteName, district: s.district || '', state: s.state || '', gpsVerified: s.gpsLatitude != null })),
+      });
+    }
+
+    if (type === 'gis-annexure') {
+      const sites = await prisma.plantationSite.findMany({
+        where: { orgId, active: true },
+        select: {
+          siteName: true, district: true, state: true, gpsLatitude: true, gpsLongitude: true, totalPlannedArea: true,
+          landAssignments: { select: { farmer: { select: { fullName: true } }, land: { select: { polygonGeoJson: true } } } },
+        },
+      });
+      html = generateGISAnnexure({
+        org, orgSignatory, generatedOn,
+        sites: sites.map(s => ({
+          name: s.siteName, district: s.district || '', state: s.state || '',
+          gpsLatitude: s.gpsLatitude, gpsLongitude: s.gpsLongitude, areaAcres: s.totalPlannedArea,
+          parcels: s.landAssignments.map(a => ({
+            farmerName: a.farmer?.fullName || 'Land Owner',
+            polygon: (a.land?.polygonGeoJson as any)?.coordinates?.[0]?.length >= 3 ? (a.land!.polygonGeoJson as any) : null,
+          })),
+        })),
+      });
+    }
+
+    if (type === 'photo-annexure') {
+      const totalPhotosAvailable = await prisma.treeImage.count({ where: { tenantId: orgId } });
+      const sampleImages = await prisma.treeImage.findMany({
+        where: { tenantId: orgId },
+        select: {
+          imageUrl: true, capturedAt: true,
+          tree: { select: { plantationSite: { select: { siteName: true } }, assignment: { select: { farmer: { select: { fullName: true } } } } } },
+          evidenceAudit: { select: { contentHash: true } },
+        },
+        orderBy: { capturedAt: 'desc' },
+        take: 24,
+      });
+      html = generatePhotoAnnexure({
+        org, orgSignatory, generatedOn,
+        totalPhotosAvailable,
+        photos: sampleImages.map(img => ({
+          url: img.imageUrl,
+          siteName: img.tree?.plantationSite?.siteName || 'Unknown site',
+          farmerName: img.tree?.assignment?.farmer?.fullName || 'Unlinked',
+          capturedAt: img.capturedAt,
+          hasChainOfCustody: !!img.evidenceAudit?.contentHash,
+        })),
       });
     }
 

@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import { Download, TreePine } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { getOrgConfig } from '@/lib/tenant';
 import { computeDonorImpactMetrics } from '@/lib/impact-metrics';
 import ImpactStatCard from '@/components/dashboard/ImpactStatCard';
 import ImpactMap from '@/components/dashboard/ImpactMap';
@@ -37,6 +38,9 @@ export default async function DashboardPage() {
     },
   });
   if (!user) redirect('/auth/login');
+
+  const org = (user as any).orgId ? await getOrgConfig((user as any).orgId) : null;
+  const primaryColor = org?.primaryColor || '#1a3a1a';
 
   const completedDonations = user.donations.filter(d => d.paymentStatus === 'COMPLETED');
   const totalTrees  = completedDonations.reduce((s, d) => s + d.numberOfTrees, 0);
@@ -191,7 +195,7 @@ export default async function DashboardPage() {
 
           {/* Impact stat cards — CO2 plus any admin-defined metrics with recorded data */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-            <ImpactStatCard icon="🌍" value={co2.toLocaleString('en-IN')} unit="kg" label="CO₂ Offset/yr" color="#1a3a1a"/>
+            <ImpactStatCard icon="🌍" value={co2.toLocaleString('en-IN')} unit="kg" label="CO₂ Offset/yr" color={primaryColor}/>
             {impactMetrics.map(m => (
               <ImpactStatCard key={m.id} icon={m.icon}
                 value={m.value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
@@ -245,8 +249,6 @@ export default async function DashboardPage() {
 
           <DonationsTable donations={user.donations} />
 
-          <MyTreesSection donations={donationGroups} sites={sites} linkedTreeCount={linkedTreeCount} unlinkedTreeCount={unlinkedTreeCount} />
-
           <div className="mt-6">
             <ImpactMap
               pins={landPins
@@ -262,6 +264,8 @@ export default async function DashboardPage() {
                 })}
             />
           </div>
+
+          <MyTreesSection donations={donationGroups} sites={sites} linkedTreeCount={linkedTreeCount} unlinkedTreeCount={unlinkedTreeCount} />
         </div>
       </div>
     </div>

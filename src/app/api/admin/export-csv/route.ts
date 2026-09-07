@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
+import { estimateCO2Kg } from '@/lib/carbon';
 import prisma from '@/lib/prisma';
 
 async function requireAdmin() {
@@ -84,7 +85,7 @@ export async function GET(req: Request) {
         'Site Name,Trees Planted,Estimated CO2 Sequestered (kg/yr)',
         ...sites.map(s => [
           s.siteName, s.treesPlanted,
-          Math.round(s.treesPlanted * 0.022 * 0.87 * 25 * 1000),
+          estimateCO2Kg(s.treesPlanted),
         ].map(v => `"${v}"`).join(',')),
       ].join('\n');
     }

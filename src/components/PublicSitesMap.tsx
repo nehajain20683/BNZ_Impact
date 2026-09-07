@@ -62,16 +62,22 @@ export default function PublicSitesMap({ sites, primaryColor }: { sites: SitePin
       const map = L.map(containerRef.current, { scrollWheelZoom: false });
       mapRef.current = map;
 
-      // Plain OpenStreetMap tiles — matches the donor dashboard's own map.
-      // Previously used CartoDB's "light" basemap for a cleaner look, but
-      // that now requires an API key it didn't need when this was first
-      // built — CARTO changed their free-tier policy at some point. OSM's
-      // standard tile server remains genuinely free with no key required,
-      // just a fair-use request-rate policy for large-scale traffic, so
-      // it's the safer default for a page with unpredictable public load.
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Two base layers, both genuinely free with no API key: plain
+      // OpenStreetMap (same as the donor dashboard's map — CartoDB was
+      // tried here before and turned out to require a key it didn't need
+      // when first built) and Esri World Imagery for satellite view,
+      // which is what actually helps when checking a parcel's real
+      // boundary against the terrain rather than a schematic street map.
+      // Esri's imagery service has no key requirement either, same
+      // fair-use policy as OSM.
+      const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
-      }).addTo(map);
+      });
+      const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri', maxZoom: 19,
+      });
+      streetLayer.addTo(map);
+      L.control.layers({ 'Street': streetLayer, 'Satellite': satelliteLayer }, undefined, { position: 'topright' }).addTo(map);
 
       const bounds: [number, number][] = [];
       pinned.forEach((site, i) => {
@@ -97,10 +103,12 @@ export default function PublicSitesMap({ sites, primaryColor }: { sites: SitePin
         // Real parcel boundaries, when any of this site's lands have a
         // parsed KML on file — drawn alongside the numbered site pin, not
         // instead of it, since a site can span several land parcels and
-        // the pin still marks the site as a whole.
+        // the pin still marks the site as a whole. Fixed yellowish-orange,
+        // not the org's/pin's color — needs to stay visible against
+        // satellite imagery regardless of what color an org picks.
         for (const polygon of site.polygons || []) {
           const latLngs = polygon.coordinates[0].map(([lon, lat]) => [lat, lon]);
-          L.polygon(latLngs, { color, weight: 2, fillColor: color, fillOpacity: 0.2 }).addTo(map);
+          L.polygon(latLngs, { color: '#FFA000', weight: 3, fillColor: '#FFA000', fillOpacity: 0.15 }).addTo(map);
           latLngs.forEach(([lat, lng]) => bounds.push([lat, lng]));
         }
       });

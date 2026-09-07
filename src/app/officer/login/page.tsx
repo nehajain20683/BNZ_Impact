@@ -1,14 +1,24 @@
 'use client';
 // src/app/officer/login/page.tsx
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { LogIn, User, Lock } from 'lucide-react';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { OrgLogo } from '@/components/OrgLogo';
 
 export default function FieldOfficerLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <FieldOfficerLoginForm/>
+    </Suspense>
+  );
+}
+
+function FieldOfficerLoginForm() {
   const org = useOrgConfig();
   const router = useRouter();
+  const params = useSearchParams();
+  const showOfficerNotice = params.get('notice') === 'use_officer_login';
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword]     = useState('');
   const [error, setError]           = useState('');
@@ -50,6 +60,12 @@ export default function FieldOfficerLoginPage() {
           <h1 className="font-display text-2xl text-sage-950">Field Officer Portal</h1>
           <p className="text-sage-500 text-sm mt-1">{org.loaded ? org.name : ''}</p>
         </div>
+
+        {showOfficerNotice && (
+          <div className="bg-blue-50 border border-blue-100 text-blue-700 text-xs rounded-xl px-3 py-2.5 mb-4">
+            Field Officer accounts sign in here, not through the main donor login — please log in below.
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm border border-sage-100 p-6 space-y-4">
           {error && (

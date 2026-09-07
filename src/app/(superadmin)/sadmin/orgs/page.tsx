@@ -9,7 +9,7 @@ const inp = "w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-
 function CreateModal({ onClose, onSave }: any) {
   const [form, setForm] = useState({
     name:'', slug:'', email:'', phone:'', primaryColor:'#2d5a1b',
-    farmerIdPrefix:'', donationRefPrefix:'', treePrice:'500',
+    farmerIdPrefix:'', donationRefPrefix:'',
     org80gNumber:'', customDomain:'', plan:'STARTER',
   });
   const [loading, setLoading] = useState(false);
@@ -65,8 +65,6 @@ function CreateModal({ onClose, onSave }: any) {
                 <input type="color" value={form.primaryColor} onChange={f('primaryColor')} className="w-10 h-10 rounded-lg border border-gray-700 cursor-pointer bg-gray-800 p-0.5"/>
                 <input value={form.primaryColor} onChange={f('primaryColor')} className={inp}/>
               </div></div>
-            <div><label className="block text-xs font-medium text-gray-400 mb-1">Tree Price (₹)</label>
-              <input type="number" value={form.treePrice} onChange={f('treePrice')} className={inp}/></div>
             <div><label className="block text-xs font-medium text-gray-400 mb-1">Farmer ID Prefix</label>
               <input value={form.farmerIdPrefix} onChange={f('farmerIdPrefix')} className={inp} placeholder="ROT"/></div>
             <div><label className="block text-xs font-medium text-gray-400 mb-1">Donation Ref Prefix</label>

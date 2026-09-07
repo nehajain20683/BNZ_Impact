@@ -74,6 +74,34 @@ export default function AdminReportsPage() {
             <FileText className="w-3.5 h-3.5"/> View Extract
           </a>
         </div>
+
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 flex items-center gap-4 mt-3">
+          <span className="text-3xl">🗺️</span>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">GIS Annexure</h3>
+            <p className="text-gray-400 text-xs mt-0.5">
+              Boundary coordinates per land parcel, WGS84 decimal degrees — registry submission format. Parcels without a parsed KML show as "GPS point only."
+            </p>
+          </div>
+          <a href="/api/admin/explanatory-report?type=gis-annexure" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs bg-amber-600 text-white px-3 py-2 rounded-xl hover:opacity-90 font-medium flex-shrink-0">
+            <FileText className="w-3.5 h-3.5"/> View Annexure
+          </a>
+        </div>
+
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 flex items-center gap-4 mt-3">
+          <span className="text-3xl">📸</span>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">Photo Evidence Annexure</h3>
+            <p className="text-gray-400 text-xs mt-0.5">
+              A representative sample of GPS/timestamp-verified field photos, with chain-of-custody status per photo — the full set is retained and available on request.
+            </p>
+          </div>
+          <a href="/api/admin/explanatory-report?type=photo-annexure" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs bg-amber-600 text-white px-3 py-2 rounded-xl hover:opacity-90 font-medium flex-shrink-0">
+            <FileText className="w-3.5 h-3.5"/> View Annexure
+          </a>
+        </div>
       </div>
     </div>
   );

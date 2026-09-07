@@ -70,6 +70,19 @@ export default function ReadinessPage() {
           </div>
         </div>
 
+        {/* This page is a design mockup — every number below is a hardcoded
+            constant, not a database query. Kept because the visual design
+            is a genuinely useful reference for what a real version could
+            look like once BaselineAssessment/EvidenceAudit/Methodology
+            data actually exists (dMRV Roadmap Phase 0C onward) — but it
+            must never be mistaken for a live readiness score. */}
+        <div className="bg-amber-500/10 border-y border-amber-500/30 px-6 py-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0"/>
+          <p className="text-amber-300 text-xs font-medium">
+            Design mockup — every score and gap below is a hardcoded placeholder, not live project data. Do not use for a real registry readiness decision.
+          </p>
+        </div>
+
         <div className="p-6 space-y-6">
           {/* Hero score */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 flex items-center gap-12">

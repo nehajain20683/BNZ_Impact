@@ -9,6 +9,7 @@
 // or filter by directly.
 import { useState } from 'react';
 import { MapPin, TreePine, ChevronDown, Search, Link2, Clock } from 'lucide-react';
+import { useOrgConfig } from '@/components/OrgConfigProvider';
 
 const STATUS_STYLES: Record<string, string> = {
   PLANTED: 'bg-green-100 text-green-700',
@@ -66,7 +67,7 @@ function DonationTreeGroup({ donation }: { donation: any }) {
 
   async function loadPage(p: number, reset = false) {
     setLoading(true);
-    const params = new URLSearchParams({ donationId: donation.id, page: String(p), pageSize: '24' });
+    const params = new URLSearchParams({ donationId: donation.id, page: String(p), pageSize: '3' });
     if (search) params.set('search', search);
     if (linkedFilter) params.set('linked', linkedFilter);
     const res = await fetch(`/api/dashboard/trees?${params}`);
@@ -115,7 +116,7 @@ function DonationTreeGroup({ donation }: { donation: any }) {
                 <option value="true">Linked only</option>
                 <option value="false">Not yet linked</option>
               </select>
-              <button onClick={applyLocalFilters} className="px-3 py-1.5 text-xs font-semibold bg-sage-700 hover:bg-sage-800 text-white rounded-lg">
+              <button onClick={applyLocalFilters} className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg" style={{ backgroundColor: primaryColor }}>
                 Find
               </button>
             </div>
@@ -153,6 +154,8 @@ export default function MyTreesSection({
   linkedTreeCount?: number;
   unlinkedTreeCount?: number;
 }) {
+  const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [view, setView] = useState<'byDonation' | 'all'>('byDonation');
   const [trees, setTrees] = useState<any[]>([]);
   const [page, setPage]   = useState(1);
@@ -165,7 +168,7 @@ export default function MyTreesSection({
   async function loadAll(p: number, reset = false, overrideFilters?: typeof filters) {
     const f = overrideFilters || filters;
     setLoading(true);
-    const params = new URLSearchParams({ page: String(p), pageSize: '24', sort: f.sort });
+    const params = new URLSearchParams({ page: String(p), pageSize: '3', sort: f.sort });
     if (f.status) params.set('status', f.status);
     if (f.siteId) params.set('siteId', f.siteId);
     if (f.search) params.set('search', f.search);
@@ -273,7 +276,7 @@ export default function MyTreesSection({
               <option value="newest">Newest planted</option>
               <option value="oldest">Oldest planted</option>
             </select>
-            <button onClick={applyFilters} className="px-4 py-2 text-sm font-semibold bg-sage-700 hover:bg-sage-800 text-white rounded-xl">
+            <button onClick={applyFilters} className="px-4 py-2 text-sm font-semibold text-white rounded-xl" style={{ backgroundColor: primaryColor }}>
               Apply
             </button>
           </div>

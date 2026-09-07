@@ -34,11 +34,24 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       select: {
         treesPlanted: true,
         farmer: { select: { fullName: true, photo: true, village: true, district: true } },
+        land: { select: { gpsLatitude: true, gpsLongitude: true, polygonGeoJson: true } },
       },
     });
     const farmers = assignments
       .filter(a => a.farmer)
       .map(a => ({ fullName: a.farmer!.fullName, photo: a.farmer!.photo, village: a.farmer!.village, district: a.farmer!.district, treesPlanted: a.treesPlanted }));
+
+    // Land parcels with real GPS/boundary data — same information already
+    // shown on the donor dashboard's own map and admin's GIS coverage
+    // card, not a new privacy exposure; only the farmer's name (already
+    // public above) is ever paired with it, never mobile/Aadhaar/documents.
+    const landParcels = assignments
+      .filter(a => a.land?.gpsLatitude != null)
+      .map((a, i) => ({
+        id: `parcel-${i}`, farmerName: a.farmer?.fullName || 'Land Owner',
+        lat: a.land!.gpsLatitude, lng: a.land!.gpsLongitude,
+        polygonGeoJson: a.land!.polygonGeoJson,
+      }));
 
     // Only officially published monitoring reaches the public — same rule
     // used everywhere else donor-facing evidence is shown.
@@ -49,7 +62,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       take: 6,
     }).catch(() => []);
 
-    return NextResponse.json({ site, farmers, verifiedVisits, orgName: org.name });
+    return NextResponse.json({ site, farmers, verifiedVisits, landParcels, orgName: org.name });
   } catch (error: any) {
     console.error('Public site story error:', error);
     return NextResponse.json({ error: 'Failed to load site' }, { status: 500 });

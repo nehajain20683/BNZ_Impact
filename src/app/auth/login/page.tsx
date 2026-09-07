@@ -24,6 +24,7 @@ function LoginForm() {
     if (status === 'authenticated') {
       const role = (session?.user as any)?.role;
       if (['ADMIN','SUPER_ADMIN'].includes(role)) router.push('/admin');
+      else if (role === 'FIELD_OFFICER') router.push('/officer/login?notice=use_officer_login');
       else router.push('/dashboard');
     }
   }, [status]);
@@ -59,7 +60,17 @@ function LoginForm() {
         // Fetch the freshly-issued session directly so the role check is correct.
         const freshSession = await getSession();
         const role = (freshSession?.user as any)?.role;
-        const destination = ['ADMIN', 'SUPER_ADMIN'].includes(role) ? '/admin' : '/dashboard';
+        // A User record with role FIELD_OFFICER can still successfully
+        // authenticate here (same email/password check), but /officer/*
+        // pages check for a completely different session — a
+        // localStorage bearer token, not this NextAuth cookie. Sending
+        // them to /dashboard would "succeed" but land them on donor
+        // content that has nothing to do with their actual role.
+        const destination = ['ADMIN', 'SUPER_ADMIN'].includes(role)
+          ? '/admin'
+          : role === 'FIELD_OFFICER'
+          ? '/officer/login?notice=use_officer_login'
+          : '/dashboard';
         // A full browser navigation, not router.push() — the destination
         // page's own useSession() can otherwise still see the stale
         // "unauthenticated" state for a moment (client-side session cache

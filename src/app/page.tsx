@@ -158,7 +158,7 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {campaigns.map((c, i) => (
-              <Link key={c.slug} href={`/donate?campaign=${c.slug}`}
+              <Link key={c.slug} href={`/campaigns/${c.slug}`}
                 className="group card-lift bg-white border border-sage-100 rounded-2xl overflow-hidden shadow-sm">
                 {/* Real photo header */}
                 <div className="relative h-44 overflow-hidden">

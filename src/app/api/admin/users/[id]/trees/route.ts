@@ -10,6 +10,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { computeTrustScore } from '@/lib/trust-score';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -49,7 +50,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           id: true, treeTagId: true, species: true, status: true, plantedDate: true,
           plantationSite: { select: { id: true, siteName: true, district: true, state: true } },
           assignment: { select: { farmer: { select: { fullName: true } } } },
-          images: { select: { imageUrl: true, capturedAt: true }, orderBy: { capturedAt: 'desc' }, take: 1 },
+          images: {
+            select: {
+              imageUrl: true, capturedAt: true, latitude: true, longitude: true, gpsAccuracy: true,
+              evidenceAudit: { select: { contentHash: true } },
+              capturedBy: { select: { active: true } },
+            },
+            orderBy: { capturedAt: 'desc' }, take: 1,
+          },
         },
         orderBy: { plantedDate: sort },
         skip: (page - 1) * pageSize,
@@ -59,13 +67,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]);
 
     return NextResponse.json({
-      trees: trees.map(t => ({
-        id: t.id, treeTagId: t.treeTagId, species: t.species, status: t.status, plantedDate: t.plantedDate,
-        plantationSite: t.plantationSite,
-        farmerName: t.assignment?.farmer?.fullName || null,
-        latestPhoto: t.images[0]?.imageUrl || null,
-        photoCapturedAt: t.images[0]?.capturedAt || null,
-      })),
+      trees: trees.map(t => {
+        const img = t.images[0];
+        const trust = img ? computeTrustScore({
+          latitude: img.latitude, longitude: img.longitude, gpsAccuracy: img.gpsAccuracy,
+          contentHash: img.evidenceAudit?.contentHash, officerActive: img.capturedBy?.active ?? null,
+        }) : null;
+        return {
+          id: t.id, treeTagId: t.treeTagId, species: t.species, status: t.status, plantedDate: t.plantedDate,
+          plantationSite: t.plantationSite,
+          farmerName: t.assignment?.farmer?.fullName || null,
+          latestPhoto: img?.imageUrl || null,
+          photoCapturedAt: img?.capturedAt || null,
+          trustScore: trust?.score ?? null,
+        };
+      }),
       total, page, totalPages: Math.ceil(total / pageSize) || 1,
     });
   } catch (e: any) {

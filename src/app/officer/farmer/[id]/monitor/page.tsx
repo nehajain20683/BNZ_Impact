@@ -8,8 +8,9 @@
 // but had no write path anywhere until this.
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Camera, CheckCircle, TreePine, AlertTriangle, Search, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle, TreePine, AlertTriangle, Search, ChevronLeft, TrendingUp } from 'lucide-react';
 import { compressImage } from '@/lib/image-compress';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const HEALTH_OPTIONS = [
   { value: 'HEALTHY',  label: 'Healthy',      color: 'bg-green-100 text-green-700 border-green-300' },
@@ -31,6 +32,8 @@ export default function TreeMonitoringPage() {
   const [pageSize, setPageSize] = useState(20);
   const [selectedTree, setSelectedTree] = useState<any>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [growthHistory, setGrowthHistory] = useState<any[] | null>(null);
+  const [showGrowthChart, setShowGrowthChart] = useState(false);
 
   const [height, setHeight] = useState('');
   const [diameter, setDiameter] = useState('');
@@ -75,6 +78,8 @@ export default function TreeMonitoringPage() {
     setSelectedTree(tree);
     setJustSaved(false);
     setReplacementTag(null);
+    setGrowthHistory(null);
+    setShowGrowthChart(false);
     const latest = tree.monitoringSamples?.[0];
     // Pre-fills with the last recorded values — this is explicitly an
     // update/re-check, not a blank form each time, since the same tree can
@@ -88,6 +93,16 @@ export default function TreeMonitoringPage() {
 
   function backToList() {
     setSelectedTree(null);
+  }
+
+  async function loadGrowthHistory() {
+    if (!selectedTree) return;
+    setShowGrowthChart(true);
+    if (growthHistory) return; // already loaded, don't refetch on every toggle
+    const officerId = localStorage.getItem('officerId');
+    const res = await fetch(`/api/field-officer/tree/${selectedTree.id}/growth-history?officerId=${officerId}`);
+    const data = await res.json();
+    setGrowthHistory(res.ok ? data.samples : []);
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -204,6 +219,38 @@ export default function TreeMonitoringPage() {
                 <div className="bg-sage-100 text-sage-600 rounded-xl p-3 text-xs">
                   Previously checked {new Date(latest.createdAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })} — {latest.health || 'HEALTHY'}
                   {latest.height ? ` · ${latest.height}cm` : ''}. This will add a new, separate record — not overwrite it.
+                </div>
+              )}
+
+              {latest && (
+                <button onClick={loadGrowthHistory}
+                  className="w-full flex items-center justify-center gap-1.5 text-sage-600 hover:text-sage-800 text-xs font-semibold py-2 border border-sage-200 rounded-xl bg-white">
+                  <TrendingUp className="w-3.5 h-3.5"/> {showGrowthChart ? 'Hide' : 'View'} Growth History
+                </button>
+              )}
+
+              {showGrowthChart && (
+                <div className="bg-white rounded-2xl border border-sage-100 p-4">
+                  {growthHistory === null ? (
+                    <p className="text-sage-400 text-xs text-center py-6">Loading history…</p>
+                  ) : growthHistory.length < 2 ? (
+                    <p className="text-sage-400 text-xs text-center py-6">Not enough recorded checks yet to show a trend — needs at least 2.</p>
+                  ) : (
+                    <>
+                      <h4 className="font-semibold text-sage-900 text-xs mb-3">Height Over Time (cm)</h4>
+                      <ResponsiveContainer width="100%" height={160}>
+                        <LineChart data={growthHistory.map((s: any) => ({
+                          date: new Date(s.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+                          height: s.height,
+                        }))}>
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }}/>
+                          <YAxis tick={{ fontSize: 10 }} width={30}/>
+                          <Tooltip/>
+                          <Line type="monotone" dataKey="height" stroke="#2d5a1b" strokeWidth={2} dot={{ r: 3 }}/>
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </>
+                  )}
                 </div>
               )}
 
