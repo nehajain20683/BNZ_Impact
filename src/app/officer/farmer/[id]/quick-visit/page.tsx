@@ -15,6 +15,7 @@ export default function QuickVisitPage() {
   const [survivalCount, setSurvivalCount] = useState('');
   const [deadTrees, setDeadTrees] = useState('');
   const [avgHeight, setAvgHeight] = useState('');
+  const [avgDiameter, setAvgDiameter] = useState('');
   const [diseaseNotes, setDiseaseNotes] = useState('');
   const [recommendations, setRecommendations] = useState('');
   const [driveLink, setDriveLink] = useState('');
@@ -58,7 +59,7 @@ export default function QuickVisitPage() {
       body: JSON.stringify({
         officerId, farmerId: id,
         survivalCount: survivalCount || undefined, deadTrees: deadTrees || undefined,
-        avgHeight: avgHeight || undefined, diseaseNotes: diseaseNotes || undefined,
+        avgHeight: avgHeight || undefined, avgDiameter: avgDiameter || undefined, diseaseNotes: diseaseNotes || undefined,
         recommendations: recommendations || undefined, driveLink: driveLink || undefined, photos,
         latitude: gps?.lat, longitude: gps?.lng,
       }),
@@ -117,6 +118,11 @@ export default function QuickVisitPage() {
           <div className="col-span-2">
             <label className="text-xs font-medium text-sage-600 block mb-1">Average Height (cm)</label>
             <input type="number" value={avgHeight} onChange={e => setAvgHeight(e.target.value)}
+              className="w-full border border-sage-200 rounded-xl px-3 py-2 text-sm"/>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-medium text-sage-600 block mb-1">Average Stem Size / Diameter (cm)</label>
+            <input type="number" value={avgDiameter} onChange={e => setAvgDiameter(e.target.value)}
               className="w-full border border-sage-200 rounded-xl px-3 py-2 text-sm"/>
           </div>
         </div>

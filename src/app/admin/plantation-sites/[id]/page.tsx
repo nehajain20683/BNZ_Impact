@@ -115,7 +115,7 @@ export default function PlantationSiteDetailPage() {
   const [selectedFarmerLands, setSelectedFarmerLands] = useState<any[]>([]); // >1 lands → show a picker
   const [activityForm, setActivityForm] = useState<any>({date:'',activityType:'PLANTATION',description:'',team:'',workers:'',treesPlanted:'',treesSurviving:'',assignmentId:'',remarks:'',driveLink:''});
   const [speciesRows, setSpeciesRows]       = useState<{species:string;qty:string}[]>([{species:'',qty:''}]);
-  const [monitorForm, setMonitorForm] = useState<any>({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
+  const [monitorForm, setMonitorForm] = useState<any>({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',avgDiameter:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
   const [farmerSearch, setFarmerSearch] = useState('');
   const [farmerResults, setFarmerResults] = useState<any[]>([]);
 
@@ -221,7 +221,7 @@ export default function PlantationSiteDetailPage() {
     const data = await res.json();
     if (data.success) {
       showToast('Monitoring logged ✓'); setShowMonitor(false);
-      setMonitorForm({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
+      setMonitorForm({visitDate:'',survivalCount:'',deadTrees:'',avgHeight:'',avgDiameter:'',diseaseNotes:'',recommendations:'',gpsLat:'',gpsLng:'',assignmentId:'',driveLink:''});
       loadSite();
     }
     else showToast('Error: ' + data.error);
@@ -935,7 +935,7 @@ export default function PlantationSiteDetailPage() {
                 <p className="text-gray-400 text-[10px] mt-1">Selecting a farmer makes this visit visible on their own dashboard, and calculates survival % against their land's planted count.</p>
               </div>
               {[['survivalCount','Survival Count','number'],['deadTrees','Dead Trees','number'],
-                ['avgHeight','Avg Height (cm)','number']].map(([k,l,t])=>(
+                ['avgHeight','Avg Height (cm)','number'],['avgDiameter','Avg Stem Size / Diameter (cm)','number']].map(([k,l,t])=>(
                 <div key={k as string}><label className="text-xs font-medium text-gray-600 block mb-1">{l}</label>
                   <input type={t as string} value={monitorForm[k as string]} onChange={e=>setMonitorForm((p:any)=>({...p,[k]:e.target.value}))} className={inp}/></div>
               ))}
@@ -1424,7 +1424,7 @@ export default function PlantationSiteDetailPage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <tr>{['Date','Farmer','Officer','Survival','Dead','Height','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+                  <tr>{['Date','Farmer','Officer','Survival','Dead','Height','Diameter','Survival %','Mortality %','GPS','Notes'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {(site.monitoringVisits||[]).map((v:any)=>(
@@ -1439,6 +1439,7 @@ export default function PlantationSiteDetailPage() {
                       <td className="px-4 py-2 font-semibold text-green-700">{v.survivalCount??'—'}</td>
                       <td className="px-4 py-2 text-red-500">{v.deadTrees??'—'}</td>
                       <td className="px-4 py-2 text-gray-600">{v.avgHeight ? `${v.avgHeight} cm` : '—'}</td>
+                      <td className="px-4 py-2 text-gray-600">{v.avgDiameter ? `${v.avgDiameter} cm` : '—'}</td>
                       <td className="px-4 py-2"><span className={`font-bold ${(v.survivalPct||0)>=85?'text-green-600':'text-amber-600'}`}>{v.survivalPct ? `${v.survivalPct}%` : '—'}</span></td>
                       <td className="px-4 py-2 text-red-500">{v.mortalityPct ? `${v.mortalityPct}%` : '—'}</td>
                       <td className="px-4 py-2 text-gray-400 text-xs">{v.gpsLat ? `${v.gpsLat?.toFixed(4)}, ${v.gpsLng?.toFixed(4)}` : '—'}</td>

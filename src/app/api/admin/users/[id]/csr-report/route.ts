@@ -8,6 +8,7 @@ import { getOrgConfig } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { generateCSRImpactReport } from '@/lib/csr-report';
 import { estimateCO2Kg } from '@/lib/carbon';
+import { computeTreeStatusSurvivalPct, computeSurvivalPctFromCounts } from '@/lib/survival';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -58,10 +59,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     // elaborate weighted average across monitoring visits — a corporate
     // reader needs one honest number, not a methodology footnote.
     const statusedTrees = allTrees.filter(t => t.status !== 'PENDING');
-    const deadCount = statusedTrees.filter(t => t.status === 'DEAD').length;
-    const survivalPct = statusedTrees.length > 0
-      ? Math.round(((statusedTrees.length - deadCount) / statusedTrees.length) * 100)
-      : null;
+    const survivalPct = computeTreeStatusSurvivalPct(statusedTrees);
 
     const estimatedCO2Kg = estimateCO2Kg(plantedTrees.length);
 
@@ -85,7 +83,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     }
     const sites = Object.values(siteMap).map(s => ({
       name: s.name, district: s.district, state: s.state, trees: s.trees,
-      survivalPct: s.statused > 0 ? Math.round(((s.statused - s.dead) / s.statused) * 100) : null,
+      survivalPct: computeSurvivalPctFromCounts(s.statused, s.dead),
     }));
 
     // Species

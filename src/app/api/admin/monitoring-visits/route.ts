@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
 import { notifyOrgAdmins } from '@/lib/notifications';
+import { computeSampleSurvivalPctDecimal } from '@/lib/survival';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -53,13 +54,17 @@ export async function POST(req: Request) {
     if (!site) return NextResponse.json({ error: 'Plantation site not found for this organisation' }, { status: 404 });
 
     const samples = Array.isArray(treeSamples) ? treeSamples : [];
-    const survivalCount = samples.length ? samples.filter((s: any) => s.survived !== false).length : undefined;
-    const deadTrees      = samples.length ? samples.filter((s: any) => s.survived === false).length : undefined;
     const avgHeight       = samples.length
       ? samples.filter((s: any) => s.height).reduce((sum: number, s: any, _i: number, arr: any[]) => sum + s.height / arr.length, 0) || undefined
       : undefined;
-    const survivalPct = samples.length ? Math.round((survivalCount! / samples.length) * 1000) / 10 : undefined;
-    const mortalityPct = survivalPct !== undefined ? Math.round((100 - survivalPct) * 10) / 10 : undefined;
+    const avgDiameter     = samples.length
+      ? samples.filter((s: any) => s.diameter).reduce((sum: number, s: any, _i: number, arr: any[]) => sum + s.diameter / arr.length, 0) || undefined
+      : undefined;
+    const survivalResult = computeSampleSurvivalPctDecimal(samples);
+    const survivalCount = survivalResult?.survivalCount;
+    const deadTrees = survivalResult?.deadTrees;
+    const survivalPct = survivalResult?.survivalPct;
+    const mortalityPct = survivalResult?.mortalityPct;
 
     const visit = await (prisma as any).monitoringVisit.create({
       data: {
@@ -69,7 +74,7 @@ export async function POST(req: Request) {
         gpsLat: gpsLat ?? null, gpsLng: gpsLng ?? null,
         photos: Array.isArray(photos) ? photos : [],
         recommendations: recommendations || null, diseaseNotes: diseaseNotes || null,
-        survivalCount, deadTrees, avgHeight, survivalPct, mortalityPct,
+        survivalCount, deadTrees, avgHeight, avgDiameter, survivalPct, mortalityPct,
         status: 'SUBMITTED',
         treeSamples: samples.length ? {
           create: samples.map((s: any) => ({

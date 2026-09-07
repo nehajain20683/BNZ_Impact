@@ -7,6 +7,7 @@ import { getActiveOrgId } from '@/lib/get-active-org';
 import { getOrgConfig } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { CO2_PER_TREE_KG } from '@/lib/carbon';
+import { computeTreeStatusSurvivalPct } from '@/lib/survival';
 import {
   generateFundraisingReport, generateLandOwnerReport,
   generatePlantationReport, generateCarbonReport, generateBRSRExtract,
@@ -157,8 +158,7 @@ export async function GET(req: Request) {
       const areaAcres = sites.reduce((s, x) => s + (x.totalPlannedArea || 0), 0);
 
       const trees = await prisma.tree.findMany({ where: { plantationSite: { orgId, active: true }, status: { not: 'PENDING' } }, select: { status: true } });
-      const deadCount = trees.filter(t => t.status === 'DEAD').length;
-      const survivalPct = trees.length > 0 ? Math.round(((trees.length - deadCount) / trees.length) * 100) : null;
+      const survivalPct = computeTreeStatusSurvivalPct(trees);
 
       html = generateBRSRExtract({
         org, orgSignatory, generatedOn,

@@ -31,6 +31,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       deadTrees:       body.deadTrees ? parseInt(body.deadTrees) : undefined,
       diseaseNotes:    body.diseaseNotes || undefined,
       avgHeight:       body.avgHeight ? parseFloat(body.avgHeight) : undefined,
+      avgDiameter:     body.avgDiameter ? parseFloat(body.avgDiameter) : undefined,
       photos:          body.photos || [],
       gpsLat:          body.gpsLat ? parseFloat(body.gpsLat) : undefined,
       gpsLng:          body.gpsLng ? parseFloat(body.gpsLng) : undefined,

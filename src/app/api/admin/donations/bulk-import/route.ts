@@ -108,7 +108,7 @@ export async function POST(req: Request) {
 
           await prisma.tree.createMany({
             data: Array.from({ length: numberOfTrees }, () => ({
-              donationId: donation.id, status: 'PENDING' as const, expectedCO2: 22,
+              donationId: donation.id, status: 'PENDING' as const, expectedCO2: 22, orgId,
             })),
           });
 

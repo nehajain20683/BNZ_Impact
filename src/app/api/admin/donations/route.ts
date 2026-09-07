@@ -102,6 +102,7 @@ export async function POST(req: Request) {
         donationId:  donation.id,
         status:      'PENDING' as const,
         expectedCO2: 22,
+        orgId,
       })),
     });
 

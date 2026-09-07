@@ -79,7 +79,11 @@ export default function VerifyPage() {
                       <div className="font-semibold text-white text-sm">{v.site?.siteName}</div>
                       <div className="text-gray-500 text-xs mt-0.5">
                         {new Date(v.visitDate).toLocaleDateString('en-IN')} · {v.treeSamples?.length || 0} trees sampled
+                        {v.survivalCount != null && ` · ${v.survivalCount} surviving`}
+                        {v.deadTrees != null && `, ${v.deadTrees} dead`}
                         {v.survivalPct != null && ` · ${v.survivalPct}% survival`}
+                        {v.avgHeight != null && ` · Avg ${v.avgHeight.toFixed(1)}cm H`}
+                        {v.avgDiameter != null && ` · Avg ${v.avgDiameter.toFixed(1)}cm ⌀`}
                       </div>
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLOR[v.status] || STATUS_COLOR.SUBMITTED}`}>
@@ -87,12 +91,24 @@ export default function VerifyPage() {
                     </span>
                   </div>
 
+                  {(v.diseaseNotes || v.recommendations) && (
+                    <div className="mt-2 space-y-1 text-xs">
+                      {v.diseaseNotes && <div className="text-rose-300"><span className="font-semibold">Disease/Issues:</span> {v.diseaseNotes}</div>}
+                      {v.recommendations && <div className="text-blue-300"><span className="font-semibold">Recommendations:</span> {v.recommendations}</div>}
+                    </div>
+                  )}
+
                   {v.treeSamples?.length > 0 && (
                     <div className="flex gap-2 mt-3 overflow-x-auto">
                       {v.treeSamples.slice(0, 8).map((s: any) => (
                         <div key={s.id} className="flex-shrink-0 bg-gray-800/60 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[10px]">
                           <div className="flex items-center gap-1 text-gray-300"><TreePine className="w-3 h-3"/> {s.species || s.treeId || 'Sample'}</div>
-                          <div className="text-gray-500 mt-0.5">{s.health} {s.height ? `· ${s.height}cm` : ''}</div>
+                          <div className="text-gray-500 mt-0.5">
+                            {s.health}{s.height ? ` · ${s.height}cm H` : ''}{s.diameter ? ` · ${s.diameter}cm ⌀` : ''}
+                          </div>
+                          {s.survived === false && (
+                            <div className="text-rose-400 mt-0.5 font-semibold">Not surviving</div>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -562,6 +562,10 @@ model MonitoringVisit {
   deadTrees      Int?
   diseaseNotes   String?
   avgHeight      Float?   // cm
+  // Site/aggregate-level stem size — added to match avgHeight, since this
+  // was only ever captured at the individual-tree level
+  // (MonitoringTreeSample.diameter) before, never at this aggregate level.
+  avgDiameter    Float?   // cm
   photos         String[]
   gpsLat         Float?
   gpsLng         Float?

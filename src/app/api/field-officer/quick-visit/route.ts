@@ -11,7 +11,7 @@ import prisma from '@/lib/prisma';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { officerId, farmerId, survivalCount, deadTrees, avgHeight, diseaseNotes, recommendations, photos, driveLink, latitude, longitude } = body;
+    const { officerId, farmerId, survivalCount, deadTrees, avgHeight, avgDiameter, diseaseNotes, recommendations, photos, driveLink, latitude, longitude } = body;
 
     if (!officerId || !farmerId)
       return NextResponse.json({ error: 'officerId and farmerId are required' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
         survivalCount: survivalCount ? parseInt(survivalCount) : undefined,
         deadTrees: deadTrees ? parseInt(deadTrees) : undefined,
         avgHeight: avgHeight ? parseFloat(avgHeight) : undefined,
+        avgDiameter: avgDiameter ? parseFloat(avgDiameter) : undefined,
         diseaseNotes: diseaseNotes || undefined,
         recommendations: recommendations || undefined,
         photos: photos || [],

@@ -47,6 +47,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         treeTagId: newTag,
         status: 'PENDING',
         replacesTreeId: deadTree.id,
+        orgId: treeOrgId,
       },
     });
 

@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 // through many trees in one visit doesn't create a separate visit per tree.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { computeSampleSurvivalPctWhole } from '@/lib/survival';
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 
@@ -15,17 +16,21 @@ async function recomputeVisitAggregates(visitId: string) {
   const samples = await prisma.monitoringTreeSample.findMany({ where: { visitId } });
   const total = samples.length;
   if (total === 0) return;
-  const survived = samples.filter(s => s.survived).length;
-  const dead = total - survived;
+  const survivalResult = computeSampleSurvivalPctWhole(samples)!;
+  const { survivalPct, survivedCount: survived, deadCount: dead } = survivalResult;
   const heights = samples.map(s => s.height).filter((h): h is number => h != null);
   const avgHeight = heights.length ? heights.reduce((a, b) => a + b, 0) / heights.length : undefined;
-  const survivalPct = Math.round((survived / total) * 100);
+  // Same rollup as avgHeight, added to close the gap where diameter was
+  // captured per-tree but never rolled up to the parent visit the way
+  // height already was.
+  const diameters = samples.map(s => s.diameter).filter((d): d is number => d != null);
+  const avgDiameter = diameters.length ? diameters.reduce((a, b) => a + b, 0) / diameters.length : undefined;
 
   await prisma.monitoringVisit.update({
     where: { id: visitId },
     data: {
       survivalCount: survived, deadTrees: dead,
-      avgHeight, survivalPct, mortalityPct: 100 - survivalPct,
+      avgHeight, avgDiameter, survivalPct, mortalityPct: 100 - survivalPct,
     },
   });
 }
