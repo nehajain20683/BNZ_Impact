@@ -56,6 +56,8 @@ function TreeCard({ tree }: { tree: any }) {
 }
 
 function DonationTreeGroup({ donation }: { donation: any }) {
+  const org = useOrgConfig();
+  const primaryColor = org.primaryColor || '#2d5a1b';
   const [expanded, setExpanded] = useState(false);
   const [trees, setTrees]       = useState<any[]>([]);
   const [page, setPage]         = useState(1);
