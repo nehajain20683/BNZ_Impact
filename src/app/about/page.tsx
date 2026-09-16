@@ -188,45 +188,6 @@ export default async function AboutPage() {
               </div>
             </div>
 
-            {/* Environment Team */}
-            <div className="bg-sage-50 rounded-3xl p-8 border border-sage-100 mb-8">
-              <SectionHeading title="Environment Team"/>
-              <div className="flex justify-center gap-10 flex-wrap">
-                {TEAM_ENV.map(m => <MemberCard key={m.name} {...m}/>)}
-              </div>
-            </div>
-
-            {/* Mumbai Zone */}
-            <div className="bg-sage-50 rounded-3xl p-8 border border-sage-100 mb-8">
-              <SectionHeading title="Mumbai Zone"/>
-              <div className="flex justify-center gap-8 flex-wrap mb-6">
-                {TEAM_MZ_ROW1.map(m => <MemberCard key={m.name} {...m}/>)}
-              </div>
-              <div className="flex justify-center gap-8 flex-wrap">
-                {TEAM_MZ_ROW2.map(m => <MemberCard key={m.name} {...m}/>)}
-              </div>
-            </div>
-
-            {/* Chapters */}
-            <div className="bg-sage-50 rounded-3xl p-8 border border-sage-100">
-              <SectionHeading title="Chapters"/>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {CHAPTERS.map(ch => (
-                  <div key={ch.name} className="bg-white rounded-2xl p-4 border border-sage-100 shadow-sm">
-                    <h4 className="font-bold text-forest-950 text-xs mb-3 border-b border-sage-100 pb-2">{ch.name}</h4>
-                    <div className="space-y-1.5">
-                      {ch.members.map(m => (
-                        <div key={m.n} className="flex justify-between text-[11px]">
-                          <span className="text-forest-900 font-medium">{m.n}</span>
-                          <span className="text-sage-500">{m.r}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
           </div>
         </section>
 

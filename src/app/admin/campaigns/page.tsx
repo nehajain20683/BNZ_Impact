@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/admin/PageHeader';
 import { Plus, Trash2, Upload, X, Star } from 'lucide-react';
+import { CAMPAIGN_PACKAGES } from '@/lib/utils';
 
 const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--admin-primary)]/40";
 const emptyPkg = () => ({ id: `pkg-${Date.now()}`, trees: 11, badge: '', badgeEn: '', emoji: '🌳', popular: false, description: '' });
@@ -23,6 +24,7 @@ export default function AdminCampaignsPage() {
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
   const [toast, setToast]         = useState('');
+  const [orgInfo, setOrgInfo]     = useState<any>(null);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
@@ -34,6 +36,15 @@ export default function AdminCampaignsPage() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+  // Which org's campaigns this page is actually editing — surfaced
+  // explicitly because a Super Admin's switched-org cookie determines
+  // this, and the public site's domain resolves its org completely
+  // independently. A campaign saved under the wrong org here would never
+  // appear on the public site and give no error either — this banner is
+  // what makes that mismatch visible instead of silent.
+  useEffect(() => {
+    fetch('/api/admin/org-config').then(r => r.json()).then(d => setOrgInfo(d.org)).catch(() => {});
+  }, []);
 
   function openNew() {
     setError('');
@@ -41,7 +52,7 @@ export default function AdminCampaignsPage() {
       name: '', slug: '', subtitle: '', shortName: '', dedicationLabel: '',
       description: '', imageUrl: '', accentColor: '#2d5a1b', accentBg: '#f6faf3',
       accentBorder: '#c9dcc0', treePrice: '', goal: '', displayOrder: campaigns.length,
-      packages: [emptyPkg()], active: true,
+      packages: CAMPAIGN_PACKAGES.map(p => ({ ...p })), active: true,
     });
   }
   function openEdit(c: any) {
@@ -141,6 +152,13 @@ export default function AdminCampaignsPage() {
           <Plus className="w-4 h-4"/> New Campaign
         </button>
       </PageHeader>
+
+      {orgInfo && (
+        <div className="mx-6 mt-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-sm text-blue-700 flex items-center gap-2">
+          <span className="font-semibold">Managing:</span> {orgInfo.name}
+          <span className="text-blue-400 text-xs ml-1">— campaigns you save here only appear on this org's public site</span>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed top-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">{toast}</div>
