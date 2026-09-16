@@ -62,7 +62,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       take: 6,
     }).catch(() => []);
 
-    return NextResponse.json({ site, farmers, verifiedVisits, landParcels, orgName: org.name });
+    return NextResponse.json({ site, farmers, verifiedVisits, landParcels, orgName: org.name }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    });
   } catch (error: any) {
     console.error('Public site story error:', error);
     return NextResponse.json({ error: 'Failed to load site' }, { status: 500 });

@@ -33,12 +33,35 @@ export async function GET(req: Request) {
           treesPlanted: true, plannedTrees: true, totalPlannedArea: true,
           landAssignments: {
             take: 3,
-            select: { speciesPlanted: true, land: { select: { photos: true, kmlFileName: true, gpsLatitude: true, gpsLongitude: true, polygonGeoJson: true } } },
+            // photos deliberately NOT selected here — see the raw query
+            // below. Land.photos is a scalar array of base64 strings;
+            // Prisma has no way to select "just the first element" of a
+            // scalar array column, so `select: { photos: true }` always
+            // pulls the ENTIRE array over the wire regardless of how the
+            // result is sliced afterward in JS. On this specific page —
+            // the highest-traffic, unauthenticated public page — that
+            // meant every visitor's request was pulling every stored
+            // photo for every land parcel on every active site, even
+            // though only one photo per site is ever actually rendered.
+            select: { speciesPlanted: true, land: { select: { id: true, kmlFileName: true, gpsLatitude: true, gpsLongitude: true, polygonGeoJson: true } } },
           },
         },
         orderBy: { createdAt: 'desc' },
       }).catch(() => []),
     ]);
+
+    // One targeted query for just the first photo per land — Postgres's
+    // native array slice (photos[1:1]) does the trimming at the database
+    // level, so only a handful of small strings cross the wire instead of
+    // every photo on every land parcel referenced above.
+    const landIds = [...new Set(sites.flatMap((s: any) => s.landAssignments.map((a: any) => a.land?.id).filter(Boolean)))];
+    const coverPhotoRows = landIds.length
+      ? await prisma.$queryRaw<{ id: string; cover: string[] }[]>`
+          SELECT id, photos[1:1] as cover FROM lands WHERE id = ANY(${landIds}) AND cardinality(photos) > 0
+        `.catch(() => [])
+      : [];
+    const coverPhotoByLandId: Record<string, string> = {};
+    for (const row of coverPhotoRows) if (row.cover?.[0]) coverPhotoByLandId[row.id] = row.cover[0];
 
     const treesPlanted    = siteAgg._sum.treesPlanted    || 0;
     const estimatedCarbon = estimateCO2Tonnes(treesPlanted);
@@ -48,7 +71,10 @@ export async function GET(req: Request) {
     // than per-site so a visitor sees the whole program's mix.
     const speciesTotals: Record<string, number> = {};
     const sitesShaped = sites.map((s: any) => {
-      const photos = s.landAssignments.flatMap((a: any) => a.land?.photos || []).slice(0, 4);
+      const photos = s.landAssignments
+        .map((a: any) => a.land?.id && coverPhotoByLandId[a.land.id])
+        .filter(Boolean)
+        .slice(0, 4);
       const kmlFileName = s.landAssignments.find((a: any) => a.land?.kmlFileName)?.land?.kmlFileName || null;
       // A site's own GPS is often never set by admin even when its linked
       // land parcels have real GPS from farmer registration — falling back
@@ -94,6 +120,16 @@ export async function GET(req: Request) {
       treesDonated:    donationAgg._sum.numberOfTrees || 0,
       activeSites, comingSoonSites, speciesBreakdown,
       org: { name: org.name, primaryColor: org.primaryColor, logoUrl: org.logoUrl },
+    }, {
+      // Public, unauthenticated, non-personalized data — safe to cache at
+      // Vercel's edge. 5 minutes fresh, then serve the stale copy for up
+      // to 10 more minutes while a fresh one is fetched in the
+      // background, so a real visitor almost never waits on a live
+      // database hit and repeat traffic mostly never reaches Supabase at
+      // all. A genuinely new donation or site takes at most 5 minutes to
+      // show up publicly — an acceptable trade for a page previously
+      // hitting the database on every single load.
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
