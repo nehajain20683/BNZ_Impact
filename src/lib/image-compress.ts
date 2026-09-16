@@ -1,9 +1,12 @@
 // src/lib/image-compress.ts
 // Compresses/resizes a photo in the browser before it's sent anywhere.
-// Necessary given this app's storage approach: every image is stored as a
-// base64 string directly in a database column (no S3/R2 object storage
-// exists in this codebase), so an uncompressed phone photo (often 3-8MB)
-// would bloat the database badly at any real volume of tree photos.
+// Tree photos now upload to Supabase Storage (see supabase-storage.ts)
+// rather than base64-in-column, but this still matters: a smaller upload
+// is still a smaller Storage upload and a faster one on a field
+// officer's mobile connection. Other models (farmer photos, land photos,
+// campaign galleries) still use base64-in-column pending their own
+// migration, where this compression remains the only defense against an
+// uncompressed 3-8MB phone photo bloating the database directly.
 // Targets roughly 1MB or less while keeping enough detail for verification.
 export function compressImage(file: File, maxDimension = 1280, quality = 0.75): Promise<string> {
   return new Promise((resolve, reject) => {

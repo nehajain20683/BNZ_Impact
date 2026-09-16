@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 // src/app/api/field-officer/farmer/[id]/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const officerId = new URL(req.url).searchParams.get('officerId');
@@ -28,7 +29,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       monitoringSamples: { select: { health: true, height: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }).then(rows => rows.map(t => ({
+    ...t,
+    images: t.images.map(img => ({ ...img, imageUrl: getPublicUrl('tree-photos', img.imageUrl) })),
+  })));
 
   // Status awareness — so the officer sees what's already been done and
   // when, instead of a blank "Start" button every time. Not everything

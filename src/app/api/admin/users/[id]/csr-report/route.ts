@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma';
 import { generateCSRImpactReport } from '@/lib/csr-report';
 import { estimateCO2Kg } from '@/lib/carbon';
 import { computeTreeStatusSurvivalPct, computeSurvivalPctFromCounts } from '@/lib/survival';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -98,7 +99,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       .sort((a, b) => b.count - a.count);
 
     // Real evidence photos — from actual field officer captures, never a stock image
-    const samplePhotos = allTrees.map(t => t.images[0]?.imageUrl).filter((u): u is string => !!u).slice(0, 4);
+    const samplePhotos = allTrees.map(t => getPublicUrl('tree-photos', t.images[0]?.imageUrl)).filter((u): u is string => !!u).slice(0, 4);
 
     const html = generateCSRImpactReport({
       donorName: user.name || 'Valued Supporter',

@@ -7,6 +7,8 @@ export const runtime = 'nodejs';
 // upload if denied), and a short-window duplicate-tap guard.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { uploadBase64ToStorage, getPublicUrl } from '@/lib/supabase-storage';
+import { randomUUID } from 'crypto';
 
 function generateFileName(treeTag: string, at: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -70,17 +72,33 @@ export async function POST(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
     if (recentDuplicate) {
-      return NextResponse.json({ success: true, image: recentDuplicate, duplicate: true });
+      return NextResponse.json({ success: true, image: { ...recentDuplicate, imageUrl: getPublicUrl('tree-photos', recentDuplicate.imageUrl) }, duplicate: true });
     }
 
     const capturedAt = new Date(); // server timestamp — source of truth
     const fileName = generateFileName(tree.treeTagId || '', capturedAt);
 
+    // Egress reduction Phase 2 — upload to Storage instead of embedding
+    // base64 in the database row. imageUrl now stores the object PATH,
+    // not the file content itself; getPublicUrl() below (and in the GET
+    // handler) constructs the actual servable URL at read time. If
+    // Storage is unreachable for any reason, falls back to the previous
+    // base64-in-column behavior rather than failing the whole capture —
+    // a field officer's photo should never be lost because of a Storage
+    // outage.
+    const storagePath = `${treeOrgId}/${treeId}/${randomUUID()}.jpg`;
+    let storedImageValue = imageBase64;
+    try {
+      storedImageValue = await uploadBase64ToStorage('tree-photos', storagePath, imageBase64);
+    } catch (storageError: any) {
+      console.error('Storage upload failed, falling back to base64-in-column:', storageError.message);
+    }
+
     const image = await prisma.treeImage.create({
       data: {
         treeId,
         treeTag: tree.treeTagId || undefined,
-        imageUrl: imageBase64,
+        imageUrl: storedImageValue,
         fileName,
         capturedById: officer.id,
         capturedAt,
@@ -91,7 +109,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, image });
+    return NextResponse.json({ success: true, image: { ...image, imageUrl: getPublicUrl('tree-photos', image.imageUrl) } });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -129,5 +147,11 @@ export async function GET(req: Request) {
     take: 50,
   });
 
-  return NextResponse.json({ images });
+  // Works for both migrated records (a real Storage path, resolved to a
+  // servable URL here) and any not-yet-backfilled records (still base64,
+  // returned as-is by getPublicUrl's fallback) — so this endpoint keeps
+  // working correctly throughout the migration, not just after it.
+  const shaped = images.map(img => ({ ...img, imageUrl: getPublicUrl('tree-photos', img.imageUrl) }));
+
+  return NextResponse.json({ images: shaped });
 }

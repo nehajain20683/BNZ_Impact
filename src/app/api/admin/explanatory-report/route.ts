@@ -8,6 +8,7 @@ import { getOrgConfig } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { CO2_PER_TREE_KG } from '@/lib/carbon';
 import { computeTreeStatusSurvivalPct } from '@/lib/survival';
+import { getPublicUrl } from '@/lib/supabase-storage';
 import {
   generateFundraisingReport, generateLandOwnerReport,
   generatePlantationReport, generateCarbonReport, generateBRSRExtract,
@@ -209,7 +210,7 @@ export async function GET(req: Request) {
         org, orgSignatory, generatedOn,
         totalPhotosAvailable,
         photos: sampleImages.map(img => ({
-          url: img.imageUrl,
+          url: getPublicUrl('tree-photos', img.imageUrl) || '',
           siteName: img.tree?.plantationSite?.siteName || 'Unknown site',
           farmerName: img.tree?.assignment?.farmer?.fullName || 'Unlinked',
           capturedAt: img.capturedAt,

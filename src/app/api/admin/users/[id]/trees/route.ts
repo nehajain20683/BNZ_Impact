@@ -11,6 +11,7 @@ import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
 import { computeTrustScore } from '@/lib/trust-score';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -77,7 +78,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           id: t.id, treeTagId: t.treeTagId, species: t.species, status: t.status, plantedDate: t.plantedDate,
           plantationSite: t.plantationSite,
           farmerName: t.assignment?.farmer?.fullName || null,
-          latestPhoto: img?.imageUrl || null,
+          latestPhoto: getPublicUrl('tree-photos', img?.imageUrl),
           photoCapturedAt: img?.capturedAt || null,
           trustScore: trust?.score ?? null,
         };

@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -57,12 +58,12 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     where: { treeId: tree.id },
     select: { id: true, imageUrl: true, capturedAt: true, latitude: true, longitude: true },
     orderBy: { capturedAt: 'desc' },
-  }).catch(() => []);
+  }).then(rows => rows.map(img => ({ ...img, imageUrl: getPublicUrl('tree-photos', img.imageUrl) }))).catch(() => []);
 
   return NextResponse.json({
     tree: {
       id: tree.id, treeTagId: tree.treeTagId, species: tree.species, status: tree.status,
-      plantedDate: tree.plantedDate, imageUrl: tree.imageUrl,
+      plantedDate: tree.plantedDate, imageUrl: getPublicUrl('tree-photos', tree.imageUrl),
       geoLatitude: tree.geoLatitude, geoLongitude: tree.geoLongitude,
       expectedCO2: tree.expectedCO2,
     },
