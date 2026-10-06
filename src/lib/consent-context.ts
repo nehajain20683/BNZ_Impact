@@ -5,18 +5,19 @@
 // than from whatever a client happened to send.
 import prisma from '@/lib/prisma';
 import type { ConsentInput } from '@/lib/consent-declaration';
+import { FARMER_LITE, LAND_LITE } from '@/lib/lite-select';
 
 export async function loadConsentInput(farmerId: string, opts: { landId?: string | null; orgId?: string } = {}) {
   const farmer = await prisma.farmer.findFirst({
     where: { id: farmerId, ...(opts.orgId ? { orgId: opts.orgId } : {}) },
-    include: { lands: { orderBy: { createdAt: 'asc' } }, organization: true },
+    select: { ...FARMER_LITE, lands: { orderBy: { createdAt: 'asc' }, select: LAND_LITE }, organization: true },
   });
   if (!farmer) return null;
 
   // One declaration describes one specific parcel (same rule as every other
   // agreement type) — the requested land, else the farmer's first.
   const land = (opts.landId ? farmer.lands.find(l => l.id === opts.landId) : null) || farmer.lands[0] || null;
-  const signatory = await prisma.orgSignatory.findFirst({ where: { orgId: farmer.orgId, isPrimary: true } });
+  const signatory = await prisma.orgSignatory.findFirst({ where: { orgId: farmer.orgId, isPrimary: true }, select: { name: true, designation: true } });
   const org: any = farmer.organization;
 
   const input: ConsentInput = {

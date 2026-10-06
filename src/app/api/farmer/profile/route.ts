@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { LAND_LITE, DOCUMENT_LITE } from '@/lib/lite-select';
+import { FARMER_LITE, LAND_LITE, DOCUMENT_LITE } from '@/lib/lite-select';
 import { FARMER_LOCK_STATUS, isAtOrBeyondStage } from '@/lib/farmer-constants';
 import { getPublicUrl } from '@/lib/supabase-storage';
 
@@ -28,9 +28,13 @@ export async function GET(req: Request) {
     const assignedOfficer = { select: { id: true, name: true, mobile: true, designation: true } };
     const farmer = await prisma.farmer.findUnique({
       where: where as any,
-      include: (isAdmin
-        ? { lands: true, documents: { take: 20, orderBy: { createdAt: 'desc' } }, assignedOfficer }
-        : { lands: { select: LAND_LITE }, documents: { take: 20, orderBy: { createdAt: 'desc' }, select: DOCUMENT_LITE }, assignedOfficer }) as any,
+      // Every column EXCEPT the photo (served from its own URL below).
+      select: ({
+        ...FARMER_LITE,
+        ...(isAdmin
+          ? { lands: true, documents: { take: 20, orderBy: { createdAt: 'desc' } }, assignedOfficer }
+          : { lands: { select: LAND_LITE }, documents: { take: 20, orderBy: { createdAt: 'desc' }, select: DOCUMENT_LITE }, assignedOfficer }),
+      }) as any,
     }) as any;
 
     if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
@@ -39,6 +43,10 @@ export async function GET(req: Request) {
     if (isAdmin && Array.isArray(farmer.lands)) {
       farmer.lands = farmer.lands.map((l: any) => ({ ...l, photos: (l.photos || []).map((p: string) => getPublicUrl('land-photos', p)).filter(Boolean) }));
     }
+
+    // The photo is returned as a URL (existence checked without reading the image itself).
+    const hasPhoto = await prisma.farmer.findFirst({ where: { id: farmer.id, photo: { not: null } }, select: { id: true } });
+    farmer.photo = hasPhoto ? `/api/farmer/photo/${farmer.id}?v=${+new Date(farmer.updatedAt)}` : null;
 
     const totalLandAcres = farmer.lands.reduce((s: number, l: any) => s + (l.areaAcres || 0), 0);
     return NextResponse.json({ farmer, stats: { totalLandAcres } });
@@ -54,6 +62,11 @@ export async function PATCH(req: Request) {
     const { farmerId, ...data } = body;
 
     if (!farmerId) return NextResponse.json({ error: 'farmerId required' }, { status: 400 });
+
+    // photo may only ever be set by a genuine NEW image upload (an image data URL, size-capped). The
+    // dashboard now displays the photo from a URL, so anything else — that URL, text, HTML — must never
+    // be written into the column (the same trap the Land page fell into).
+    if (data.photo !== undefined && !(typeof data.photo === 'string' && /^data:image\/(png|jpe?g|webp);base64,/i.test(data.photo) && data.photo.length <= 4_000_000)) delete data.photo;
 
     // Once a farmer is fully "Registered" (personal + bank complete, identity
     // documents verified), self-service editing stops entirely — real

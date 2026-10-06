@@ -33,13 +33,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       where: { siteId: site.id, farmer: { status: 'VERIFIED_LAND_OWNER' as any, publiclyVisible: true } },
       select: {
         treesPlanted: true,
-        farmer: { select: { fullName: true, photo: true, village: true, district: true } },
+        farmer: { select: { id: true, updatedAt: true, fullName: true, village: true, district: true } },
         land: { select: { gpsLatitude: true, gpsLongitude: true, polygonGeoJson: true } },
       },
     });
+    const withPhoto = new Set((await prisma.farmer.findMany({ where: { id: { in: assignments.map(a => a.farmer?.id).filter(Boolean) as string[] }, photo: { not: null } }, select: { id: true } })).map(r => r.id));
     const farmers = assignments
       .filter(a => a.farmer)
-      .map(a => ({ fullName: a.farmer!.fullName, photo: a.farmer!.photo, village: a.farmer!.village, district: a.farmer!.district, treesPlanted: a.treesPlanted }));
+      .map(a => ({ fullName: a.farmer!.fullName, photo: withPhoto.has(a.farmer!.id) ? `/api/farmer/photo/${a.farmer!.id}?v=${+new Date(a.farmer!.updatedAt)}` : null, village: a.farmer!.village, district: a.farmer!.district, treesPlanted: a.treesPlanted }));
 
     // Land parcels with real GPS/boundary data — same information already
     // shown on the donor dashboard's own map and admin's GIS coverage

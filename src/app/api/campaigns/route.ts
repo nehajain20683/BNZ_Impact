@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { resolveTenantFromRequest } from '@/lib/tenant';
+import { cardWithUrl } from '@/lib/campaign-media';
 
 export async function GET(req: Request) {
   try {
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
       },
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
-    return NextResponse.json({ campaigns }, {
+    return NextResponse.json({ campaigns: campaigns.map(cardWithUrl) }, {
       // Public, unauthenticated, non-personalized — same reasoning as
       // /api/public/impact. A newly-created campaign takes at most 5
       // minutes to appear publicly, in exchange for not hitting the

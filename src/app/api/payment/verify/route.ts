@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { verifyPaymentSignature } from '@/lib/razorpay';
 import { sendDonationConfirmationEmail } from '@/lib/email';
 import { getOrgConfig } from '@/lib/tenant';
+import { CAMPAIGN_CARD } from '@/lib/lite-select';
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
         paymentGatewayId: razorpay_payment_id,
         paymentMethod:    'razorpay',
       },
-      include: { campaign: true },
+      include: { campaign: { select: CAMPAIGN_CARD } },
     });
 
     // Create tree records

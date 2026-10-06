@@ -16,17 +16,19 @@ export async function GET(req: Request) {
     const farmers = await prisma.farmer.findMany({
       where: { orgId: org.id, status: 'VERIFIED_LAND_OWNER' as any, publiclyVisible: true },
       select: {
-        id: true, fullName: true, photo: true, village: true, district: true, state: true,
+        id: true, updatedAt: true, fullName: true, village: true, district: true, state: true,
         landAssignments: { select: { treesPlanted: true, site: { select: { id: true, siteName: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
+    // photos are served by /api/farmer/photo/<id> (cached), not embedded as base64 in this list
+    const withPhoto = new Set((await prisma.farmer.findMany({ where: { id: { in: farmers.map(f => f.id) }, photo: { not: null } }, select: { id: true } })).map(r => r.id));
     const result = farmers
       .map(f => {
         const totalTrees = f.landAssignments.reduce((s, a) => s + (a.treesPlanted || 0), 0);
         const sites = [...new Map(f.landAssignments.filter(a => a.site).map(a => [a.site!.id, a.site!.siteName])).values()];
-        return { id: f.id, fullName: f.fullName, photo: f.photo, village: f.village, district: f.district, state: f.state, totalTrees, sites };
+        return { id: f.id, fullName: f.fullName, photo: withPhoto.has(f.id) ? `/api/farmer/photo/${f.id}?v=${+new Date(f.updatedAt)}` : null, village: f.village, district: f.district, state: f.state, totalTrees, sites };
       })
       // Only show farmers with at least one real, planted tree — an
       // onboarded-but-not-yet-planting farmer isn't a story to tell yet.

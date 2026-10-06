@@ -4,11 +4,12 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { generateCertificatePDF } from '@/lib/pdf';
 import { getOrgConfig, resolveTenantFromRequest } from '@/lib/tenant';
+import { CAMPAIGN_CARD } from '@/lib/lite-select';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const donation = await prisma.donation.findUnique({
     where: { id: params.id },
-    include: { campaign: true, user: true },
+    include: { campaign: { select: CAMPAIGN_CARD }, user: true },
   });
   if (!donation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

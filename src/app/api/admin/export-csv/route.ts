@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import { estimateCO2Kg } from '@/lib/carbon';
 import prisma from '@/lib/prisma';
+import { FARMER_LITE } from '@/lib/lite-select';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -40,6 +41,7 @@ export async function GET(req: Request) {
     if (type === 'farmers') {
       const farmers = await prisma.farmer.findMany({
         where:   { orgId },
+        select:  FARMER_LITE,   // the CSV never prints the photo
         orderBy: { createdAt: 'desc' },
       });
       csv = [

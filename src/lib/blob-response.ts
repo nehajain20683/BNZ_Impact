@@ -12,7 +12,7 @@ const safeName = (n?: string | null) => (n || 'file').replace(/[^\w.\- ]+/g, '_'
 
 export function dataUrlToResponse(
   stored: string | null | undefined,
-  opts: { filename?: string | null; maxAgeSeconds?: number } = {},
+  opts: { filename?: string | null; maxAgeSeconds?: number; cacheControl?: string } = {},
 ): Response {
   if (!stored) return new Response('Not found', { status: 404 });
   if (/^https?:\/\//i.test(stored)) return Response.redirect(stored, 302); // already a hosted file
@@ -26,7 +26,7 @@ export function dataUrlToResponse(
       'Content-Type': inline ? type : 'application/octet-stream',
       'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${safeName(opts.filename)}"`,
       'Content-Length': String(bytes.length),
-      'Cache-Control': `private, max-age=${opts.maxAgeSeconds ?? 3600}`,
+      'Cache-Control': opts.cacheControl ?? `private, max-age=${opts.maxAgeSeconds ?? 3600}`,
       'X-Content-Type-Options': 'nosniff',
     },
   });

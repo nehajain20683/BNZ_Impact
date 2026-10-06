@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     // If this is a land-specific document, make sure the land actually
     // belongs to this farmer and isn't already approved/locked.
     if (landId) {
-      const land = await prisma.land.findUnique({ where: { id: landId } });
+      const land = await prisma.land.findUnique({ where: { id: landId }, select: { id: true, farmerId: true, verified: true } });
       if (!land || land.farmerId !== farmerId)
         return NextResponse.json({ error: 'Land parcel not found' }, { status: 404 });
       if (land.verified)
@@ -72,9 +72,9 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const { documentId, farmerId } = await req.json();
-    const doc = await prisma.farmerDocument.findUnique({ where: { id: documentId } });
+    const doc = await prisma.farmerDocument.findUnique({ where: { id: documentId }, select: { landId: true } });
     if (doc?.landId) {
-      const land = await prisma.land.findUnique({ where: { id: doc.landId } });
+      const land = await prisma.land.findUnique({ where: { id: doc.landId }, select: { verified: true } });
       if (land?.verified)
         return NextResponse.json({ error: 'This land has been approved and its documents are locked.' }, { status: 400 });
     }

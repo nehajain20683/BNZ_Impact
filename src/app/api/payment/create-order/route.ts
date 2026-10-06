@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const body    = await req.json();
     const data    = schema.parse(body);
 
-    const campaign = await prisma.campaign.findUnique({ where: { slug: data.campaignSlug } });
+    const campaign = await prisma.campaign.findUnique({ where: { slug: data.campaignSlug }, select: { id: true } });
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 
     const org             = await resolveTenantFromRequest(req);

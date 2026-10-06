@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { campaignWithUrls, storeCampaignImages } from '@/lib/campaign-media';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -24,7 +25,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const orgId = await getActiveOrgId();
     const body  = await req.json();
 
-    const campaign = await prisma.campaign.findFirst({ where: { id: params.id, orgId } });
+    // Only what this route needs — loading the whole row would drag every gallery image along.
+    const campaign = await prisma.campaign.findFirst({ where: { id: params.id, orgId }, select: { id: true, slug: true, treePrice: true } });
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 
     // Enforce: every tenant must always have at least one active campaign.
@@ -48,8 +50,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if ('displayOrder' in data) data.displayOrder = parseInt(data.displayOrder) || 0;
     if ('name' in data && !String(data.name).trim()) delete data.name;
 
+    // The form sends images back exactly as it displayed them (URLs for existing ones, base64 for new
+    // uploads): new uploads go to Storage, our own URLs go back to being paths, nothing else changes.
+    Object.assign(data, await storeCampaignImages(orgId, campaign.slug, data));
+
     const updated = await prisma.campaign.update({ where: { id: params.id }, data });
-    return NextResponse.json({ success: true, campaign: updated });
+    return NextResponse.json({ success: true, campaign: campaignWithUrls(updated) });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -60,7 +66,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     await requireAdmin();
     const orgId = await getActiveOrgId();
 
-    const campaign = await prisma.campaign.findFirst({ where: { id: params.id, orgId } });
+    const campaign = await prisma.campaign.findFirst({ where: { id: params.id, orgId }, select: { id: true, isIndividual: true } });
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 
     if (campaign.isIndividual) {

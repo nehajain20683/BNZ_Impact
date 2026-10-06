@@ -57,7 +57,8 @@ export async function POST(req: Request) {
     const body  = await req.json();
 
     const campaign = await prisma.campaign.findFirst({
-      where: { slug: body.campaignSlug || 'individual' }
+      where: { slug: body.campaignSlug || 'individual' },
+      select: { id: true },
     });
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
 

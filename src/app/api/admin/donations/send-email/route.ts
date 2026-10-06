@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { sendDonationConfirmationEmail } from '@/lib/email';
+import { CAMPAIGN_CARD } from '@/lib/lite-select';
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
 
     const donation = await prisma.donation.findUnique({
       where: { id: donationId },
-      include: { campaign: true },
+      include: { campaign: { select: CAMPAIGN_CARD } },
     });
     if (!donation) return NextResponse.json({ error: 'Donation not found' }, { status: 404 });
     if (!donation.donorEmail) return NextResponse.json({ error: 'No email on file for this donor' }, { status: 400 });

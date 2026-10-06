@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { CAMPAIGN_CARD } from '@/lib/lite-select';
 import { resolveTenantFromRequest } from '@/lib/tenant';
+import { campaignWithUrls, cardWithUrl } from '@/lib/campaign-media';
 
 export async function GET(req: Request, { params }: { params: { slug: string } }) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
       select: CAMPAIGN_CARD,   // related cards never show the gallery
     });
 
-    return NextResponse.json({ campaign, related }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
+    return NextResponse.json({ campaign: campaignWithUrls(campaign), related: related.map(cardWithUrl) }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -23,7 +23,8 @@ export async function POST(req: Request) {
     if (!rows?.length) return NextResponse.json({ error: 'No rows provided' }, { status: 400 });
 
     const campaign = await prisma.campaign.findFirst({
-      where: { slug: 'individual' }
+      where: { slug: 'individual' },
+      select: { id: true },
     });
     if (!campaign) return NextResponse.json({ error: 'Default campaign not found' }, { status: 404 });
 

@@ -20,6 +20,7 @@
 // not the database connection directly.
 
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 let _client: ReturnType<typeof createClient> | null = null;
 
@@ -99,4 +100,40 @@ export async function uploadIfBase64(bucket: StorageBucket, path: string, value:
     console.error(`Storage upload failed for ${bucket}/${path}, keeping base64 in the column:`, e.message);
     return value;
   }
+}
+
+// ── Images whose stored value can be any of several things ──────────────────────────────
+// Campaign images (and similar admin-managed media) may be: a base64 data URL (not migrated
+// yet), a full https URL (external, or already resolved), a site-relative asset ("/img/x.jpg"),
+// or a Storage PATH ("org/slug/uuid.jpg"). Only the last one needs turning into a URL — and
+// getPublicUrl() alone would wrongly turn "/img/x.jpg" into a Storage URL.
+export function resolveStoredImage(bucket: StorageBucket, value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.startsWith('data:') || /^https?:/i.test(value) || value.startsWith('/')) return value;
+  return getPublicUrl(bucket, value);
+}
+
+export function resolveStoredImages(bucket: StorageBucket, values: (string | null | undefined)[] | null | undefined): string[] {
+  return (values || []).map(v => resolveStoredImage(bucket, v)).filter((v): v is string => !!v);
+}
+
+// The WRITE side. An admin form shows images from their URLs and sends them straight back on
+// save, mixed with brand-new base64 uploads. What should be SAVED for each value:
+//   • a fresh base64 upload            → uploaded to Storage, its PATH saved
+//   • OUR OWN Storage URL (shown by the form) → turned back into its PATH, never saved as a URL
+//   • anything else (external URL, "/asset", an existing path) → saved exactly as sent
+//   • empty                            → null (the image was removed)
+// If the upload fails the original base64 is kept, so an image is never lost.
+export async function toStoredImage(bucket: StorageBucket, pathPrefix: string, value: string | null | undefined): Promise<string | null> {
+  if (!value) return null;
+  if (value.startsWith('data:')) {
+    const ext = /^data:image\/png/i.test(value) ? 'png' : /^data:image\/webp/i.test(value) ? 'webp' : 'jpg';
+    return uploadIfBase64(bucket, `${pathPrefix}/${randomUUID()}.${ext}`, value, null);
+  }
+  const base = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const marker = `${base}/storage/v1/object/public/${bucket}/`;
+  if (base && value.startsWith(marker)) {
+    try { return decodeURIComponent(value.slice(marker.length).split('?')[0]); } catch { return value; }
+  }
+  return value;
 }

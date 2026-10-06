@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { campaignWithUrls, storeCampaignImages } from '@/lib/campaign-media';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -20,7 +21,7 @@ export async function GET() {
       where:   { orgId },
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return NextResponse.json({ campaigns });
+    return NextResponse.json({ campaigns: campaigns.map(campaignWithUrls) });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
     if (existing)
       return NextResponse.json({ error: 'A campaign with this slug already exists' }, { status: 400 });
 
+    // Images go to Storage; only their paths are saved in the database.
+    const stored = await storeCampaignImages(orgId, slug, {
+      imageUrl: body.imageUrl || null,
+      galleryImages: Array.isArray(body.galleryImages) ? body.galleryImages : [],
+    });
+
     const campaign = await prisma.campaign.create({
       data: {
         orgId, slug,
@@ -48,8 +55,8 @@ export async function POST(req: Request) {
         shortName:       body.shortName || body.name,
         dedicationLabel: body.dedicationLabel || null,
         description:     body.description || null,
-        imageUrl:        body.imageUrl || null,
-        galleryImages:   Array.isArray(body.galleryImages) ? body.galleryImages : [],
+        imageUrl:        stored.imageUrl ?? null,
+        galleryImages:   stored.galleryImages ?? [],
         perks:           Array.isArray(body.perks) ? body.perks : undefined,
         accentColor:     body.accentColor || '#2d5a1b',
         accentBg:        body.accentBg || '#f6faf3',
@@ -61,7 +68,7 @@ export async function POST(req: Request) {
         active:          body.active !== false,
       },
     });
-    return NextResponse.json({ success: true, campaign });
+    return NextResponse.json({ success: true, campaign: campaignWithUrls(campaign) });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
