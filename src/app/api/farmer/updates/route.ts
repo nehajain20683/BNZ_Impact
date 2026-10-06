@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 // src/app/api/farmer/updates/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { FARMER_LITE } from '@/lib/lite-select';
 import { validateUpload } from '@/lib/upload-validation';
 import { notifyOrgAdmins } from '@/lib/notifications';
 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     if (!CATEGORIES.includes(category))
       return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
 
-    const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });
+    const farmer = await prisma.farmer.findUnique({ where: { id: farmerId }, select: FARMER_LITE });
     if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
 
     // Phase 6 — run available validation checks before accepting the upload.

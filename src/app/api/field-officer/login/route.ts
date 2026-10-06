@@ -7,6 +7,7 @@ export const runtime = 'nodejs';
 // password, set/reset by an admin.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 import bcrypt from 'bcryptjs';
 
 function makeToken(officer: any) {
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
 
     const officer = await prisma.fieldOfficer.findFirst({
       where: email ? { email } : { mobile },
+      select: OFFICER_LITE,
     });
     if (!officer)
       return NextResponse.json({ error: 'No field officer account found with these details.' }, { status: 404 });

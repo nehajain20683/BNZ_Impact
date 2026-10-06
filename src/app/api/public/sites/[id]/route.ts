@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // card, not a new privacy exposure; only the farmer's name (already
     // public above) is ever paired with it, never mobile/Aadhaar/documents.
     const landParcels = assignments
-      .filter(a => a.land?.gpsLatitude != null)
+      .filter(a => a.land?.gpsLatitude != null || (a.land?.polygonGeoJson as any)?.coordinates?.[0]?.length >= 3)
       .map((a, i) => ({
         id: `parcel-${i}`, farmerName: a.farmer?.fullName || 'Land Owner',
         lat: a.land!.gpsLatitude, lng: a.land!.gpsLongitude,

@@ -14,6 +14,7 @@ import {
 import { useOrgConfig } from '@/components/OrgConfigProvider';
 import { OrgLogo } from '@/components/OrgLogo';
 import { FARMER_DOC_TYPES, LAND_DOC_TYPES } from '@/lib/farmer-constants';
+import { openDataUrlInNewTab } from '@/lib/open-data-url';
 
 const AGREEMENT_STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   SHARED:       { color: 'text-blue-600 bg-blue-50 border-blue-200',   label: 'New — Please Review' },
@@ -35,6 +36,43 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Display state for an agreement. The landowner consent declaration has a
+// richer lifecycle than the generic statuses (recorded → signature requested
+// → signed → verified/rejected), so it gets its own labels.
+function agreementDisplay(a: any): { color: string; label: string } {
+  if (a.agreementType === 'LANDOWNER_CONSENT') {
+    if (a.status === 'COMPLETED' && a.verificationStatus === 'VERIFIED') return { color: 'text-green-700 bg-green-100 border-green-300', label: 'Signature verified ✓' };
+    if (a.verificationStatus === 'REJECTED') return { color: 'text-red-600 bg-red-50 border-red-200', label: 'Signed copy rejected — please re-upload' };
+    if (a.status === 'SIGNED') return { color: 'text-green-600 bg-green-50 border-green-200', label: 'Signed — awaiting verification' };
+    if (a.signatureRequestedAt) return { color: 'text-amber-600 bg-amber-50 border-amber-200', label: 'Signature requested' };
+    return { color: 'text-green-700 bg-green-50 border-green-200', label: 'Consent recorded ✓' };
+  }
+  return AGREEMENT_STATUS_CONFIG[a.status] || AGREEMENT_STATUS_CONFIG.SHARED;
+}
+
+// Upload of a signed copy is offered once the farmer has reviewed the
+// document. For the consent declaration it additionally requires that an
+// admin has asked for a signature, and it is locked once verified.
+function canUploadSigned(a: any): boolean {
+  if (a.agreementType === 'LANDOWNER_CONSENT')
+    return !!a.signatureRequestedAt && a.status !== 'SIGNED' && a.status !== 'COMPLETED';
+  return a.status === 'ACKNOWLEDGED' || a.status === 'SHARED';
+}
+
+// A land photo or KML that came in through Land Details (or an officer
+// visit) lives on the Land record, not as an uploaded document — so the
+// Documents list used to show it as missing. This reads the Land record so
+// it shows as provided no matter where in the dashboard it arrived.
+const isDisplayable = (u?: string) => !!u && /^(data:image\/|https?:)/.test(u);
+function landProvided(docKey: string, land: any): { sub: string; thumb?: string } | null {
+  if (!land) return null;
+  if (docKey === 'PLANTATION_PHOTO' && land.photos?.length > 0)
+    return { sub: `${land.photos.length} photo${land.photos.length === 1 ? '' : 's'} on file`, thumb: isDisplayable(land.photos[0]) ? land.photos[0] : undefined };
+  if (docKey === 'OTHER' && (land.kmlFileName || land.polygonGeoJson))
+    return { sub: land.kmlFileName ? `KML file: ${land.kmlFileName}` : 'Boundary mapped from KML' };
+  return null;
 }
 
 export default function FarmerDocumentsPage() {
@@ -182,6 +220,8 @@ export default function FarmerDocumentsPage() {
 
   function DocumentCard({ docType, scope, landId }: { docType: typeof FARMER_DOC_TYPES[number] | typeof LAND_DOC_TYPES[number]; scope: 'farmer'|'land'; landId?: string }) {
     const uploaded = getDocsForType(docType.key, landId);
+    const provided = scope === 'land' ? landProvided(docType.key, lands.find(l => l.id === landId)) : null;
+    const hasAny = uploaded.length > 0 || !!provided;
     const isUploading = uploading === docType.key;
     const landLocked = scope === 'land' && !!lands.find(l => l.id === landId)?.verified;
 
@@ -191,9 +231,9 @@ export default function FarmerDocumentsPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                uploaded.length > 0 ? 'bg-green-100' : 'bg-sage-100'
+                hasAny ? 'bg-green-100' : 'bg-sage-100'
               }`}>
-                {uploaded.length > 0
+                {hasAny
                   ? <CheckCircle className="w-5 h-5 text-green-600"/>
                   : <FileText className="w-5 h-5 text-sage-500"/>
                 }
@@ -223,11 +263,25 @@ export default function FarmerDocumentsPage() {
                       : 'bg-sage-700 text-white hover:bg-sage-800'
                 }`}>
                 <Upload className="w-3.5 h-3.5"/>
-                {isUploading ? 'Uploading...' : uploaded.length > 0 ? 'Re-upload' : 'Upload'}
+                {isUploading ? 'Uploading...' : uploaded.length > 0 ? 'Re-upload' : provided ? 'Add file' : 'Upload'}
               </button>
             )}
           </div>
         </div>
+
+        {provided && (
+          <div className="border-t border-sage-50 px-4 pb-3 pt-3">
+            <div className="flex items-center gap-3 p-2.5 rounded-xl border text-green-700 bg-green-50 border-green-200">
+              {provided.thumb
+                ? <img src={provided.thumb} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0"/>
+                : <CheckCircle className="w-4 h-4 flex-shrink-0"/>}
+              <div className="min-w-0">
+                <div className="text-xs font-semibold">Provided ✓ <span className="font-normal opacity-80">· via Land Details</span></div>
+                <div className="text-xs opacity-80 truncate">{provided.sub}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {uploaded.length > 0 && (
           <div className="border-t border-sage-50 px-4 pb-4 pt-3 space-y-2">
@@ -323,7 +377,7 @@ export default function FarmerDocumentsPage() {
             </h2>
             <div className="space-y-2">
               {agreements.map(a => {
-                const cfg = AGREEMENT_STATUS_CONFIG[a.status] || AGREEMENT_STATUS_CONFIG.SHARED;
+                const cfg = agreementDisplay(a);
                 return (
                   <div key={a.id} className={`bg-white rounded-2xl border p-4 ${cfg.color.split(' ')[2] || 'border-sage-100'}`}>
                     <div className="flex items-start justify-between gap-3">
@@ -347,7 +401,7 @@ export default function FarmerDocumentsPage() {
                           <CheckCircle className="w-3.5 h-3.5"/> {ackLoading === a.id ? 'Marking…' : 'Mark as Reviewed'}
                         </button>
                       )}
-                      {(a.status === 'ACKNOWLEDGED' || a.status === 'SHARED') && (
+                      {canUploadSigned(a) && (
                         <label className="flex items-center gap-1.5 text-xs font-semibold border-2 px-3 py-2 rounded-xl cursor-pointer"
                           style={{ borderColor: (org.primaryColor || '#2d5a1b') + '60', color: org.primaryColor || '#2d5a1b' }}>
                           <Upload className="w-3.5 h-3.5"/> {ackLoading === a.id ? 'Uploading…' : 'Upload Signed Copy'}
@@ -357,11 +411,25 @@ export default function FarmerDocumentsPage() {
                         </label>
                       )}
                     </div>
+                    {canUploadSigned(a) && a.agreementType === 'LANDOWNER_CONSENT' && (
+                      <p className="mt-2 text-xs text-sage-500">
+                        Download and print this declaration, sign it (signature or thumb impression) with two witnesses, then upload a clear photo or PDF of the signed pages.
+                      </p>
+                    )}
+                    {a.verificationStatus === 'REJECTED' && a.verificationNote && (
+                      <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                        <span className="font-semibold">Why it was sent back:</span> {a.verificationNote}
+                      </div>
+                    )}
+                    {a.verificationStatus === 'VERIFIED' && a.verifiedAt && (
+                      <p className="mt-2 text-xs text-green-700">Your signature was verified on {new Date(a.verifiedAt).toLocaleDateString('en-IN')}.</p>
+                    )}
                     {a.signedPdfUrl && (
                       <div className="mt-2 pt-2 border-t border-sage-50">
-                        <a href={a.signedPdfUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-sage-500 underline">
+                        <button type="button" onClick={() => { if (!openDataUrlInNewTab(a.signedPdfUrl)) window.open(a.signedPdfUrl, '_blank'); }}
+                          className="text-xs text-sage-500 underline">
                           View your uploaded signed copy
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrgConfig } from '@/components/OrgConfigProvider';
+import { ConsentDeclarationModal } from '@/components/farmer/ConsentDeclarationModal';
 import { OrgLogo } from '@/components/OrgLogo';
 import {
   Shield, User, Landmark, MapPin, Users, TreePine,
@@ -99,6 +100,7 @@ function FarmerRegisterForm() {
 
   // Step 8
   const [consent, setConsent]   = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const pct          = Math.round((step / 8) * 100);
   const primaryColor = org.primaryColor || '#2d5a1b';
@@ -375,6 +377,27 @@ function FarmerRegisterForm() {
   async function complete() {
     if (!consent) { setErrors({ consent: 'Please accept the terms to complete registration' }); return; }
     setLoading(true);
+    // Record the consent on the server FIRST. Until now the checkbox only
+    // enabled this button — nothing recorded that the farmer agreed, when,
+    // or to what wording. The server stores an immutable snapshot of the
+    // declaration (shown in their Documents section) and the acceptance
+    // time; if that fails we stop rather than complete without a record.
+    try {
+      const rec = await fetch('/api/farmer/consent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ farmerId }),
+      });
+      if (!rec.ok) {
+        const d = await rec.json().catch(() => ({}));
+        setErrors({ consent: d.error || 'Could not record your consent. Please try again.' });
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setErrors({ consent: 'Network problem — your consent was not recorded. Please try again.' });
+      setLoading(false);
+      return;
+    }
     await fetch('/api/farmer/profile', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ farmerId, registrationStep: 8, status: 'DOCUMENTS_PENDING', ...nominee }),
@@ -894,9 +917,17 @@ function FarmerRegisterForm() {
             <div className="space-y-5">
               <h2 className="font-display text-xl text-gray-900">Consent / सहमति</h2>
               <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 space-y-2 max-h-48 overflow-y-auto border border-gray-100">
-                <p className="font-semibold text-gray-800">Terms and Conditions / नियम और शर्तें</p>
+                <button type="button" onClick={() => setShowTerms(true)}
+                  className="font-semibold text-left underline decoration-dotted underline-offset-4 hover:opacity-80"
+                  style={{ color: primaryColor }}>
+                  Terms and Conditions / नियम और शर्तें <span aria-hidden="true">›</span>
+                </button>
                 <p>I hereby declare that all information provided is true and correct. I agree to participate in the plantation programme under <strong>{org.loaded ? org.name : '...'}</strong> and authorize the organisation to use my land for tree plantation as agreed.</p>
                 <p>मैं एतद्द्वारा घोषणा करता/करती हूँ कि प्रदान की गई सभी जानकारी सत्य एवं सही है। मैं <strong>{org.loaded ? org.name : '...'}</strong> के अंतर्गत वृक्षारोपण कार्यक्रम में भाग लेने के लिए सहमत हूँ।</p>
+                <button type="button" onClick={() => setShowTerms(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold pt-1 hover:opacity-80" style={{ color: primaryColor }}>
+                  <FileCheck className="w-3.5 h-3.5"/> Read the full Consent &amp; Participation Declaration (including carbon-rights terms) / पूरा घोषणा पत्र पढ़ें
+                </button>
               </div>
               <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-gray-100 hover:bg-gray-50">
                 <input type="checkbox" checked={consent} onChange={e => { setConsent(e.target.checked); setErrors({}); }}
@@ -941,6 +972,7 @@ function FarmerRegisterForm() {
           )}
         </div>
         <p className="text-center text-xs text-gray-400 mt-3">Progress auto-saved · Save Draft</p>
+        {showTerms && <ConsentDeclarationModal farmerId={farmerId} onClose={() => setShowTerms(false)}/>}
       </div>
     </div>
   );

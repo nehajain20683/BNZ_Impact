@@ -1,60 +1,19 @@
 // src/lib/farmer-id.ts
-// Generates farmer IDs using each org's configured prefix
-// Format: {PREFIX}-{STATE_CODE}-{DISTRICT_CODE}-F-{NUMBER}
-// Example: BNZ-MH-THA-F-001, or ROT-MH-THA-F-001 for a "ROT"-prefixed tenant
-
+// App-side entry point for farmer and GIS IDs. The logic lives in
+// farmer-id-core.ts (shared with the backfill scripts); this just binds it to
+// the app's Prisma client.
+//   Farmer ID  {PREFIX}-{STATE}-{DISTRICT}-F-{NNN}  e.g. JGL-MH-NAS-F-007  (at admin verification)
+//   GIS ID     {PREFIX}-{STATE}-{DISTRICT}-G-{NNN}  e.g. JGL-MH-NAS-G-003  (when a parcel's boundary is captured)
+//
+// The previous generateFarmerId()/generateFarmerIdSync() are gone: nothing
+// called them, and their "sequence" was the last 3 characters of a random id
+// with the letters stripped — not a counter, so it would have produced
+// duplicates against the unique column.
 import prisma from '@/lib/prisma';
+import { assignFarmerIdWith, assignLandGisIdWith } from '@/lib/farmer-id-core';
 
-const STATE_CODES: Record<string, string> = {
-  'Maharashtra': 'MH', 'Gujarat': 'GJ', 'Rajasthan': 'RJ',
-  'Madhya Pradesh': 'MP', 'Karnataka': 'KA', 'Tamil Nadu': 'TN',
-  'Kerala': 'KL', 'Andhra Pradesh': 'AP', 'Telangana': 'TG',
-  'Uttar Pradesh': 'UP', 'Goa': 'GA', 'Punjab': 'PB',
-};
+export { stateCode, districtCode } from '@/lib/farmer-id-core'; // tree-tag.ts imports these
 
-export function stateCode(state?: string | null): string {
-  return STATE_CODES[state || ''] || 'IN';
-}
-
-export function districtCode(district?: string | null): string {
-  if (!district) return 'XX';
-  return district.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3);
-}
-
-export async function generateFarmerId(
-  farmerId: string,
-  state?: string | null,
-  district?: string | null,
-  orgId?: string | null
-): Promise<string> {
-  // Get org prefix — generic default if the org has none configured
-  let prefix = 'BNZ';
-  if (orgId) {
-    try {
-      const org = await (prisma as any).organization.findUnique({
-        where: { id: orgId },
-        select: { farmer_id_prefix: true },
-      });
-      if (org?.farmer_id_prefix) prefix = org.farmer_id_prefix;
-    } catch {}
-  }
-
-  const sc   = stateCode(state);
-  const dc   = districtCode(district);
-  const seq  = farmerId.slice(-3).replace(/[^0-9]/g, '').padStart(3, '0') || '001';
-
-  return `${prefix}-${sc}-${dc}-F-${seq}`;
-}
-
-// Synchronous version with explicit prefix (for use when org is already loaded)
-export function generateFarmerIdSync(
-  farmerId: string,
-  state?: string | null,
-  district?: string | null,
-  prefix: string = 'BNZ'
-): string {
-  const sc  = stateCode(state);
-  const dc  = districtCode(district);
-  const seq = farmerId.slice(-3).replace(/[^0-9]/g, '').padStart(3, '0') || '001';
-  return `${prefix}-${sc}-${dc}-F-${seq}`;
-}
+type Actor = { role?: string; id?: string };
+export const assignFarmerId = (farmerId: string, actor?: Actor) => assignFarmerIdWith(prisma, farmerId, actor);
+export const assignLandGisId = (landId: string, actor?: Actor) => assignLandGisIdWith(prisma, landId, actor);

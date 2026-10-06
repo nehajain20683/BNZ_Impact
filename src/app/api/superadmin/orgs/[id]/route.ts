@@ -42,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const allowed = [
       'name', 'primary_color', 'logo_url', 'email', 'phone', 'address',
       'website', 'farmer_id_prefix', 'donation_ref_prefix', 'tree_price',
-      'org_80g_number', 'payment_banks', 'campaign_config', 'custom_domain',
+      'org_80g_number', 'consent_authority_name', 'payment_banks', 'campaign_config', 'custom_domain',
       'plan', 'active', 'privacy_policy_text', 'terms_text', 'refund_policy_text',
       'razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret',
       'payment_display_name', 'payment_success_message', 'individual_donation_message', 'main_tree_target_percent',

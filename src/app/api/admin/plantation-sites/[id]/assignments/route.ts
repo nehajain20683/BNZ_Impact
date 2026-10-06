@@ -4,8 +4,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notifyFarmer } from '@/lib/notifications';
+import { guardSite, farmerInOrg, landOfFarmer, assignmentOfSite } from '@/lib/admin-guard';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   const assignments = await prisma.landAssignment.findMany({
     where: { siteId: params.id },
     include: {
@@ -20,6 +23,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,6 +32,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const body  = await req.json();
 
     if (!body.farmerId) return NextResponse.json({ error: 'farmerId required' }, { status: 400 });
+    // The farmer (and land) come from the request body: they must belong to this org / this farmer,
+    // otherwise an admin could assign — and notify — another org's farmer.
+    if (!(await farmerInOrg(body.farmerId, adminScope.orgId)))
+      return NextResponse.json({ error: 'Farmer not found in this organisation' }, { status: 404 });
+    if (body.landId && !(await landOfFarmer(body.landId, body.farmerId)))
+      return NextResponse.json({ error: 'That land does not belong to this farmer' }, { status: 400 });
 
     // Validate capacity
     const land = body.landId ? await prisma.land.findUnique({ where: { id: body.landId } }) : null;
@@ -70,9 +81,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { assignmentId, stage, treesPlanted, treesSurviving, remarks, photos } = await req.json();
+  // assignmentId comes from the body: it must belong to THIS site (it used to update any assignment by ID).
+  if (!assignmentId || !(await assignmentOfSite(assignmentId, params.id)))
+    return NextResponse.json({ error: 'Assignment not found for this site' }, { status: 404 });
 
   const update: any = {};
   if (stage)          { update.stage = stage; update.lastMonitored = new Date(); }

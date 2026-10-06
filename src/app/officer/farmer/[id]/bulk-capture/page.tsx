@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Camera, CheckCircle, QrCode, TreePine, X } from 'lucide-react';
 import { compressImage } from '@/lib/image-compress';
+import { getDeviceId } from '@/lib/device-id';
 import { QRScanner } from '@/components/QRScanner';
 
 type Stage = 'scanning' | 'confirm' | 'uploading' | 'saved';
@@ -71,7 +72,7 @@ export default function BulkCapturePage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         officerId, treeId: activeTree.id, imageBase64: compressed,
-        latitude: gps?.lat, longitude: gps?.lng,
+        latitude: gps?.lat, longitude: gps?.lng, deviceId: getDeviceId(),
       }),
     });
     if (!res.ok) {

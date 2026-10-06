@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { assignFarmerId } from '@/lib/farmer-id';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
       select: {
         id: true, fullName: true, mobile: true, village: true,
         district: true, state: true, status: true,
-        farmerIdGenerated: true, gisId: true,
+        farmerIdGenerated: true,
         registrationStep: true, createdAt: true,
         lands: { select: { id: true, areaAcres: true, surveyGutNumber: true } },
       },
@@ -54,7 +55,7 @@ export async function GET(req: Request) {
 // actually persisted.
 export async function PATCH(req: Request) {
   try {
-    await requireAdmin();
+    const actor: any = await requireAdmin();
     const orgId = await getActiveOrgId();
     const body  = await req.json();
     const { farmerId, status } = body;
@@ -78,7 +79,18 @@ export async function PATCH(req: Request) {
       data: { farmerId, actorRole: 'ADMIN', action: 'STATUS_CHANGED', details: { from: existing.status, to: status } },
     }).catch(() => {});
 
-    return NextResponse.json({ success: true, farmer });
+    // Verification issues the farmer ID. Runs on every save of this status
+    // (not only on a change) so re-saving after fixing a farmer's address
+    // still issues one; it's idempotent, so an existing ID is never touched.
+    let farmerOut: any = farmer;
+    if (status === 'VERIFIED_LAND_OWNER') {
+      try {
+        const issued = await assignFarmerId(farmerId, { role: 'ADMIN', id: actor?.id });
+        if (issued.id) farmerOut = { ...farmer, farmerIdGenerated: issued.id };
+      } catch (e: any) { console.error('Farmer ID issuing failed (status change kept):', e.message); }
+    }
+
+    return NextResponse.json({ success: true, farmer: farmerOut });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 });
   }

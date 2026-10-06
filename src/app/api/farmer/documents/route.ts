@@ -1,16 +1,19 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { DOCUMENT_LITE, FARMER_LITE } from '@/lib/lite-select';
 
 // GET — list farmer's documents
 export async function GET(req: Request) {
   const farmerId = new URL(req.url).searchParams.get('farmerId');
   if (!farmerId) return NextResponse.json({ error: 'farmerId required' }, { status: 400 });
 
-  const documents = await prisma.farmerDocument.findMany({
-    where: { farmerId },
-    orderBy: { createdAt: 'desc' },
+  const rows = await prisma.farmerDocument.findMany({
+    where: { farmerId }, select: DOCUMENT_LITE, orderBy: { createdAt: 'desc' },
   });
+  // fileUrl is now a URL to the on-demand file endpoint, not the file's bytes —
+  // existing <a href={doc.fileUrl}> / <img src={doc.fileUrl}> keep working.
+  const documents = rows.map((r: any) => ({ ...r, fileUrl: `/api/farmer/documents/${r.id}/file?farmerId=${encodeURIComponent(farmerId)}` }));
   return NextResponse.json({ documents });
 }
 
@@ -46,7 +49,7 @@ export async function POST(req: Request) {
     });
 
     // Update farmer status to DOCUMENTS_PENDING if not already further along
-    const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });
+    const farmer = await prisma.farmer.findUnique({ where: { id: farmerId }, select: FARMER_LITE });
     if (farmer && farmer.status === 'REGISTERED') {
       await prisma.farmer.update({
         where: { id: farmerId },

@@ -7,6 +7,7 @@ export const runtime = 'nodejs';
 // one tree's history is ever being looked at at once.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { calculateTreeCarbon } from '@/lib/methodology-engine';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const officerId = new URL(req.url).searchParams.get('officerId');
@@ -19,7 +20,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const tree = await prisma.tree.findUnique({
     where: { id: params.id },
     select: {
-      id: true, treeTagId: true, species: true, plantedDate: true,
+      id: true, treeTagId: true, species: true, plantedDate: true, expectedCO2: true,
       assignment: { select: { farmer: { select: { orgId: true } } } },
       plantationSite: { select: { orgId: true } },
     },
@@ -36,8 +37,22 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     orderBy: { createdAt: 'asc' },
   });
 
+  // Real, species-specific carbon estimate from the latest measurement,
+  // when there's enough data for one — falls back to the existing flat
+  // per-tree constant otherwise. Additive: this doesn't change any
+  // aggregate/report number shown elsewhere, it's a per-tree detail
+  // surfaced here specifically.
+  const latestSample = samples[samples.length - 1];
+  const carbonEstimate = calculateTreeCarbon({
+    species: tree.species,
+    latestHeightCm: latestSample?.height ?? null,
+    latestDiameterCm: latestSample?.diameter ?? null,
+    flatEstimateCO2Kg: tree.expectedCO2 || 22,
+  });
+
   return NextResponse.json({
     tree: { id: tree.id, treeTagId: tree.treeTagId, species: tree.species, plantedDate: tree.plantedDate },
     samples,
+    carbonEstimate,
   });
 }

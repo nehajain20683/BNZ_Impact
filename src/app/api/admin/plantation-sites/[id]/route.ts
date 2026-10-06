@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { guardSite, officerInOrg } from '@/lib/admin-guard';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     // Core site data — safe fields only
     const site = await prisma.plantationSite.findUnique({
@@ -30,6 +34,15 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     });
 
     if (!site) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Land photos are stored as Storage paths once migrated; the browser needs URLs.
+    // (Legacy base64 values pass straight through getPublicUrl, so mixed data is fine.)
+    const siteWithResolvedPhotos = {
+      ...site,
+      landAssignments: site.landAssignments.map((a: any) => ({
+        ...a, land: a.land ? { ...a.land, photos: (a.land.photos || []).map((p: string) => getPublicUrl('land-photos', p)).filter(Boolean) } : a.land,
+      })),
+    };
 
     // Resolve who logged each monitoring visit — officerId can be either a
     // User.id (admin logged it via "Log Visit") or a FieldOfficer.id (an
@@ -62,7 +75,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     ]);
 
     return NextResponse.json({
-      site: { ...site, monitoringVisits: monitoringVisitsWithOfficer, timelineEvents, siteDocuments, carbonMonitoring: null, notifications: [] }
+      site: { ...siteWithResolvedPhotos, monitoringVisits: monitoringVisitsWithOfficer, timelineEvents, siteDocuments, carbonMonitoring: null, notifications: [] }
     });
   } catch (e: any) {
     console.error('[plantation-site GET]', e.message);
@@ -71,11 +84,16 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body    = await req.json();
+    for (const k of ['fieldOfficerId', 'supervisorId'])
+      if (body[k] && !(await officerInOrg(body[k], adminScope.orgId)))
+        return NextResponse.json({ error: 'Officer not found in this organisation' }, { status: 404 });
     const allowed = ['siteName','description','currentPhase','plantationPartner','implementingAgency',
       'fieldOfficerId','supervisorId','plantationSeason','startDate','endDate','state','district',
       'taluka','village','gpsLatitude','gpsLongitude','totalPlannedArea','plannedTrees','plannedArea',
@@ -111,6 +129,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   const session = await getServerSession(authOptions);
   if (!session?.user || !['ADMIN','SUPER_ADMIN'].includes((session.user as any).role))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

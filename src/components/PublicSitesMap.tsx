@@ -12,12 +12,13 @@
 // legend underneath) rather than a default noisy OSM map.
 import { useEffect, useRef, useState } from 'react';
 import { MapPin, ExternalLink, TreePine } from 'lucide-react';
+import { resolvePins } from '@/lib/geo';
 
 type SitePin = {
   id: string;
   siteName: string;
-  lat: number;
-  lng: number;
+  lat?: number | null;   // optional: a parcel with only a KML boundary is pinned at its centre
+  lng?: number | null;
   district?: string | null;
   state?: string | null;
   treesPlanted?: number | null;
@@ -50,7 +51,7 @@ export default function PublicSitesMap({ sites, primaryColor }: { sites: SitePin
   const mapRef = useRef<any>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  const pinned = sites.filter(s => s.lat != null && s.lng != null);
+  const pinned = resolvePins(sites);
 
   useEffect(() => {
     if (pinned.length === 0) { setStatus('ready'); return; }
@@ -124,7 +125,7 @@ export default function PublicSitesMap({ sites, primaryColor }: { sites: SitePin
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
         <MapPin className="w-8 h-8 text-gray-200 mx-auto mb-2"/>
-        <p className="text-gray-400 text-sm">No site locations recorded yet — add GPS coordinates to a plantation site to see it here.</p>
+        <p className="text-gray-400 text-sm">No site locations recorded yet — add a KML boundary or GPS coordinates to a plantation site to see it here.</p>
       </div>
     );
   }

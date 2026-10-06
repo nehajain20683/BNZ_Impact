@@ -4,18 +4,15 @@
 // here comes from an actual database check, not a hardcoded constant.
 // Self-contained, same pattern as SamplingDesignPanel/EngineConfigPanel.
 import { useEffect, useState } from 'react';
-import { ShieldCheck, CheckCircle2, Circle, Plus } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Circle, Plus, FileEdit } from 'lucide-react';
 
 export default function RegistryReadinessPanel({ siteId }: { siteId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showPddForm, setShowPddForm] = useState(false);
   const [showBaselineForm, setShowBaselineForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [registryType, setRegistryType] = useState('');
-  const [baselineScenario, setBaselineScenario] = useState('');
   const [preExistingVegetation, setPreExistingVegetation] = useState('');
   const [landUseHistory, setLandUseHistory] = useState('');
 
@@ -27,20 +24,6 @@ export default function RegistryReadinessPanel({ siteId }: { siteId: string }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, [siteId]);
-
-  async function submitPdd() {
-    setSaving(true);
-    setError('');
-    const res = await fetch(`/api/admin/sites/${siteId}/registry-readiness`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'pdd', registryType, baselineScenario }),
-    });
-    const d = await res.json();
-    setSaving(false);
-    if (!res.ok) { setError(d.error || 'Failed'); return; }
-    setShowPddForm(false);
-    load();
-  }
 
   async function submitBaseline() {
     setSaving(true);
@@ -103,33 +86,13 @@ export default function RegistryReadinessPanel({ siteId }: { siteId: string }) {
 
       {error && <p className="text-red-500 text-xs">{error}</p>}
 
-      {/* Lightweight PDD creation — a few core fields, not a full editor */}
-      {data.pddEnabled && !data.pdd && (
-        showPddForm ? (
-          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-gray-700">Start a Project Design Document</h4>
-            <select value={registryType} onChange={e => setRegistryType(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-              <option value="">Registry type (optional for now)</option>
-              <option value="VERRA_VCS">Verra VCS</option>
-              <option value="GOLD_STANDARD">Gold Standard</option>
-              <option value="ICR">ICR</option>
-              <option value="INTERNAL_CSR">Internal / CSR only</option>
-            </select>
-            <textarea value={baselineScenario} onChange={e => setBaselineScenario(e.target.value)} rows={3}
-              placeholder="Baseline scenario — what would have happened without this project?"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"/>
-            <div className="flex gap-2">
-              <button onClick={submitPdd} disabled={saving} className="text-xs font-semibold bg-[var(--admin-primary)] text-white px-4 py-2 rounded-lg disabled:opacity-60">
-                {saving ? 'Saving…' : 'Create Draft'}
-              </button>
-              <button onClick={() => setShowPddForm(false)} className="text-xs text-gray-500 px-3 py-2">Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setShowPddForm(true)} className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-xl px-3 py-2">
-            <Plus className="w-3.5 h-3.5"/> Start PDD
-          </button>
-        )
+      {/* Full PDD editor now exists — this panel just links to it, rather
+          than duplicating a form. */}
+      {data.pddEnabled && (
+        <a href={`/admin/plantation-sites/${siteId}/pdd`}
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-xl px-3 py-2 hover:border-gray-300 w-fit">
+          <FileEdit className="w-3.5 h-3.5"/> {data.pdd ? `View / Edit PDD (v${data.pdd.version}, ${data.pdd.status})` : 'Start a Project Design Document'}
+        </a>
       )}
 
       {data.baselineEnabled && !data.baseline && (

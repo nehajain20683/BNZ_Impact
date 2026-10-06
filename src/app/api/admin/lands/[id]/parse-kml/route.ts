@@ -8,17 +8,19 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { assignLandGisId } from '@/lib/farmer-id';
 import { parseKmlToGeoJson, decodeKmlDataUri } from '@/lib/kml-parser';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !['ADMIN', 'SUPER_ADMIN'].includes((session.user as any).role))
     throw new Error('Unauthorized');
+  return session.user as any;
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    await requireAdmin();
+    const actor: any = await requireAdmin();
     const orgId = await getActiveOrgId();
     const body = await req.json().catch(() => ({}));
 
@@ -57,7 +59,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data: { polygonGeoJson: polygon as any },
     });
 
-    return NextResponse.json({ success: true, polygonGeoJson: updated.polygonGeoJson, pointCount: polygon.coordinates[0].length });
+    // The parcel's boundary now exists, so its GIS ID is issued (once — re-parsing
+  // a replacement KML keeps the same ID). A failure here must never undo the
+  // boundary that was just saved; re-running "parse KML" or the backfill issues it.
+    let gisId: string | null = (updated as any).gisId ?? null;
+    try {
+      const issued = await assignLandGisId(params.id, { role: actor?.role, id: actor?.id });
+      if (issued.id) gisId = issued.id;
+    } catch (e: any) { console.error('GIS ID issuing failed (boundary kept):', e.message); }
+
+    return NextResponse.json({ success: true, polygonGeoJson: updated.polygonGeoJson, pointCount: polygon.coordinates[0].length, gisId });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 });
   }

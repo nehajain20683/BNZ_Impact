@@ -1,6 +1,7 @@
 'use client';
 // src/app/admin/farmers/[id]/page.tsx — Admin farmer profile with document generation
 import { useState, useEffect } from 'react';
+import ConsentSignaturePanel from '@/components/admin/ConsentSignaturePanel';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, FileText, Send, Eye, CheckCircle, AlertCircle, Edit, Save, X, Plus } from 'lucide-react';
@@ -10,6 +11,7 @@ import { LandGallery } from '@/components/LandGallery';
 const STATUS_OPTIONS = ['REGISTERED','DOCUMENTS_PENDING','VERIFIED_LAND_OWNER','SUSPENDED'];
 const AGREEMENT_TYPES = [
   { type:'PARTICIPATION_AGREEMENT', label:'Landowner Participation Agreement', icon:'📜' },
+  { type:'LANDOWNER_CONSENT', label:'Landowner Consent & Participation Declaration (हिंदी)', icon:'🤝' },
   { type:'JOINT_OWNER_NOC',         label:'अनापत्ति प्रमाण पत्र (Joint Owner NOC)', icon:'📋' },
   { type:'PAYMENT_RECEIPT',         label:'Farmer Payment Receipt', icon:'💰' },
   { type:'SAPLING_RECEIPT',         label:'Sapling Receipt cum Handover', icon:'🌱' },
@@ -419,7 +421,7 @@ export default function AdminFarmerDetailPage() {
             </div>
             {[
               { title:'Personal Information', fields:[
-                ['Farmer ID', farmer.farmerIdGenerated||'—'],['GIS ID', farmer.gisId||'—'],
+                ['Farmer ID', farmer.farmerIdGenerated||'—'],['GIS ID', (farmer.lands||[]).map((l: any) => l.gisId).filter(Boolean).join(', ') || '—'],
                 ['Full Name', farmer.fullName],["Father's Name", farmer.fatherName||'—'],
                 ['Date of Birth', farmer.dateOfBirth?new Date(farmer.dateOfBirth).toLocaleDateString('en-IN'):'—'],
                 ['Gender', farmer.gender||'—'],['Aadhaar', farmer.aadhaarNumber?'••••••••'+farmer.aadhaarNumber.slice(-4):'—'],
@@ -469,7 +471,12 @@ export default function AdminFarmerDetailPage() {
               return (
               <div key={land.id} className="bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-3">
-                  <div className="font-semibold text-gray-900">Survey: {land.surveyGutNumber||'—'}</div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Survey: {land.surveyGutNumber||'—'}</div>
+                    <div className="text-xs mt-0.5 text-gray-500">GIS ID: {land.gisId
+                      ? <span className="font-mono font-semibold text-gray-700">{land.gisId}</span>
+                      : <span className="italic text-gray-400">not issued — boundary not captured yet</span>}</div>
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-2 py-1 rounded-full font-bold ${land.verified?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}`}>
                       {(land.status || 'DOCUMENTS_PENDING').replace(/_/g,' ')}
@@ -615,7 +622,7 @@ export default function AdminFarmerDetailPage() {
                         className="flex items-center gap-1 text-xs text-[var(--admin-primary)] hover:underline border border-[var(--admin-primary)]/25 rounded-lg px-2 py-1">
                         <Eye className="w-3 h-3"/> View Generated
                       </a>
-                      {ag.signedPdfUrl && (
+                      {ag.signedPdfUrl && ag.agreementType !== 'LANDOWNER_CONSENT' && (
                         <>
                           <a href={ag.signedPdfUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1 text-xs text-green-600 hover:underline border border-green-200 rounded-lg px-2 py-1">
@@ -630,6 +637,7 @@ export default function AdminFarmerDetailPage() {
                         </>
                       )}
                     </div>
+                    {ag.agreementType === 'LANDOWNER_CONSENT' && <ConsentSignaturePanel ag={ag} onChanged={load}/>}
                     {ag.notes && <p className="text-xs text-gray-400 mt-1 italic">{ag.notes}</p>}
                   </div>
                 ))}

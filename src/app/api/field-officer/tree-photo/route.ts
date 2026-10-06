@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 // upload if denied), and a short-window duplicate-tap guard.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 import { uploadBase64ToStorage, getPublicUrl } from '@/lib/supabase-storage';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 
 function generateFileName(treeTag: string, at: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -20,7 +21,7 @@ function generateFileName(treeTag: string, at: Date): string {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { officerId, treeId, imageBase64, latitude, longitude, gpsAccuracy } = body;
+    const { officerId, treeId, imageBase64, latitude, longitude, gpsAccuracy, deviceId } = body;
 
     if (!officerId || !treeId || !imageBase64)
       return NextResponse.json({ error: 'officerId, treeId and imageBase64 are required' }, { status: 400 });
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
     // identity beyond confirming this ID genuinely belongs to a real,
     // active account (same model already used by every other farmer/officer
     // self-route in this app).
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 
@@ -108,6 +109,27 @@ export async function POST(req: Request) {
         tenantId: treeOrgId,
       },
     });
+
+    // Chain-of-custody record — hash computed from the actual decoded
+    // image bytes as originally captured, before any Storage upload or
+    // transformation, so it proves the stored file matches what the
+    // officer's camera actually produced. deviceId comes from the client
+    // (a persistent identifier generated once per device — see the
+    // officer app's capture flow); genuinely optional here since older
+    // app versions won't send it yet, and a missing deviceId shouldn't
+    // block a real photo capture from succeeding.
+    try {
+      const base64Content = imageBase64.split(',')[1] || '';
+      const contentHash = createHash('sha256').update(base64Content, 'base64').digest('hex');
+      await prisma.evidenceAudit.create({
+        data: { treeImageId: image.id, contentHash, deviceId: typeof deviceId === 'string' ? deviceId : undefined },
+      });
+    } catch (auditError: any) {
+      // A failed chain-of-custody record should never fail the photo
+      // capture itself — the photo and its GPS/timestamp are the
+      // primary evidence; this is a supplementary integrity layer.
+      console.error('EvidenceAudit creation failed (photo still saved):', auditError.message);
+    }
 
     return NextResponse.json({ success: true, image: { ...image, imageUrl: getPublicUrl('tree-photos', image.imageUrl) } });
   } catch (e: any) {

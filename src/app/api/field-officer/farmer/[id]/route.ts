@@ -2,13 +2,14 @@ export const runtime = 'nodejs';
 // src/app/api/field-officer/farmer/[id]/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 import { getPublicUrl } from '@/lib/supabase-storage';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const officerId = new URL(req.url).searchParams.get('officerId');
   if (!officerId) return NextResponse.json({ error: 'officerId required' }, { status: 400 });
 
-  const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+  const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
   if (!officer || !officer.active) return NextResponse.json({ error: 'Account not found or inactive' }, { status: 404 });
 
   const farmer = await prisma.farmer.findFirst({
@@ -19,6 +20,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     },
   });
   if (!farmer) return NextResponse.json({ error: 'Farmer not found or not assigned to you' }, { status: 404 });
+
+  const farmerWithResolvedPhotos = {
+    ...farmer,
+    lands: farmer.lands.map((l: any) => ({ ...l, photos: (l.photos || []).map((p: string) => getPublicUrl('land-photos', p)).filter(Boolean) })),
+  };
 
   const trees = await prisma.tree.findMany({
     where: { assignment: { farmerId: farmer.id } },
@@ -60,5 +66,5 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }),
   ]);
 
-  return NextResponse.json({ farmer, trees, latestInspection, latestMonitoring, checkedInToday: !!todayCheckIn });
+  return NextResponse.json({ farmer: farmerWithResolvedPhotos, trees, latestInspection, latestMonitoring, checkedInToday: !!todayCheckIn });
 }

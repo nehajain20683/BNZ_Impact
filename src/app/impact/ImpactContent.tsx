@@ -32,7 +32,7 @@ export default function ImpactContent() {
   const comingSoonSites: any[] = s.comingSoonSites || [];
   const speciesBreakdown: any[] = s.speciesBreakdown || [];
   const mapSites = [...activeSites, ...comingSoonSites]
-    .filter(site => site.gpsLatitude != null)
+    .filter(site => site.gpsLatitude != null || site.polygons?.length > 0)
     .map(site => ({
       id: site.id, siteName: site.siteName, lat: site.gpsLatitude, lng: site.gpsLongitude,
       district: site.district, state: site.state, treesPlanted: site.treesPlanted, isComingSoon: site.isComingSoon,

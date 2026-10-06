@@ -64,6 +64,7 @@ function EditOrgPage({ params }: { params: { id: string } }) {
             donation_ref_prefix: d.org.donation_ref_prefix|| '',
             tree_price:          String(d.org.tree_price  || 500),
             org_80g_number:      d.org.org_80g_number     || '',
+            consent_authority_name: d.org.consent_authority_name || '',
             custom_domain:       d.org.custom_domain      || '',
             plan:                d.org.plan               || 'STARTER',
             active:              d.org.active             ?? true,
@@ -305,6 +306,12 @@ function EditOrgPage({ params }: { params: { id: string } }) {
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1.5">80G Registration Number</label>
               <input value={form.org_80g_number} onChange={f('org_80g_number')} className={inp}/>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">Consent Declaration — Project Authority Name</label>
+              <input value={form.consent_authority_name} onChange={f('consent_authority_name')} className={inp}
+                placeholder="Exact legal name (leave blank to use the organisation name)"/>
+              <p className="text-[11px] text-gray-400 mt-1">Named in the landowner declaration as the holder of the carbon credits and rights the landowner irrevocably assigns. It must be the correct legal entity — have your legal advisor confirm it before landowners sign.</p>
             </div>
           </div>
         </div>

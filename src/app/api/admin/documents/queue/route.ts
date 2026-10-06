@@ -12,6 +12,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { DOCUMENT_LITE } from '@/lib/lite-select';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -39,7 +40,8 @@ export async function GET(req: Request) {
 
     const documents = await prisma.farmerDocument.findMany({
       where,
-      include: {
+      select: {
+        ...DOCUMENT_LITE,   // every column except the file itself — see lite-select.ts
         farmer: { select: { id: true, fullName: true, mobile: true, farmerIdGenerated: true } },
         land: { select: { id: true, surveyGutNumber: true, village: true } },
       },
@@ -55,7 +57,10 @@ export async function GET(req: Request) {
     const statusCounts: Record<string, number> = {};
     for (const c of counts) statusCounts[c.status] = c._count._all;
 
-    return NextResponse.json({ documents, statusCounts });
+    // The file is returned as a URL and fetched only when an admin opens it,
+    // instead of up to 200 uploaded documents riding along on every visit.
+    const documentsOut = documents.map((d: any) => ({ ...d, fileUrl: `/api/admin/documents/${d.id}/file` }));
+    return NextResponse.json({ documents: documentsOut, statusCounts });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 });
   }

@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 // forward), gets a freshly generated tag, and starts at PENDING.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 import { generateTreeTagIds } from '@/lib/tree-tag';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -15,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { officerId } = await req.json();
     if (!officerId) return NextResponse.json({ error: 'officerId is required' }, { status: 400 });
 
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 // a tree being marked dead during health monitoring.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 
 const ISSUE_LABELS: Record<string, string> = {
   ANIMAL_DAMAGE: 'Animal Damage', FLOOD: 'Flood', FIRE: 'Fire',
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     if (!ISSUE_LABELS[issueType])
       return NextResponse.json({ error: 'Invalid issue type' }, { status: 400 });
 
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

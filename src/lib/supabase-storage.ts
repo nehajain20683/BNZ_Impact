@@ -46,7 +46,7 @@ export async function uploadBase64ToStorage(bucket: StorageBucket, path: string,
   const buffer = Buffer.from(base64Data, 'base64');
 
   const client = getClient();
-  const { error } = await client.storage.from(bucket).upload(path, buffer, { contentType, upsert: true });
+  const { error } = await client.storage.from(bucket).upload(path, buffer, { contentType, upsert: true, cacheControl: '31536000' });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
   return path;
 }
@@ -84,4 +84,19 @@ export async function deleteFromStorage(bucket: StorageBucket, path: string): Pr
   if (!path || path.startsWith('http') || path.startsWith('data:')) return;
   const client = getClient();
   await client.storage.from(bucket).remove([path]);
+}
+
+// The common pattern for every write path: a fresh base64 upload goes to Storage and
+// the resulting PATH is what gets saved; anything else (nothing sent, or a value that
+// is already a path/URL) leaves what is stored untouched. If Storage is unreachable
+// the original base64 is kept, so a photo is never lost to a failed upload.
+export async function uploadIfBase64(bucket: StorageBucket, path: string, value: string | null | undefined, existingValue: string | null | undefined): Promise<string | null> {
+  if (!value) return existingValue || null;
+  if (!value.startsWith('data:')) return value;
+  try {
+    return await uploadBase64ToStorage(bucket, path, value);
+  } catch (e: any) {
+    console.error(`Storage upload failed for ${bucket}/${path}, keeping base64 in the column:`, e.message);
+    return value;
+  }
 }

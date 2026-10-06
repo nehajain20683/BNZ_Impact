@@ -1,6 +1,13 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { uploadIfBase64, getPublicUrl } from '@/lib/supabase-storage';
+
+// Only a real base64 data URL is a new upload. The Land page re-sends whatever it is
+// currently DISPLAYING on every save (a resolved URL for migrated photos), which must
+// be treated as "unchanged" so the stored path is kept rather than overwritten by a URL.
+const newUploadOnly = (v?: string | null) => (v && v.startsWith('data:') ? v : null);
+import { randomUUID } from 'crypto';
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +19,13 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ lands });
+    // Stored photos are Storage paths after migration; the client needs displayable URLs.
+    // (This read path was missed in the original Land.photos migration — the findMany has
+    // no select, so a search for `photos: true` never found it.)
+    const resolved = lands.map(l => ({
+      ...l, photos: (l.photos || []).map(p => getPublicUrl('land-photos', p)).filter((p): p is string => !!p),
+    }));
+    return NextResponse.json({ lands: resolved });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -29,10 +42,20 @@ export async function POST(req: Request) {
     const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });
     if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
 
-    // Build photos array for storage
+    // Build photos array for storage — each provided photo uploads to
+    // Storage individually; uploadIfBase64 passes through unchanged if
+    // nothing new was given (nothing to pass through here on create,
+    // but shares the same helper used by the update handler below).
+    const landStoragePrefix = `${farmer.orgId || 'unassigned'}/${farmerId}`;
     const photos: string[] = [];
-    if (landPhotoBase64) photos.push(landPhotoBase64);
-    if (kmlPhotoBase64)  photos.push(kmlPhotoBase64);
+    if (landPhotoBase64) {
+      const uploaded = await uploadIfBase64('land-photos', `${landStoragePrefix}/land-${randomUUID()}.jpg`, landPhotoBase64, null);
+      if (uploaded) photos.push(uploaded);
+    }
+    if (kmlPhotoBase64) {
+      const uploaded = await uploadIfBase64('land-photos', `${landStoragePrefix}/kml-${randomUUID()}.jpg`, kmlPhotoBase64, null);
+      if (uploaded) photos.push(uploaded);
+    }
 
     const land = await prisma.land.create({
       data: {
@@ -82,10 +105,11 @@ export async function PATCH(req: Request) {
     if (existing.verified)
       return NextResponse.json({ error: 'This land parcel has been approved and can no longer be edited. Contact your field officer for changes.' }, { status: 400 });
 
-    const photos = [
-      landPhotoBase64 || existing.photos?.[0] || null,
-      kmlPhotoBase64  || existing.photos?.[1] || null,
-    ].filter((p): p is string => !!p);
+    const landStoragePrefix2 = `${existing.orgId || 'unassigned'}/${farmerId}`;
+    const photos = (await Promise.all([
+      uploadIfBase64('land-photos', `${landStoragePrefix2}/land-${randomUUID()}.jpg`, newUploadOnly(landPhotoBase64), existing.photos?.[0]),
+      uploadIfBase64('land-photos', `${landStoragePrefix2}/kml-${randomUUID()}.jpg`, newUploadOnly(kmlPhotoBase64), existing.photos?.[1]),
+    ])).filter((p): p is string => !!p);
 
     const land = await prisma.land.update({
       where: { id: landId },

@@ -76,7 +76,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     // Only present once an admin has actually linked this tree to a specific
     // farmer's land via "Link Sponsored Trees" — otherwise we only know the site.
     farmer: tree.assignment?.farmer || null,
-    land: tree.assignment?.land || null,
+    land: tree.assignment?.land ? { ...tree.assignment.land, photos: (tree.assignment.land.photos || []).map((p: string) => getPublicUrl('land-photos', p)).filter(Boolean) } : null,
     verifiedVisits,
   });
 }

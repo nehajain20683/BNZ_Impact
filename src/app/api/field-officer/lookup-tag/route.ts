@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 // instead of the officer manually navigating to find it.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
   const officerId = params.get('officerId');
   if (!tag || !officerId) return NextResponse.json({ error: 'tag and officerId are required' }, { status: 400 });
 
-  const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+  const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
   if (!officer || !officer.active)
     return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

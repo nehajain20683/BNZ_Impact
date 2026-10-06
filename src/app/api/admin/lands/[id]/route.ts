@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notifyFarmer } from '@/lib/notifications';
 import { LAND_DOC_TYPES, LAND_STATUS_ORDER, LAND_LOCK_STATUS, isAtOrBeyondLandStage } from '@/lib/farmer-constants';
+import { guardLand } from '@/lib/admin-guard';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,8 @@ async function requireAdmin() {
 // `verified`/`verifiedAt`/`verifiedById` stay in sync automatically for
 // backward compatibility with existing lock checks.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardLand(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const actor = await requireAdmin();
     const body  = await req.json();

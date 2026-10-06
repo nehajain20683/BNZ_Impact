@@ -15,6 +15,7 @@ export async function GET(req: Request) {
 
     let campaign = await prisma.campaign.findFirst({
       where: { orgId: org.id, isIndividual: true },
+      select: { id: true, slug: true, name: true },
     });
 
     if (!campaign) {
@@ -28,10 +29,11 @@ export async function GET(req: Request) {
           active: true,
           treePrice: org.treePrice || 500,
         },
+        select: { id: true, slug: true, name: true },
       });
     }
 
-    return NextResponse.json({ campaign: { id: campaign.id, slug: campaign.slug, name: campaign.name } });
+    return NextResponse.json({ campaign: { id: campaign.id, slug: campaign.slug, name: campaign.name } }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
   } catch (error: any) {
     console.error('Individual campaign resolution error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 // src/app/api/campaigns/[slug]/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { CAMPAIGN_CARD } from '@/lib/lite-select';
 import { resolveTenantFromRequest } from '@/lib/tenant';
 
 export async function GET(req: Request, { params }: { params: { slug: string } }) {
@@ -16,9 +17,10 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
       where: { orgId: org.id, active: true, isIndividual: false, id: { not: campaign.id } },
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       take: 5,
+      select: CAMPAIGN_CARD,   // related cards never show the gallery
     });
 
-    return NextResponse.json({ campaign, related });
+    return NextResponse.json({ campaign, related }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -422,6 +422,7 @@ model PlantationSite {
   baselineAssessments    BaselineAssessment[]
   monitoringSchedule     MonitoringSchedule?
   samplingPlans          SamplingPlan[]
+  carbonCredits          CarbonCredit[]
 
   @@map("plantation_sites")
 }
@@ -740,6 +741,9 @@ model Organization {
   donation_ref_prefix String?  @default("BNZ")
   tree_price          Int?     @default(500)
   org_80g_number      String?
+  // Exact legal name of the "project authority" the Landowner Consent Declaration
+  // names as holder of carbon rights. Falls back to the org name when null.
+  consent_authority_name String?
   campaign_config     Json?
   payment_banks       Json?
   custom_domain       String?  @unique
@@ -804,6 +808,7 @@ model Organization {
   monitoringSchedules    MonitoringSchedule[]
   trees                  Tree[]
   samplingPlans          SamplingPlan[]
+  carbonCredits          CarbonCredit[]
 
   @@map("organizations")
 }
@@ -887,7 +892,7 @@ model Farmer {
   cancelledChequeUrl String?
   // Extended fields for Land Owner Registration
   farmerIdGenerated String?        @unique   // JGL-MH-NAS-F-001
-  gisId             String?        @unique   // auto-generated GIS ID
+  gisId             String?        @unique   // DEPRECATED, never populated — a GIS ID identifies a land parcel's boundary, so it lives on Land.gisId (one per parcel). Kept so no column is dropped.
   occupation        String?                  // Farmer / Landowner / Both / Other
   farmingExperience String?                  // years
   isFarmer          Boolean?       @default(false)
@@ -1012,6 +1017,9 @@ model Land {
   // point used everywhere else until this exists for a given parcel.
   polygonGeoJson   Json?
   kmlFileName      String?       // original filename of the uploaded KML/KMZ boundary file
+  // Issued once, automatically, the first time this parcel's boundary polygon is captured
+  // (see assignLandGisIdWith). Never reissued — re-capturing the boundary keeps the same ID.
+  gisId            String?       @unique
   // Land + KML preview photos — the actual root cause of the repeated
   // "Invalid prisma.land.update()" errors. Both the create and edit routes
   // have always written to this field, but it was never declared here, so
@@ -1213,15 +1221,28 @@ model CarbonCredit {
   id              String       @id @default(cuid())
   farmerId        String
   farmer          Farmer       @relation(fields: [farmerId], references: [id])
+  // Added now that this model actually gets used — same reasoning as the
+  // Tree.orgId fix: never rely on an indirect join through farmer.orgId
+  // alone for tenant scoping when a direct column is cheap to have.
+  orgId           String?
+  organization    Organization? @relation(fields: [orgId], references: [id])
+  siteId          String?
+  site            PlantationSite? @relation(fields: [siteId], references: [id])
   vintageYear     Int?
   creditsIssued   Float?       // tCO2e
   creditsSold     Float?
+  creditsTransferred Float?
+  creditsRetired  Float?
   revenueShared   Float?
   registry        String?      // Verra, Gold Standard etc
   serialNumber    String?
   status          CreditStatus @default(PENDING)
   issuedAt        DateTime?
+  soldAt          DateTime?
+  retiredAt       DateTime?
+  retirementReason String?     @db.Text
   createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@map("carbon_credits")
 }
@@ -1243,6 +1264,18 @@ model AuditLog {
 // ── Enums ─────────────────────────────────────────────────
 
 
+// One row per PREFIX-STATE-DISTRICT (e.g. "JGL-MH-NAS"). Keyed by the full
+// prefix, not by org: Farmer.farmerIdGenerated is globally unique, so two
+// tenants that happen to share a prefix must share a sequence too. Advanced
+// only through a single atomic INSERT .. ON CONFLICT DO UPDATE (see
+// farmer-id-core.ts) — never read-then-write.
+model FarmerIdCounter {
+  counterKey String @id
+  lastValue  Int    @default(0)
+
+  @@map("farmer_id_counters")
+}
+
 model FarmerAgreement {
   id              String   @id @default(cuid())
   farmerId        String
@@ -1253,7 +1286,7 @@ model FarmerAgreement {
   // particular parcel's details, not the farmer in the abstract.
   landId          String?
   land            Land?    @relation(fields: [landId], references: [id])
-  agreementType   String   // PARTICIPATION_AGREEMENT | PLANTATION_CERTIFICATE | SAPLING_RECEIPT | PAYMENT_RECEIPT | NOC
+  agreementType   String   // PARTICIPATION_AGREEMENT | LANDOWNER_CONSENT | PLANTATION_CERTIFICATE | SAPLING_RECEIPT | PAYMENT_RECEIPT | NOC
   title           String
   generatedHtml   String?  @db.Text  // admin-generated HTML content
   generatedPdfUrl String?  // URL of generated PDF
@@ -1265,6 +1298,19 @@ model FarmerAgreement {
   sharedAt        DateTime?
   templateData    Json?    // data used to fill template
   notes           String?
+  // ── Signature request + verification (added for LANDOWNER_CONSENT, but
+  // generic — usable by any agreement type that needs a signed copy). ──
+  // The farmer can always view/download the document; the "upload signed
+  // copy" action only appears once an admin has explicitly requested it.
+  signatureRequestedAt   DateTime?
+  signatureRequestedById String?
+  verificationStatus     String?   // VERIFIED | REJECTED | null (not yet reviewed)
+  verifiedById           String?
+  verifiedAt             DateTime?
+  verificationNote       String?   @db.Text
+  // Append-only audit trail: every request, upload, verification, rejection
+  // with who/when/note — the thing a dispute would actually need.
+  signatureHistory       Json?     @default("[]")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1368,7 +1414,9 @@ enum PaymentType {
 enum CreditStatus {
   PENDING
   ISSUED
+  LISTED
   SOLD
+  TRANSFERRED
   RETIRED
 }
 
@@ -1453,13 +1501,33 @@ model ProjectDesignDocument {
   orgId         String
   organization  Organization @relation(fields: [orgId], references: [id])
   version       Int      @default(1)
+  // A new version starts life as a draft of the version it was created
+  // from, so a reviewer can trace what changed between submissions —
+  // null for version 1 of any site.
+  previousVersionId String? @unique
+  previousVersion   ProjectDesignDocument? @relation("PDDVersionChain", fields: [previousVersionId], references: [id])
+  nextVersion       ProjectDesignDocument? @relation("PDDVersionChain")
   registryType  String?  // VERRA_VCS | GOLD_STANDARD | ICR | INTERNAL_CSR
   status        String   @default("DRAFT") // DRAFT | SUBMITTED | VALIDATION | CLARIFICATION | VERIFICATION | ISSUED
+  // Every status change, with who changed it, when, and an optional note
+  // (e.g. "registry requested additional baseline evidence") — the real
+  // audit trail a registry submission needs, kept with the document
+  // itself rather than a separate table, since it's always read together.
+  statusHistory Json?    @default("[]")
   baselineScenario           String? @db.Text
   additionalityJustification String? @db.Text
   permanencePlan             String? @db.Text
+  // Fields a real PDD needs beyond what the original lightweight version
+  // had — still all optional, since a draft can be built up incrementally
+  // rather than requiring every field before it can be saved at all.
+  projectDescription    String? @db.Text
+  leakageAssessment      String? @db.Text
+  stakeholderConsultation String? @db.Text
+  monitoringMethodology  String? @db.Text
   creditingPeriodStart DateTime?
   creditingPeriodEnd   DateTime?
+  createdById   String?
+  submittedAt   DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

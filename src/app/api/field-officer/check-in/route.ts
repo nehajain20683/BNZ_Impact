@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 // which check-ins were GPS-verified.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     if (!officerId || !farmerId)
       return NextResponse.json({ error: 'officerId and farmerId are required' }, { status: 400 });
 
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

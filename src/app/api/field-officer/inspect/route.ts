@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 
 const schema = z.object({
   farmerId:            z.string(),
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     // account, and (since Farmer.orgId scoping applies throughout this app)
     // that the officer and the farmer being inspected belong to the same
     // organisation, so an officer from one tenant can never touch another's data.
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: data.officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: data.officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

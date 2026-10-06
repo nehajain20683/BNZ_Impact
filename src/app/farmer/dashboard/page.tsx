@@ -382,7 +382,7 @@ export default function FarmerDashboard() {
                 { key:'occupation',  label:'Occupation',    value: farmer?.occupation },
                 { key:'alternateMobile', label:'Alternate Mobile', value: farmer?.alternateMobile, type:'tel' },
                 { key:'email',       label:'Email',         value: farmer?.email, type:'email' },
-                { key:'gisId',       label:'GIS ID',        value: farmer?.gisId, locked: true },
+                { key:'gisId',       label:'GIS ID',        value: lands.map((l: any) => l.gisId).filter(Boolean).join(', ') || null, locked: true },
                 { key:'farmerIdGenerated', label: `${ownerTerm.en} ID`, value: farmer?.farmerIdGenerated, locked: true },
                 { key:'createdAt',   label:'Registered On', value: farmer?.createdAt ? new Date(farmer.createdAt).toLocaleDateString('en-IN') : null, locked: true },
                 { key:'status',      label:'Status',        value: farmer?.status?.replace(/_/g,' '), locked: true },
@@ -528,6 +528,7 @@ export default function FarmerDashboard() {
                             { label:'Area',     value: land.areaAcres ? `${land.areaAcres} acres` : '—' },
                             { label:'Offered',  value: land.areaOfferedAcres ? `${land.areaOfferedAcres} acres` : '—' },
                             { label:'Type',     value: land.landType?.replace('_',' ') || '—' },
+                            { label:'GIS ID',   value: land.gisId || 'Issued once boundary is mapped' },
                             { label:'Ownership',value: land.ownershipType === 'joint'
                                 ? `Joint (${land.jointOwnerCount || '?'} owners)`
                                 : (land.ownershipType ? 'Sole' : '—') },

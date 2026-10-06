@@ -10,6 +10,7 @@ import { ArrowLeft, Camera, MapPin, CheckCircle, AlertCircle, RefreshCw, TreePin
 import { Suspense } from 'react';
 import { QRScanner } from '@/components/QRScanner';
 import { compressImage } from '@/lib/image-compress';
+import { getDeviceId } from '@/lib/device-id';
 import { LandGallery } from '@/components/LandGallery';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -122,7 +123,7 @@ function OfficerFarmerDetailInner() {
       const officerId = localStorage.getItem('officerId');
       const res = await fetch('/api/field-officer/tree-photo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ officerId, treeId, imageBase64, ...(gps || {}) }),
+        body: JSON.stringify({ officerId, treeId, imageBase64, deviceId: getDeviceId(), ...(gps || {}) }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Upload failed');

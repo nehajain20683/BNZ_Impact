@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { FARMER_LITE } from '@/lib/lite-select';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     if (!mobile) return NextResponse.json({ error: 'Mobile number required' }, { status: 400 });
     const normalMobile = '+91' + mobile.replace(/^(\+91|91)/, '');
 
-    const farmer = await prisma.farmer.findUnique({ where: { mobile: normalMobile } });
+    const farmer = await prisma.farmer.findUnique({ where: { mobile: normalMobile }, select: FARMER_LITE });
 
     // ── Password Login ──────────────────────────────────────
     if (action === 'password') {

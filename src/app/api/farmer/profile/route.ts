@@ -1,7 +1,11 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { LAND_LITE, DOCUMENT_LITE } from '@/lib/lite-select';
 import { FARMER_LOCK_STATUS, isAtOrBeyondStage } from '@/lib/farmer-constants';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 export async function GET(req: Request) {
   try {
@@ -14,16 +18,27 @@ export async function GET(req: Request) {
 
     const where = farmerId ? { id: farmerId } : { mobile };
 
+    // The farmer dashboard and registration pages call this on every visit and never
+    // read the documents or land photos out of it — yet it used to return up to 20
+    // uploaded documents AND every land photo (all base64). Admins (the one caller
+    // that does use them) still get the full payload; everyone else gets the same
+    // shape without the files.
+    const session = await getServerSession(authOptions);
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes((session?.user as any)?.role);
+    const assignedOfficer = { select: { id: true, name: true, mobile: true, designation: true } };
     const farmer = await prisma.farmer.findUnique({
       where: where as any,
-      include: {
-        lands:     true,
-        documents: { take: 20, orderBy: { createdAt: 'desc' } },
-        assignedOfficer: { select: { id: true, name: true, mobile: true, designation: true } },
-      },
-    });
+      include: (isAdmin
+        ? { lands: true, documents: { take: 20, orderBy: { createdAt: 'desc' } }, assignedOfficer }
+        : { lands: { select: LAND_LITE }, documents: { take: 20, orderBy: { createdAt: 'desc' }, select: DOCUMENT_LITE }, assignedOfficer }) as any,
+    }) as any;
 
     if (!farmer) return NextResponse.json({ error: 'Farmer not found' }, { status: 404 });
+
+    // Only the admin branch returns land photos (everyone else gets the photo-free version).
+    if (isAdmin && Array.isArray(farmer.lands)) {
+      farmer.lands = farmer.lands.map((l: any) => ({ ...l, photos: (l.photos || []).map((p: string) => getPublicUrl('land-photos', p)).filter(Boolean) }));
+    }
 
     const totalLandAcres = farmer.lands.reduce((s: number, l: any) => s + (l.areaAcres || 0), 0);
     return NextResponse.json({ farmer, stats: { totalLandAcres } });

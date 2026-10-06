@@ -7,6 +7,7 @@ import { LandGallery } from '@/components/LandGallery';
 import PublicSitesMap from '@/components/PublicSitesMap';
 import SamplingDesignPanel from '@/components/admin/SamplingDesignPanel';
 import RegistryReadinessPanel from '@/components/admin/RegistryReadinessPanel';
+import CarbonCreditsPanel from '@/components/admin/CarbonCreditsPanel';
 import { ArrowLeft, Plus, Search, TreePine, MapPin, Users, Leaf, CheckCircle,
          Activity, BarChart2, FileText, X, Edit, ChevronDown, Camera, QrCode } from 'lucide-react';
 
@@ -1120,7 +1121,7 @@ export default function PlantationSiteDetailPage() {
                   <PublicSitesMap
                     primaryColor="#2563eb"
                     sites={site.landAssignments
-                      .filter((a: any) => a.land?.gpsLatitude != null)
+                      .filter((a: any) => a.land?.gpsLatitude != null || a.land?.polygonGeoJson?.coordinates?.[0]?.length >= 3)
                       .map((a: any) => ({
                         id: a.id, siteName: a.farmer?.fullName || 'Farmer', lat: a.land.gpsLatitude, lng: a.land.gpsLongitude,
                         district: a.land.district, treesPlanted: a._count?.trees,
@@ -1142,6 +1143,8 @@ export default function PlantationSiteDetailPage() {
             <SamplingDesignPanel siteId={id}/>
 
             <RegistryReadinessPanel siteId={id}/>
+
+            <CarbonCreditsPanel siteId={id}/>
 
             {/* Farmer progress table */}
             {dash.farmerProgress?.length > 0 && (

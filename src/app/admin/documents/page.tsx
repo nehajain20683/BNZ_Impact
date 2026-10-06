@@ -7,7 +7,8 @@
 // Kept as two tabs rather than one merged list — the actions, statuses,
 // and even the record source (FarmerDocument vs FarmerAgreement) are
 // unrelated, and mixing them would make neither workflow easy to scan.
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import ConsentSignaturePanel from '@/components/admin/ConsentSignaturePanel';
 import Link from 'next/link';
 import PageHeader from '@/components/admin/PageHeader';
 import { Eye, CheckCircle, Send, Clock, FileCheck, Trash2, X, Search, User, MapPin } from 'lucide-react';
@@ -21,6 +22,7 @@ const STATUS_CONFIG: Record<string, { color: string; icon: any; label: string }>
 
 const TYPE_LABELS: Record<string, string> = {
   PARTICIPATION_AGREEMENT: 'Participation Agreement',
+  LANDOWNER_CONSENT:       'Landowner Consent Declaration',
   JOINT_OWNER_NOC:         'Joint Owner NOC',
   PAYMENT_RECEIPT:         'Payment Receipt',
   SAPLING_RECEIPT:         'Sapling Receipt',
@@ -383,7 +385,8 @@ function GeneratedAgreements() {
                 const cfg = STATUS_CONFIG[d.status] || STATUS_CONFIG.SHARED;
                 const StatusIcon = cfg.icon;
                 return (
-                  <tr key={d.id} className="border-t hover:bg-gray-50">
+                  <Fragment key={d.id}>
+                  <tr className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{d.farmer?.fullName}</div>
                       <div className="text-gray-400 text-xs">{d.farmer?.farmerIdGenerated || d.farmer?.mobile}</div>
@@ -402,13 +405,13 @@ function GeneratedAgreements() {
                           className="flex items-center gap-1 text-[var(--admin-primary)] hover:underline font-medium">
                           <Eye className="w-3 h-3"/> View
                         </a>
-                        {d.signedPdfUrl && (
+                        {d.signedPdfUrl && d.agreementType !== 'LANDOWNER_CONSENT' && (
                           <a href={d.signedPdfUrl} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1 text-teal-600 hover:underline font-medium">
                             <FileCheck className="w-3 h-3"/> Signed Copy
                           </a>
                         )}
-                        {d.status === 'SIGNED' && (
+                        {d.status === 'SIGNED' && d.agreementType !== 'LANDOWNER_CONSENT' && (
                           <button onClick={() => approve(d.id)} disabled={busyId === d.id}
                             className="flex items-center gap-1 text-white bg-green-600 hover:bg-green-700 rounded-lg px-2 py-1 font-medium disabled:opacity-60">
                             <CheckCircle className="w-3 h-3"/> Approve
@@ -424,6 +427,12 @@ function GeneratedAgreements() {
                       </div>
                     </td>
                   </tr>
+                  {d.agreementType === 'LANDOWNER_CONSENT' && (
+                    <tr className="bg-gray-50/50">
+                      <td colSpan={6} className="px-4 pb-4"><ConsentSignaturePanel ag={d} onChanged={load}/></td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { FARMER_LITE } from '@/lib/lite-select';
 import { resolveTenantFromRequest } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
       // already-complete account — tell the caller so the UI can offer
       // login instead, rather than creating confusion mid-registration.
       if (purpose === 'register') {
-        const existing = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted } });
+        const existing = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted }, select: FARMER_LITE });
         if (existing && isCompleteProfile(existing)) {
           return NextResponse.json({
             error: 'An account already exists with this mobile number.',
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
       if (!mobile || !password) return NextResponse.json({ error: 'Mobile and password required' }, { status: 400 });
       if (password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
 
-      const existing = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted } });
+      const existing = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted }, select: FARMER_LITE });
       if (existing && isCompleteProfile(existing)) {
         return NextResponse.json({
           error: 'An account already exists with this mobile number.',
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
     if (action === 'verify') {
       if (!mobile || !otp) return NextResponse.json({ error: 'Mobile and OTP required' }, { status: 400 });
 
-      const farmer = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted } });
+      const farmer = await prisma.farmer.findUnique({ where: { mobile: mobile_formatted }, select: FARMER_LITE });
 
       if (!farmer) return NextResponse.json({ error: 'Mobile not registered. Please register first.' }, { status: 404 });
 

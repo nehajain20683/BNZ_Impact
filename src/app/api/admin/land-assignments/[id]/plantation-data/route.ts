@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { guardAssignment } from '@/lib/admin-guard';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,8 @@ async function requireAdmin() {
 
 // GET — current values + change history for this assignment
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardAssignment(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     await requireAdmin();
     const assignment = await prisma.landAssignment.findUnique({
@@ -42,6 +45,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 // overwrites with what's provided, so correcting a mistake is just
 // re-submitting the right values — no undo mechanism needed.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardAssignment(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const actor = await requireAdmin();
     const body  = await req.json();

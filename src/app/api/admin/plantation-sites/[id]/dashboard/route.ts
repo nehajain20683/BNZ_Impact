@@ -1,8 +1,11 @@
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { guardSite } from '@/lib/admin-guard';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const site = await prisma.plantationSite.findUnique({
       where: { id: params.id },

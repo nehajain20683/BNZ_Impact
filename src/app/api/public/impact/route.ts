@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { resolveTenantFromRequest } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { estimateCO2Tonnes } from '@/lib/carbon';
+import { getPublicUrl } from '@/lib/supabase-storage';
 
 // Phases before real ground work starts are shown publicly as "Coming Soon"
 // rather than "Active" — a donor or visitor shouldn't see a site listed as
@@ -61,7 +62,10 @@ export async function GET(req: Request) {
         `.catch(() => [])
       : [];
     const coverPhotoByLandId: Record<string, string> = {};
-    for (const row of coverPhotoRows) if (row.cover?.[0]) coverPhotoByLandId[row.id] = row.cover[0];
+    for (const row of coverPhotoRows) {
+      const url = getPublicUrl('land-photos', row.cover?.[0]);
+      if (url) coverPhotoByLandId[row.id] = url;
+    }
 
     const treesPlanted    = siteAgg._sum.treesPlanted    || 0;
     const estimatedCarbon = estimateCO2Tonnes(treesPlanted);

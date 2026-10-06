@@ -5,7 +5,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notifyFarmer } from '@/lib/notifications';
+import { assignFarmerId } from '@/lib/farmer-id';
 import { FARMER_DOC_TYPE_KEYS, FARMER_LOCK_STATUS, isAtOrBeyondStage, isFarmerEntityComplete } from '@/lib/farmer-constants';
+import { guardFarmerDocument } from '@/lib/admin-guard';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -16,6 +18,8 @@ async function requireAdmin() {
 
 // PATCH — action: VERIFY | REJECT
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardFarmerDocument(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const actor = await requireAdmin();
     const body  = await req.json();
@@ -61,8 +65,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         const verifiedTypes = new Set(verifiedDocs.map(d => d.docType));
         if (isFarmerEntityComplete(farmer, verifiedTypes)) {
           await prisma.farmer.update({ where: { id: farmer.id }, data: { status: FARMER_LOCK_STATUS as any } });
+          // The farmer ID is issued at this moment — verification by an admin.
+          // A failure here must never undo or block the verification itself;
+          // the manual status change (or the backfill script) can issue it later.
+          let idNote = '';
+          try {
+            const issued = await assignFarmerId(farmer.id, { role: actor.role, id: actor.id });
+            if (issued.id) idNote = ` Your Farmer ID is ${issued.id}.`;
+          } catch (e: any) { console.error('Farmer ID issuing failed (verification kept):', e.message); }
           await notifyFarmer(farmer.id, 'DOCUMENT_VERIFIED', 'Your registration is now complete',
-            'Your profile is verified. Contact your administrator for any further changes.', '/farmer/dashboard');
+            `Your profile is verified.${idNote} Contact your administrator for any further changes.`, '/farmer/dashboard');
         }
       }
     }

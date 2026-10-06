@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { guardSite } from '@/lib/admin-guard';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const activities = await prisma.plantationActivity.findMany({
       where: { siteId: params.id },
@@ -17,6 +20,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

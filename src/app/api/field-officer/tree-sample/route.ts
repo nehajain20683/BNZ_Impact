@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 // through many trees in one visit doesn't create a separate visit per tree.
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { OFFICER_LITE } from '@/lib/lite-select';
 import { computeSampleSurvivalPctWhole } from '@/lib/survival';
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     if (!officerId || !treeId)
       return NextResponse.json({ error: 'officerId and treeId are required' }, { status: 400 });
 
-    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId } });
+    const officer = await prisma.fieldOfficer.findUnique({ where: { id: officerId }, select: OFFICER_LITE });
     if (!officer || !officer.active)
       return NextResponse.json({ error: 'Field officer account not found or inactive' }, { status: 401 });
 

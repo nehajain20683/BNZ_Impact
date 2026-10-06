@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       .filter(f => f.totalTrees > 0)
       .sort((a, b) => b.totalTrees - a.totalTrees);
 
-    return NextResponse.json({ farmers: result, orgName: org.name });
+    return NextResponse.json({ farmers: result, orgName: org.name }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } });
   } catch (error: any) {
     console.error('Public farmers gallery error:', error);
     return NextResponse.json({ error: 'Failed to load farmers' }, { status: 500 });

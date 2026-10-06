@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const agreement = await prisma.farmerAgreement.findUnique({ where: { id: params.id } });
+  const agreement = await prisma.farmerAgreement.findUnique({ where: { id: params.id }, select: { title: true, generatedHtml: true } });
   if (!agreement) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   // Return full HTML page for viewing/printing

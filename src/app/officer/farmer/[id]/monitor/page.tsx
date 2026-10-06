@@ -33,6 +33,7 @@ export default function TreeMonitoringPage() {
   const [selectedTree, setSelectedTree] = useState<any>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [growthHistory, setGrowthHistory] = useState<any[] | null>(null);
+  const [carbonEstimate, setCarbonEstimate] = useState<any>(null);
   const [showGrowthChart, setShowGrowthChart] = useState(false);
 
   const [height, setHeight] = useState('');
@@ -79,6 +80,7 @@ export default function TreeMonitoringPage() {
     setJustSaved(false);
     setReplacementTag(null);
     setGrowthHistory(null);
+    setCarbonEstimate(null);
     setShowGrowthChart(false);
     const latest = tree.monitoringSamples?.[0];
     // Pre-fills with the last recorded values — this is explicitly an
@@ -103,6 +105,7 @@ export default function TreeMonitoringPage() {
     const res = await fetch(`/api/field-officer/tree/${selectedTree.id}/growth-history?officerId=${officerId}`);
     const data = await res.json();
     setGrowthHistory(res.ok ? data.samples : []);
+    setCarbonEstimate(res.ok ? data.carbonEstimate : null);
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -227,6 +230,28 @@ export default function TreeMonitoringPage() {
                   className="w-full flex items-center justify-center gap-1.5 text-sage-600 hover:text-sage-800 text-xs font-semibold py-2 border border-sage-200 rounded-xl bg-white">
                   <TrendingUp className="w-3.5 h-3.5"/> {showGrowthChart ? 'Hide' : 'View'} Growth History
                 </button>
+              )}
+
+              {showGrowthChart && carbonEstimate && (
+                <div className="bg-white rounded-2xl border border-sage-100 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-sage-900 text-xs">Carbon Estimate</h4>
+                      <p className="text-sage-400 text-[11px] mt-0.5">
+                        {carbonEstimate.method === 'MEASURED'
+                          ? 'From this tree\'s actual measured height/diameter — species-specific calculation'
+                          : 'Flat estimate — not enough measurement data yet for a species-specific figure'}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-display text-lg text-sage-900">{carbonEstimate.co2eKg.toFixed(1)} kg</div>
+                      <div className="text-sage-400 text-[10px]">CO₂e</div>
+                    </div>
+                  </div>
+                  {carbonEstimate.method === 'MEASURED' && (
+                    <p className="text-sage-300 text-[10px] mt-2">{carbonEstimate.equationSource}</p>
+                  )}
+                </div>
               )}
 
               {showGrowthChart && (

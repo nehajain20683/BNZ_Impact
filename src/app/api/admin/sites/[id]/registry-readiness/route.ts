@@ -17,21 +17,13 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getActiveOrgId } from '@/lib/get-active-org';
 import prisma from '@/lib/prisma';
+import { moduleEnabled } from '@/lib/module-gating';
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !['ADMIN', 'SUPER_ADMIN'].includes((session.user as any).role))
     throw new Error('Unauthorized');
   return session.user as any;
-}
-
-// Same default-enabled logic as the Phase 0B engine-config route — kept
-// identical on purpose so a module's on/off state never disagrees
-// between the two places that check it.
-async function moduleEnabled(orgId: string, moduleKey: string): Promise<boolean> {
-  const row = await (prisma as any).tenantModule.findUnique({ where: { orgId_moduleKey: { orgId, moduleKey } } });
-  if (row) return row.enabled;
-  return !['PDD', 'BASELINE_ASSESSMENT', 'REGISTRY_SUBMISSION', 'SATELLITE_MONITORING'].includes(moduleKey);
 }
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {

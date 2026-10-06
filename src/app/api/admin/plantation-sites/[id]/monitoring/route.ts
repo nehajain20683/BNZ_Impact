@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { guardSite, assignmentOfSite, farmerInOrg, officerInOrg } from '@/lib/admin-guard';
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   const visits = await prisma.monitoringVisit.findMany({
     where: { siteId: params.id },
     orderBy: { visitDate: 'desc' },
@@ -13,9 +16,17 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const adminScope = await guardSite(params.id);
+  if (adminScope instanceof Response) return adminScope;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.json();
+  if (body.assignmentId && !(await assignmentOfSite(body.assignmentId, params.id)))
+    return NextResponse.json({ error: 'Assignment not found for this site' }, { status: 404 });
+  if (body.farmerId && !(await farmerInOrg(body.farmerId, adminScope.orgId)))
+    return NextResponse.json({ error: 'Farmer not found in this organisation' }, { status: 404 });
+  if (body.officerId && !(await officerInOrg(body.officerId, adminScope.orgId)))
+    return NextResponse.json({ error: 'Officer not found in this organisation' }, { status: 404 });
   const survival = body.survivalCount && body.treesPlanted
     ? Math.round((body.survivalCount / body.treesPlanted) * 100)
     : undefined;
